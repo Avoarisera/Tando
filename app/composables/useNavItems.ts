@@ -17,10 +17,12 @@ export function useNavItems() {
       { label: 'Profil',            to: '/profile' },
       { label: 'Demandes de congé', to: '/leave-requests' },
       { label: 'Calendrier',        to: '/calendar' },
+      { label: 'Vélocité Dev',      to: '/velocite' },
     ]
   })
 
-  const isActive = (path: string) => route.path === path
+  const isActive = (path: string) =>
+    path === '/velocite' ? route.path.startsWith('/velocite') : route.path === path
 
   return { navItems, isActive }
 }
