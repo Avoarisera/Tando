@@ -12,7 +12,7 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
-definePageMeta({ layout: 'private' })
+definePageMeta({ layout: 'private', middleware: 'admin-only' })
 
 const route = useRoute()
 const router = useRouter()
@@ -60,6 +60,11 @@ const { data, isLoading, error, fetchMetrics, momVariation } = useMetrics()
 const tickets = ref<TicketRow[]>([])
 const ticketsLoading = ref(false)
 const selectedMonths = ref<string[]>([])
+const showReworkOnly = ref(false)
+
+const displayedTickets = computed(() =>
+  showReworkOnly.value ? tickets.value.filter(t => t.hasRework) : tickets.value,
+)
 
 function toggleMonth(m: string) {
   const idx = selectedMonths.value.indexOf(m)
@@ -104,6 +109,7 @@ const aggregatedMetrics = computed(() => {
   const cycleHours: number[] = []
   const p90Hours: number[] = []
   const qaHours: number[] = []
+  const wipValues: number[] = []
   for (const m of sel) {
     const mm = devMetrics.value[m]
     if (!mm) continue
@@ -113,6 +119,7 @@ const aggregatedMetrics = computed(() => {
     if (mm.medianDevCycleHours > 0) cycleHours.push(mm.medianDevCycleHours)
     if (mm.p90DevCycleHours > 0) p90Hours.push(mm.p90DevCycleHours)
     if (mm.medianQaTimeHours > 0) qaHours.push(mm.medianQaTimeHours)
+    wipValues.push(mm.wipCount)
   }
   const avg = (arr: number[]) => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0
   return {
@@ -125,6 +132,7 @@ const aggregatedMetrics = computed(() => {
     medianLeadTimeHours: 0,
     medianQaTimeHours: avg(qaHours),
     reworkRate: 0,
+    wipCount: avg(wipValues),
     ticketIds: [] as string[],
   }
 })
@@ -268,13 +276,6 @@ function formatMonth(m: string): string {
   return `${labels[parseInt(month!) - 1]} ${year}`
 }
 
-function ticketsSectionTitle(): string {
-  if (!selectedMonths.value.length || selectedMonths.value.length === months.value.length) {
-    return 'Tickets livrés — Toute la période'
-  }
-  const labels = selectedMonths.value.map(m => monthLabel(m))
-  return `Tickets livrés — ${labels.join(', ')}`
-}
 
 function handleTicketClick(ticketId: string) {
   router.push(`/velocite/issues/${ticketId}?workspaceId=${workspaceId}&returnUrl=${encodeURIComponent(route.fullPath)}`)
@@ -282,7 +283,7 @@ function handleTicketClick(ticketId: string) {
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto">
+  <div class="max-w-7xl mx-auto">
     <!-- Header -->
     <div class="mb-6">
       <button class="text-sm text-brand-primary hover:underline" @click="goBack">← Équipe</button>
@@ -318,88 +319,102 @@ function handleTicketClick(ticketId: string) {
 
     <template v-else>
       <!-- KPI Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+      <div class="grid grid-cols-3 md:grid-cols-6 gap-3 mb-8">
         <!-- Tickets -->
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <div class="relative flex items-center gap-1 mb-1">
-            <p class="text-xs text-gray-500">Tickets</p>
+        <div class="bg-gray-50 rounded-xl p-4">
+          <div class="flex items-center gap-1 mb-3">
+            <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Tickets</span>
             <div class="group relative">
-              <span class="cursor-help text-gray-300 hover:text-gray-500 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-md bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                Nombre de tickets livrés ce mois (passés en Q/A Check, Done ou Deployed). Indicateur de volume de livraison.
+              <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
+                Tickets livrés (passés en Q/A, Done ou Deployed) sur la période sélectionnée.
               </div>
             </div>
           </div>
-          <p class="text-3xl font-bold text-gray-900">{{ aggregatedMetrics.ticketsCount }}</p>
-          <p v-if="isSingleMonth && momVariation(devId, 'ticketsCount') !== null" class="text-xs mt-1"
-            :class="(momVariation(devId, 'ticketsCount') ?? 0) > 0 ? 'text-green-600' : 'text-red-600'">
-            {{ variationLabel('ticketsCount') }}
+          <p class="text-2xl font-semibold text-gray-900">{{ aggregatedMetrics.ticketsCount }}</p>
+          <p v-if="isSingleMonth && momVariation(devId, 'ticketsCount') !== null" class="text-xs mt-1.5 text-gray-400">
+            <span :class="(momVariation(devId, 'ticketsCount') ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-500'">{{ variationLabel('ticketsCount') }}</span>
+            vs mois préc.
           </p>
+          <p v-else class="text-xs mt-1.5 text-gray-300">—</p>
         </div>
         <!-- Points -->
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <div class="relative flex items-center gap-1 mb-1">
-            <p class="text-xs text-gray-500">Points</p>
+        <div class="bg-gray-50 rounded-xl p-4">
+          <div class="flex items-center gap-1 mb-3">
+            <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Points</span>
             <div class="group relative">
-              <span class="cursor-help text-gray-300 hover:text-gray-500 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-md bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                Points = estimations Linear (story points). Chaque ticket a 0, 1, 2, 3, 5, 8... points selon la complexité estimée. Total = somme des points des tickets livrés ce mois. Un ticket sans estimation compte 0.
+              <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
+                Somme des story points des tickets livrés. Reflète la complexité plus que le volume.
               </div>
             </div>
           </div>
-          <p class="text-3xl font-bold text-gray-900">{{ aggregatedMetrics.pointsSum.toFixed(0) }}</p>
-          <p v-if="isSingleMonth && momVariation(devId, 'pointsSum') !== null" class="text-xs mt-1"
-            :class="(momVariation(devId, 'pointsSum') ?? 0) > 0 ? 'text-green-600' : 'text-red-600'">
-            {{ variationLabel('pointsSum') }}
+          <p class="text-2xl font-semibold text-gray-900">{{ aggregatedMetrics.pointsSum.toFixed(0) }}</p>
+          <p v-if="isSingleMonth && momVariation(devId, 'pointsSum') !== null" class="text-xs mt-1.5 text-gray-400">
+            <span :class="(momVariation(devId, 'pointsSum') ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-500'">{{ variationLabel('pointsSum') }}</span>
+            vs mois préc.
           </p>
+          <p v-else class="text-xs mt-1.5 text-gray-300">—</p>
         </div>
         <!-- Bugs -->
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <div class="relative flex items-center gap-1 mb-1">
-            <p class="text-xs text-gray-500">Bugs</p>
+        <div class="bg-gray-50 rounded-xl p-4">
+          <div class="flex items-center gap-1 mb-3">
+            <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Bugs</span>
             <div class="group relative">
-              <span class="cursor-help text-gray-300 hover:text-gray-500 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-md bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                Tickets livrés sans estimation (proxy bugs). Un ticket sans point est souvent un bug ou une tâche non planifiée. À croiser avec la Composition.
+              <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
+                Tickets sans estimation (proxy bugs). À croiser avec la Composition.
               </div>
             </div>
           </div>
-          <p class="text-3xl font-bold text-gray-900">{{ aggregatedMetrics.bugsCount }}</p>
+          <p class="text-2xl font-semibold text-gray-900">{{ aggregatedMetrics.bugsCount }}</p>
+          <p class="text-xs mt-1.5 text-gray-300">sans estimation</p>
         </div>
         <!-- Cycle P50 -->
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <div class="relative flex items-center gap-1 mb-1">
-            <p class="text-xs text-gray-500">Cycle P50</p>
+        <div class="bg-gray-50 rounded-xl p-4">
+          <div class="flex items-center gap-1 mb-3">
+            <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Cycle P50</span>
             <div class="group relative">
-              <span class="cursor-help text-gray-300 hover:text-gray-500 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-md bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                Temps médian entre le début du développement (started_at) et l'entrée en Q/A. 50% des tickets ont été livrés plus vite que cette valeur. Médiane = robuste aux outliers.
+              <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
+                Temps médian In Progress → Q/A. 50% des tickets livrés plus vite que cette valeur.
               </div>
             </div>
           </div>
-          <p class="text-3xl font-bold text-gray-900">
+          <p class="text-2xl font-semibold text-gray-900">
             {{ aggregatedMetrics.medianDevCycleHours > 0 ? `${aggregatedMetrics.medianDevCycleHours.toFixed(0)}h` : '—' }}
           </p>
+          <p v-if="aggregatedMetrics.p90DevCycleHours > 0" class="text-xs mt-1.5 text-gray-400">P90 · {{ aggregatedMetrics.p90DevCycleHours.toFixed(0) }}h</p>
+          <p v-else class="text-xs mt-1.5 text-gray-300">—</p>
         </div>
         <!-- Rework -->
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <div class="relative flex items-center gap-1 mb-1">
-            <p class="text-xs text-gray-500">Rework</p>
+        <div class="bg-gray-50 rounded-xl p-4">
+          <div class="flex items-center gap-1 mb-3">
+            <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Rework</span>
             <div class="group relative">
-              <span class="cursor-help text-gray-300 hover:text-gray-500 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 rounded-md bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                Tickets avec au moins un retour arrière (Review/Q/A → état antérieur) ÷ total tickets actifs sur la période. Numérateur et dénominateur viennent tous deux de l'historique Linear — même source que "Retours en arrière".
+              <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
+                % de tickets ayant eu un retour arrière (Review/Q/A → état antérieur) sur la période.
               </div>
             </div>
           </div>
-          <p
-            class="text-3xl font-bold"
-            :class="reworkRateClass"
-          >
-            {{ periodReworkRate.toFixed(1) }}%
-          </p>
-          <p class="text-xs text-gray-400 mt-1">
-            {{ tickets.filter(t => t.hasRework).length }} / {{ tickets.length }} tickets
+          <p class="text-2xl font-semibold text-gray-900">{{ periodReworkRate.toFixed(1) }}<span class="text-base font-normal text-gray-400">%</span></p>
+          <p class="text-xs mt-1.5 text-gray-400">{{ tickets.filter(t => t.hasRework).length }} / {{ tickets.length }} tickets</p>
+        </div>
+        <!-- WIP -->
+        <div class="bg-gray-50 rounded-xl p-4">
+          <div class="flex items-center gap-1 mb-3">
+            <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">WIP moy</span>
+            <div class="group relative">
+              <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
+                Nombre moyen de tickets ouverts simultanément par mois. Au-delà de 3, le switch de contexte devient coûteux.
+              </div>
+            </div>
+          </div>
+          <p class="text-2xl font-semibold text-gray-900">{{ aggregatedMetrics.wipCount.toFixed(1) }}</p>
+          <p class="text-xs mt-1.5" :class="aggregatedMetrics.wipCount <= 2 ? 'text-emerald-600' : aggregatedMetrics.wipCount <= 3 ? 'text-amber-500' : 'text-rose-500'">
+            {{ aggregatedMetrics.wipCount <= 2 ? 'bon niveau' : aggregatedMetrics.wipCount <= 3 ? 'limite' : 'trop élevé' }}
           </p>
         </div>
       </div>
@@ -407,9 +422,20 @@ function handleTicketClick(ticketId: string) {
       <!-- Sections verticales -->
       <div class="space-y-4 mb-8">
         <!-- Tickets livrés -->
-        <div class="bg-white rounded-lg border border-gray-200 p-5">
-          <div class="mb-3">
-            <h2 class="text-sm font-semibold text-gray-700">{{ ticketsSectionTitle() }}</h2>
+        <div class="bg-white rounded-xl border border-gray-100 p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 class="text-sm font-semibold text-gray-700">Tickets livrés</h2>
+            <!-- Rework filter -->
+            <button
+              class="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors"
+              :class="showReworkOnly
+                ? 'bg-orange-100 text-orange-700'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
+              @click="showReworkOnly = !showReworkOnly"
+            >
+              <span class="w-1.5 h-1.5 rounded-full" :class="showReworkOnly ? 'bg-orange-500' : 'bg-gray-300'" />
+              Rework uniquement
+            </button>
           </div>
           <!-- Multi-select month filter -->
           <div class="flex flex-wrap gap-1 mb-4">
@@ -426,7 +452,7 @@ function handleTicketClick(ticketId: string) {
             </button>
           </div>
           <TicketsTable
-            :tickets="tickets"
+            :tickets="displayedTickets"
             :is-loading="ticketsLoading"
             @ticket-click="handleTicketClick"
           />
