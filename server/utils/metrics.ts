@@ -36,6 +36,7 @@ export interface MonthlyMetrics {
   medianLeadTimeHours: number
   medianQaTimeHours: number
   reworkRate: number
+  wipCount: number
   ticketIds: string[]
 }
 
@@ -145,6 +146,20 @@ export function computeMonthly(
     filtered.some(i => i.id === row.issue_id),
   )
 
+  // WIP: issues started but not yet completed at any point during the month
+  const monthStart = new Date(`${month}-01T00:00:00.000Z`)
+  const monthEnd = new Date(monthStart)
+  monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1)
+  const daysInMonth = (monthEnd.getTime() - monthStart.getTime()) / 86_400_000
+  let overlapDays = 0
+  for (const i of issues) {
+    if (i.assignee_id !== devId || !i.started_at) continue
+    const start = Math.max(+new Date(i.started_at), +monthStart)
+    const end = Math.min(+new Date(devDeliveredAt(i)), +monthEnd)
+    if (end > start) overlapDays += (end - start) / 86_400_000
+  }
+  const wipCount = Math.round((overlapDays / daysInMonth) * 10) / 10
+
   return {
     ticketsCount: filtered.length,
     pointsSum: sizes.reduce((s, x) => s + x, 0),
@@ -155,6 +170,7 @@ export function computeMonthly(
     medianLeadTimeHours: median(leadTimes),
     medianQaTimeHours: median(qaTimes),
     reworkRate: reworkRate(filtered, filteredHistory),
+    wipCount,
     ticketIds: filtered.map(i => i.id),
   }
 }

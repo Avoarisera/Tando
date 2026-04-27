@@ -8,6 +8,7 @@ export interface MonthlyMetrics {
   medianLeadTimeHours: number
   medianQaTimeHours: number
   reworkRate: number
+  wipCount: number
   ticketIds: string[]
 }
 
