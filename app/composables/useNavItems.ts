@@ -3,22 +3,16 @@ export function useNavItems() {
   const { isAdmin } = useCurrentUser()
 
   const navItems = computed(() => {
-    if (isAdmin.value) {
-      return [
-        { label: 'Tableau de bord',   to: '/dashboard' },
-        { label: 'Profil',            to: '/profile' },
-        { label: 'Demandes de congé', to: '/leave-requests' },
-        { label: 'Calendrier',        to: '/calendar' },
-        { label: 'Types de congé',    to: '/leave-types' },
-        { label: 'Factures',          to: '/invoices' }
-      ]
-    }
-    return [
+    const base = [
       { label: 'Profil',            to: '/profile' },
       { label: 'Demandes de congé', to: '/leave-requests' },
       { label: 'Calendrier',        to: '/calendar' },
-      { label: 'Vélocité Dev',      to: '/velocite' },
     ]
+    if (isAdmin.value) {
+      base.push({ label: 'Vélocité Dev',  to: '/velocite' })
+      base.push({ label: 'Types de congé', to: '/leave-types' })
+    }
+    return base
   })
 
   const isActive = (path: string) =>

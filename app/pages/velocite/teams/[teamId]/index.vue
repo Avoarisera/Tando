@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'private' })
+definePageMeta({ layout: 'private', middleware: 'admin-only' })
 
 const route = useRoute()
 const router = useRouter()
@@ -85,7 +85,7 @@ const teamThroughput = computed<{ month: string; total: number }[]>(() => {
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto">
+  <div class="max-w-7xl mx-auto">
     <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
         <NuxtLink

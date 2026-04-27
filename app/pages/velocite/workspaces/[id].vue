@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'private' })
+definePageMeta({ layout: 'private', middleware: 'admin-only' })
 
 const route = useRoute()
 const workspaceId = route.params.id as string
@@ -32,7 +32,7 @@ function teamColor(index: number): string {
 </script>
 
 <template>
-  <div class="max-w-2xl mx-auto">
+  <div class="max-w-7xl mx-auto">
     <!-- Header -->
     <div class="mb-8">
       <NuxtLink to="/velocite" class="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-brand-primary transition-colors">

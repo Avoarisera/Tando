@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HistoryEvent } from '~/components/velocite/HistoryTimeline.vue'
 
-definePageMeta({ layout: 'private' })
+definePageMeta({ layout: 'private', middleware: 'admin-only' })
 
 interface IssueDetail {
   id: string
@@ -81,7 +81,7 @@ const backUrl = computed(() => returnUrl ?? '/velocite')
 </script>
 
 <template>
-  <div class="max-w-3xl mx-auto">
+  <div class="max-w-7xl mx-auto">
     <!-- Breadcrumb -->
     <div class="mb-6">
       <button class="text-sm text-brand-primary hover:underline" @click="goBack">← Retour</button>

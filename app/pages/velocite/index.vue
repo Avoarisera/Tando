@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Workspace, TeamRef } from '~/composables/useLinearWorkspace'
 
-definePageMeta({ layout: 'private' })
+definePageMeta({ layout: 'private', middleware: 'admin-only' })
 
 const {
   workspaces, isLoading, error, isSyncing,
@@ -186,7 +186,7 @@ function formatDate(iso: string | null): string {
 </script>
 
 <template>
-  <div class="max-w-2xl mx-auto">
+  <div class="max-w-7xl mx-auto">
 
     <!-- Header -->
     <div class="flex items-start justify-between mb-8">
@@ -244,7 +244,7 @@ function formatDate(iso: string | null): string {
             aria-describedby="ws-key-hint"
           >
           <p id="ws-key-hint" class="mt-1.5 text-xs text-gray-400">
-            Dans Linear : <span class="font-medium text-gray-600">Settings → API → Personal API Keys</span>
+            Dans Linear : <span class="font-medium text-gray-600">Settings → Account → Security & Access → Personal API Keys</span>
           </p>
         </div>
         <div class="flex justify-end gap-2 pt-1">
