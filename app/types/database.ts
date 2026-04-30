@@ -233,6 +233,7 @@ export type Database = {
           estimate: number | null
           id: string
           identifier: string | null
+          labels: Json | null
           qa_started_at: string | null
           raw: Json | null
           started_at: string | null
@@ -250,6 +251,7 @@ export type Database = {
           estimate?: number | null
           id: string
           identifier?: string | null
+          labels?: Json | null
           qa_started_at?: string | null
           raw?: Json | null
           started_at?: string | null
@@ -267,6 +269,7 @@ export type Database = {
           estimate?: number | null
           id?: string
           identifier?: string | null
+          labels?: Json | null
           qa_started_at?: string | null
           raw?: Json | null
           started_at?: string | null

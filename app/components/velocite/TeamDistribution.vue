@@ -9,7 +9,8 @@ const props = defineProps<{
   metrics: Record<string, Record<string, MonthlyMetrics>>
   teamId: string
   workspaceId: string
-  period: number
+  year: number
+  range: number
 }>()
 
 function median(vals: number[]): number {
@@ -40,7 +41,30 @@ const devStats = computed(() => {
       : 0
     const reworkedCount = monthMetrics.reduce((s, m) => s + Math.round(m.reworkRate * m.ticketsCount / 100), 0)
 
-    return { dev, totalTickets, avgTickets, avgCycle, rework, reworkedCount }
+    // Average WIP across active months (max per-month value reflects peak load)
+    const wipValues = monthMetrics.map(m => m.wipCount).filter(v => v > 0)
+    const avgWip = wipValues.length
+      ? wipValues.reduce((s, v) => s + v, 0) / wipValues.length
+      : 0
+
+    // Cycle dérive : last month's cycle vs average across the rest
+    const lastMonthMetric = props.months.length
+      ? props.metrics[dev.id]?.[props.months[props.months.length - 1]!]
+      : undefined
+    const lastCycle = lastMonthMetric?.medianDevCycleHours ?? 0
+    const earlierCycles = cycleTimes.slice(0, -1)
+    const earlierAvg = earlierCycles.length
+      ? earlierCycles.reduce((s, v) => s + v, 0) / earlierCycles.length
+      : 0
+    const cycleDrift = earlierAvg > 0 && lastCycle > 0
+      ? ((lastCycle - earlierAvg) / earlierAvg) * 100
+      : 0
+
+    // Flags affichés à côté du nom — cycle drift est rendu dans la colonne Cycle dev.
+    const flags: { label: string; tone: 'red' | 'amber' }[] = []
+    if (avgWip > 4) flags.push({ label: `WIP ${avgWip.toFixed(1)}`, tone: 'amber' })
+
+    return { dev, totalTickets, avgTickets, avgCycle, cycleDrift, rework, reworkedCount, flags }
   }).filter(d => d.totalTickets > 0).sort((a, b) => b.totalTickets - a.totalTickets)
 })
 
@@ -78,10 +102,10 @@ function reworkLevel(v: number): Level {
 }
 
 const levelClass: Record<Level, string> = {
-  good: 'text-green-700 bg-green-50',
-  mid: 'text-amber-700 bg-amber-50',
-  bad: 'text-red-700 bg-red-50',
-  neutral: 'text-gray-400 bg-gray-50',
+  good: 'text-emerald-800 bg-emerald-100',
+  mid: 'text-amber-800 bg-amber-100',
+  bad: 'text-rose-700 bg-rose-100',
+  neutral: 'text-gray-500 bg-gray-100',
 }
 
 function formatCycle(h: number | null): string {
@@ -95,7 +119,7 @@ function devName(dev: Dev): string {
 }
 
 function devLink(devId: string): string {
-  return `/velocite/teams/${props.teamId}/devs/${devId}?workspaceId=${props.workspaceId}&period=${props.period}`
+  return `/velocite/teams/${props.teamId}/devs/${devId}?workspaceId=${props.workspaceId}&year=${props.year}&range=${props.range}`
 }
 </script>
 
@@ -135,11 +159,22 @@ function devLink(devId: string): string {
             :key="stat.dev.id"
             class="hover:bg-gray-50 transition-colors"
           >
-            <!-- Rang + nom -->
+            <!-- Rang + nom + flags -->
             <td class="px-4 py-3">
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-xs text-gray-300 w-4 text-right shrink-0">{{ i + 1 }}</span>
                 <span class="font-medium text-gray-800">{{ devName(stat.dev) }}</span>
+                <span
+                  v-for="flag in stat.flags"
+                  :key="flag.label"
+                  class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  :class="flag.tone === 'red'
+                    ? 'bg-rose-50 text-rose-600'
+                    : 'bg-amber-50 text-amber-700'"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full" :class="flag.tone === 'red' ? 'bg-rose-500' : 'bg-amber-500'" />
+                  {{ flag.label }}
+                </span>
               </div>
             </td>
 
@@ -158,14 +193,24 @@ function devLink(devId: string): string {
               </span>
             </td>
 
-            <!-- Cycle dev -->
+            <!-- Cycle dev (avec dérive du dernier mois vs reste de la période) -->
             <td class="px-4 py-3 text-right">
-              <span
-                class="inline-block rounded px-2 py-0.5 text-xs font-semibold tabular-nums"
-                :class="levelClass[cycleLevel(stat.avgCycle)]"
-              >
-                {{ formatCycle(stat.avgCycle) }}
-              </span>
+              <div class="inline-flex items-center gap-1.5">
+                <span
+                  class="inline-block rounded px-2 py-0.5 text-xs font-semibold tabular-nums"
+                  :class="levelClass[cycleLevel(stat.avgCycle)]"
+                >
+                  {{ formatCycle(stat.avgCycle) }}
+                </span>
+                <span
+                  v-if="Math.abs(stat.cycleDrift) >= 15"
+                  class="inline-flex items-center gap-0.5 text-[11px] font-medium tabular-nums"
+                  :class="stat.cycleDrift > 0 ? 'text-rose-600' : 'text-emerald-600'"
+                  :title="`Cycle dev du dernier mois ${stat.cycleDrift > 0 ? 'plus long' : 'plus court'} de ${Math.abs(stat.cycleDrift).toFixed(0)}% vs moyenne des autres mois de la période`"
+                >
+                  {{ stat.cycleDrift > 0 ? '↑' : '↓' }}{{ Math.abs(stat.cycleDrift).toFixed(0) }}%
+                </span>
+              </div>
             </td>
 
             <!-- Rework -->
@@ -197,15 +242,20 @@ function devLink(devId: string): string {
     </div>
 
     <!-- Légende couleurs -->
-    <div class="mt-2 flex flex-wrap gap-4 text-xs text-gray-400">
-      <span class="flex items-center gap-1">
-        <span class="inline-block w-3 h-3 rounded bg-green-100" /> Au-dessus de la médiane (bon)
+    <div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+      <span class="flex items-center gap-1.5">
+        <span class="inline-block w-3 h-3 rounded bg-emerald-300" /> Au-dessus de la médiane
       </span>
-      <span class="flex items-center gap-1">
-        <span class="inline-block w-3 h-3 rounded bg-amber-100" /> Proche de la médiane
+      <span class="flex items-center gap-1.5">
+        <span class="inline-block w-3 h-3 rounded bg-amber-300" /> Proche de la médiane
       </span>
-      <span class="flex items-center gap-1">
-        <span class="inline-block w-3 h-3 rounded bg-red-100" /> En-dessous de la médiane (attention)
+      <span class="flex items-center gap-1.5">
+        <span class="inline-block w-3 h-3 rounded bg-rose-300" /> En-dessous de la médiane
+      </span>
+      <span class="flex items-center gap-1.5 ml-2 pl-4 border-l border-gray-200">
+        Cycle du dernier mois vs moyenne des autres mois de la période :
+        <span class="text-rose-600 ml-1">↑</span> plus lent
+        <span class="text-emerald-600 ml-1">↓</span> plus rapide
       </span>
     </div>
   </div>

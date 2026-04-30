@@ -24,7 +24,7 @@ const METRIC_CONFIG: Record<MetricKey, { label: string; unit: string; note: stri
   ticketsCount: {
     label: 'Tickets/mois',
     unit: 'tickets',
-    note: 'Compte les tickets passés en Q/A Check ou plus loin dans le mois (date de transition).',
+    note: 'Compte les tickets passés en In Review ou plus loin dans le mois (date de transition).',
   },
   pointsSum: {
     label: 'Points/mois',
@@ -39,7 +39,7 @@ const METRIC_CONFIG: Record<MetricKey, { label: string; unit: string; note: stri
   medianDevCycleHours: {
     label: 'Cycle dev (médiane)',
     unit: 'h',
-    note: 'Médiane de (qa_started_at − started_at). Mesure le temps dev pur, sans QA ni PO.',
+    note: 'Médiane de (in_review_at − started_at). Mesure le temps dev pur, sans code review ni QA.',
   },
   avgSize: {
     label: 'Taille moyenne',

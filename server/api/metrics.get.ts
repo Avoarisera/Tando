@@ -119,7 +119,7 @@ export default defineEventHandler(async (event) => {
           // Snapshot exists but rework_rate was computed before history was populated.
           // Always recompute rework live so it reflects actual issue_history data.
           const live = computeMonthly(allIssues, history, dev.id, month)
-          devMetrics[month] = { ...snap, reworkRate: live.reworkRate, wipCount: live.wipCount }
+          devMetrics[month] = { ...snap, reworkRate: live.reworkRate, wipCount: live.wipCount, medianReviewTimeHours: live.medianReviewTimeHours }
           continue
         }
       }

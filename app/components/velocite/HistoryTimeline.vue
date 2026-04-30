@@ -24,6 +24,7 @@ interface TimelineEntry {
 
 const DEV_STATES = ['In Progress', 'In Review', 'Review']
 const QA_STATES = ['Q/A Check', 'QA', 'Pending', 'UX Validation', 'PO Check']
+const TERMINAL_STATES = ['Done', 'Deployed', 'Cancelled']
 
 const entries = computed<TimelineEntry[]>(() => {
   if (!props.history.length) return []
@@ -75,6 +76,11 @@ function formatDuration(hours: number | null): string {
   return `${(hours / 24).toFixed(1)}j`
 }
 
+function showDuration(entry: TimelineEntry): boolean {
+  if (entry.durationHours !== null) return true
+  return !TERMINAL_STATES.some(s => entry.status.includes(s))
+}
+
 function formatDate(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -90,7 +96,9 @@ function statusColor(status: string): string {
 
 const cycleHours = computed<number | null>(() => {
   if (!props.startedAt || !props.qaStartedAt) return null
-  return (new Date(props.qaStartedAt).getTime() - new Date(props.startedAt).getTime()) / 3_600_000
+  // On reworked tickets, started_at can be refreshed after qa_started_at → negative.
+  const h = (new Date(props.qaStartedAt).getTime() - new Date(props.startedAt).getTime()) / 3_600_000
+  return h > 0 ? h : null
 })
 
 const hasRework = computed(() => entries.value.some(e => e.isRework))
@@ -156,6 +164,7 @@ const hasQaAnomaly = computed(() => entries.value.some(e => e.isQaAnomaly))
             <time class="ml-2 text-xs text-gray-400">{{ formatDate(entry.enteredAt) }}</time>
           </div>
           <span
+            v-if="showDuration(entry)"
             class="text-xs text-gray-400 whitespace-nowrap"
             :title="`Temps passé dans cet état : ${formatDuration(entry.durationHours)}`"
           >

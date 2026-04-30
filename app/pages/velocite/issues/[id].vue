@@ -53,12 +53,25 @@ onMounted(async () => {
   }
 })
 
+const IN_PROGRESS_STATES = ['In Progress', 'In Development', 'Development']
+const IN_REVIEW_STATES = ['In Review', 'Code Review', 'Review']
+
 const cycleHours = computed<number | null>(() => {
-  if (!issue.value?.started_at || !issue.value?.qa_started_at) return null
-  return (
-    (new Date(issue.value.qa_started_at).getTime() - new Date(issue.value.started_at).getTime()) /
-    3_600_000
+  // First pass: use issue.started_at / qa_started_at (= in_review_at) if non-rework (positive diff).
+  if (issue.value?.started_at && issue.value?.qa_started_at) {
+    const h = (new Date(issue.value.qa_started_at).getTime() - new Date(issue.value.started_at).getTime()) / 3_600_000
+    if (h > 0) return h
+  }
+  // Rework or missing fields: derive from history — first In Progress → first In Review transition.
+  if (!history.value.length) return null
+  const sorted = [...history.value].sort(
+    (a, b) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime(),
   )
+  const firstDev = sorted.find(e => e.to_status && IN_PROGRESS_STATES.some(s => e.to_status!.includes(s)))
+  const firstReview = sorted.find(e => e.to_status && IN_REVIEW_STATES.some(s => e.to_status!.includes(s)))
+  if (!firstDev || !firstReview) return null
+  const h = (new Date(firstReview.changed_at).getTime() - new Date(firstDev.changed_at).getTime()) / 3_600_000
+  return h > 0 ? h : null
 })
 
 function formatDuration(hours: number | null): string {

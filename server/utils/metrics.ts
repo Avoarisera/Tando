@@ -1,7 +1,8 @@
 export const DEV_DELIVERED_STATES = [
+  'In Review',
+  'Code Review',
+  'Review',
   'Q/A Check',
-  'Pending',
-  'UX Validation',
   'PO Check',
   'Done',
   'Deployed',
@@ -35,6 +36,7 @@ export interface MonthlyMetrics {
   p90DevCycleHours: number
   medianLeadTimeHours: number
   medianQaTimeHours: number
+  medianReviewTimeHours: number
   reworkRate: number
   wipCount: number
   ticketIds: string[]
@@ -106,6 +108,28 @@ function stateLevel(status: string): number {
 
 // Returns % of issues that had at least one backward transition from level ≥ 2
 // (In Review, Q/A, Done → earlier state). Same threshold as the transitions endpoint.
+export function reviewTimeHours(issueId: string, history: IssueHistoryRow[]): number | null {
+  const rows = history
+    .filter(r => r.issue_id === issueId && r.to_status)
+    .sort((a, b) => +new Date(a.changed_at) - +new Date(b.changed_at))
+
+  let reviewStart: Date | null = null
+  let totalHours = 0
+
+  for (const row of rows) {
+    const level = stateLevel(row.to_status ?? '')
+    if (level === 2) {
+      reviewStart = new Date(row.changed_at)
+    } else if (level === 3 && reviewStart) {
+      const h = (+new Date(row.changed_at) - +reviewStart) / 3_600_000
+      if (h > 0) totalHours += h
+      reviewStart = null
+    }
+  }
+
+  return totalHours > 0 ? totalHours : null
+}
+
 export function reworkRate(issues: LinearIssueRow[], history: IssueHistoryRow[]): number {
   if (!issues.length) return 0
   const issueIds = new Set(issues.map(i => i.id))
@@ -146,6 +170,10 @@ export function computeMonthly(
     filtered.some(i => i.id === row.issue_id),
   )
 
+  const reviewTimes = filtered
+    .map(i => reviewTimeHours(i.id, filteredHistory))
+    .filter((x): x is number => x != null)
+
   // WIP: issues started but not yet completed at any point during the month
   const monthStart = new Date(`${month}-01T00:00:00.000Z`)
   const monthEnd = new Date(monthStart)
@@ -169,6 +197,7 @@ export function computeMonthly(
     p90DevCycleHours: percentile(cycles, 90),
     medianLeadTimeHours: median(leadTimes),
     medianQaTimeHours: median(qaTimes),
+    medianReviewTimeHours: median(reviewTimes),
     reworkRate: reworkRate(filtered, filteredHistory),
     wipCount,
     ticketIds: filtered.map(i => i.id),

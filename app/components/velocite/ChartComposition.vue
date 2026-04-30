@@ -21,7 +21,7 @@ const props = defineProps<{
 function monthLabel(m: string): string {
   const [year, month] = m.split('-')
   const labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
-  return `${labels[parseInt(month!) - 1]} ${year?.slice(2)}`
+  return `${labels[parseInt(month!) - 1]} ${year}`
 }
 
 const chartData = computed(() => ({

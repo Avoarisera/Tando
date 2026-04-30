@@ -24,6 +24,7 @@ interface IssueNode {
   startedAt: string | null
   completedAt: string | null
   updatedAt: string
+  labels: { nodes: { name: string }[] }
   history: { nodes: HistoryNode[] }
 }
 
@@ -53,7 +54,7 @@ export async function syncWorkspace(event: H3Event, workspaceId: string, fullRes
   const linear = getLinearClient(workspace.linear_api_key)
   const since = (!fullResync && workspace.last_synced_at)
     ? new Date(workspace.last_synced_at)
-    : new Date(Date.now() - 1000 * 60 * 60 * 24 * 365)
+    : new Date('2024-01-01T00:00:00.000Z')
 
   const teamsRes = await linear.client.rawRequest<
     { teams: { nodes: { id: string; name: string }[] } },
@@ -118,6 +119,7 @@ export async function syncWorkspace(event: H3Event, workspaceId: string, fullRes
             completed_at: issue.completedAt,
             updated_at: issue.updatedAt,
             qa_started_at: extractQaStartedAt(issue.history.nodes),
+            labels: (issue.labels?.nodes?.map(l => l.name) ?? []) as Json,
             raw: issue as unknown as Json,
           },
           { onConflict: 'id' },

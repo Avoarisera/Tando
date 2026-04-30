@@ -10,6 +10,7 @@ export interface TicketRow {
   completed_at: string | null
   updated_at: string
   hasRework?: boolean
+  cycle_dev_hours?: number | null
 }
 
 const props = defineProps<{
@@ -31,9 +32,8 @@ const paginated = computed(() =>
 )
 
 function cycleHours(t: TicketRow): string {
-  if (!t.started_at || !t.qa_started_at) return '—'
-  const h = (+new Date(t.qa_started_at) - +new Date(t.started_at)) / 3_600_000
-  return h > 0 ? `${h.toFixed(0)}h` : '—'
+  if (t.cycle_dev_hours == null) return '—'
+  return `${t.cycle_dev_hours.toFixed(0)}h`
 }
 
 function linearUrl(identifier: string | null): string {

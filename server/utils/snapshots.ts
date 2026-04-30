@@ -50,6 +50,7 @@ export async function computeAndStoreMonthlySnapshot(
       median_lead_time_hours: m.medianLeadTimeHours,
       rework_rate: m.reworkRate,
       median_qa_time_hours: m.medianQaTimeHours,
+      median_review_time_hours: m.medianReviewTimeHours,
       ticket_ids: m.ticketIds,
       computed_at: new Date().toISOString(),
     }
@@ -65,12 +66,12 @@ export async function getSnapshotMonths(
   workspaceId: string,
   months: string[],
   teamId?: string,
-): Promise<Map<string, Map<string, { ticketsCount: number; pointsSum: number; bugsCount: number; avgSize: number; medianDevCycleHours: number; p90DevCycleHours: number; medianLeadTimeHours: number; medianQaTimeHours: number; reworkRate: number; ticketIds: string[] }>>> {
+): Promise<Map<string, Map<string, { ticketsCount: number; pointsSum: number; bugsCount: number; avgSize: number; medianDevCycleHours: number; p90DevCycleHours: number; medianLeadTimeHours: number; medianQaTimeHours: number; medianReviewTimeHours: number; reworkRate: number; ticketIds: string[] }>>> {
   const monthDates = months.map(monthToDate)
 
   let query = supabase
     .from('monthly_snapshots')
-    .select('user_id, month, tickets_count, points_sum, bugs_count, avg_size, median_dev_cycle_hours, p90_dev_cycle_hours, median_lead_time_hours, rework_rate, median_qa_time_hours, ticket_ids')
+    .select('user_id, month, tickets_count, points_sum, bugs_count, avg_size, median_dev_cycle_hours, p90_dev_cycle_hours, median_lead_time_hours, rework_rate, median_qa_time_hours, median_review_time_hours, ticket_ids')
     .eq('workspace_id', workspaceId)
     .in('month', monthDates)
 
@@ -99,6 +100,7 @@ export async function getSnapshotMonths(
       medianLeadTimeHours: (row as Record<string, unknown>).median_lead_time_hours as number ?? 0,
       reworkRate: (row as Record<string, unknown>).rework_rate as number ?? 0,
       medianQaTimeHours: (row as Record<string, unknown>).median_qa_time_hours as number ?? 0,
+      medianReviewTimeHours: (row as Record<string, unknown>).median_review_time_hours as number ?? 0,
       ticketIds: (row.ticket_ids as string[]) ?? [],
     })
   }

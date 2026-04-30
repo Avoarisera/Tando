@@ -20,40 +20,34 @@ const teamId = route.params.teamId as string
 const devId = route.params.devId as string
 const workspaceId = route.query.workspaceId as string
 const monthParam = route.query.month as string | undefined
-const periodParam = route.query.period ? Number(route.query.period) : null
 
-const PERIODS = [
-  { label: '3 mois', value: 3 },
-  { label: '6 mois', value: 6 },
-  { label: '12 mois', value: 12 },
-]
+import { VELOCITE_RANGES, getAvailableYears, isValidRange, isValidYear, computeFetchMonths } from '~/utils/velocite-periods'
 
-function periodForMonth(month: string): number {
+const availableYears = getAvailableYears()
+const currentYear = new Date().getFullYear()
+
+const yearQuery = Number(route.query.year)
+const rangeQuery = Number(route.query.range)
+
+function rangeForMonth(month: string): number {
   const now = new Date()
-  const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const [y1, m1] = current.split('-').map(Number)
   const [y2, m2] = month.split('-').map(Number)
-  const diff = (y1! - y2!) * 12 + (m1! - m2!)
+  const diff = (now.getFullYear() - y2!) * 12 + (now.getMonth() - m2! + 1)
   if (diff <= 3) return 3
   if (diff <= 6) return 6
   return 12
 }
 
-const selectedPeriod = ref(
-  periodParam && [3, 6, 12].includes(periodParam)
-    ? periodParam
-    : monthParam ? periodForMonth(monthParam) : 6,
+const selectedYear = ref(
+  isValidYear(yearQuery)
+    ? yearQuery
+    : monthParam ? Number(monthParam.split('-')[0]) : currentYear,
 )
-
-function computeMonths(n: number): string[] {
-  const result: string[] = []
-  const now = new Date()
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    result.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-  }
-  return result
-}
+const selectedRange = ref(
+  isValidRange(rangeQuery)
+    ? rangeQuery
+    : monthParam ? rangeForMonth(monthParam) : 6,
+)
 
 const { data, isLoading, error, fetchMetrics, momVariation } = useMetrics()
 
@@ -81,20 +75,21 @@ function resetMonths() {
 }
 
 onMounted(async () => {
-  await fetchMetrics({ workspaceId, teamId, months: computeMonths(selectedPeriod.value) })
+  await fetchMetrics({ workspaceId, teamId, months: computeFetchMonths(selectedYear.value, selectedRange.value) })
   selectedMonths.value = monthParam ? [monthParam] : [...months.value]
   await fetchCurrentMonthTickets()
 })
 
-watch(selectedPeriod, async () => {
-  await fetchMetrics({ workspaceId, teamId, months: computeMonths(selectedPeriod.value) })
+watch([selectedYear, selectedRange], async () => {
+  await fetchMetrics({ workspaceId, teamId, months: computeFetchMonths(selectedYear.value, selectedRange.value) })
   selectedMonths.value = [...months.value]
   await fetchCurrentMonthTickets()
 })
 
 watch(selectedMonths, fetchCurrentMonthTickets)
 
-const months = computed(() => data.value?.months ?? [])
+// API returns N+1 months (with one lookback for MoM); strip the first for display.
+const months = computed(() => (data.value?.months ?? []).slice(1))
 const currentMonth = computed(() => months.value[months.value.length - 1] ?? '')
 const devInfo = computed(() => data.value?.devs.find(d => d.id === devId))
 const devMetrics = computed(() => data.value?.metrics[devId] ?? {})
@@ -109,6 +104,7 @@ const aggregatedMetrics = computed(() => {
   const cycleHours: number[] = []
   const p90Hours: number[] = []
   const qaHours: number[] = []
+  const reviewHours: number[] = []
   const wipValues: number[] = []
   for (const m of sel) {
     const mm = devMetrics.value[m]
@@ -119,6 +115,7 @@ const aggregatedMetrics = computed(() => {
     if (mm.medianDevCycleHours > 0) cycleHours.push(mm.medianDevCycleHours)
     if (mm.p90DevCycleHours > 0) p90Hours.push(mm.p90DevCycleHours)
     if (mm.medianQaTimeHours > 0) qaHours.push(mm.medianQaTimeHours)
+    if (mm.medianReviewTimeHours > 0) reviewHours.push(mm.medianReviewTimeHours)
     wipValues.push(mm.wipCount)
   }
   const avg = (arr: number[]) => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0
@@ -131,6 +128,7 @@ const aggregatedMetrics = computed(() => {
     p90DevCycleHours: avg(p90Hours),
     medianLeadTimeHours: 0,
     medianQaTimeHours: avg(qaHours),
+    medianReviewTimeHours: avg(reviewHours),
     reworkRate: 0,
     wipCount: avg(wipValues),
     ticketIds: [] as string[],
@@ -147,9 +145,10 @@ const featureValues = computed(() => months.value.map(m => {
 const bugValues = computed(() => months.value.map(m => devMetrics.value[m]?.bugsCount ?? 0))
 const cycleP50Values = computed(() => months.value.map(m => devMetrics.value[m]?.medianDevCycleHours ?? 0))
 const qaTimeValues = computed(() => months.value.map(m => devMetrics.value[m]?.medianQaTimeHours ?? 0))
+const reviewTimeValues = computed(() => months.value.map(m => devMetrics.value[m]?.medianReviewTimeHours ?? 0))
 
 const hasCycleQaData = computed(() =>
-  cycleP50Values.value.some(v => v > 0) || qaTimeValues.value.some(v => v > 0)
+  cycleP50Values.value.some(v => v > 0) || qaTimeValues.value.some(v => v > 0) || reviewTimeValues.value.some(v => v > 0)
 )
 
 function monthLabel(m: string): string {
@@ -165,6 +164,13 @@ const cycleQaChartData = computed(() => ({
       label: 'Cycle dev (h)',
       data: [...cycleP50Values.value],
       backgroundColor: '#2563EB',
+      borderRadius: 4,
+      stack: 'time',
+    },
+    {
+      label: 'Temps review (h)',
+      data: [...reviewTimeValues.value],
+      backgroundColor: '#D97706',
       borderRadius: 4,
       stack: 'time',
     },
@@ -225,17 +231,19 @@ function goBack() {
   if (window.history.state?.back) {
     router.back()
   } else {
-    router.push(`/velocite/teams/${teamId}?workspaceId=${workspaceId}&period=${selectedPeriod.value}`)
+    router.push(`/velocite/teams/${teamId}?workspaceId=${workspaceId}&year=${selectedYear.value}&range=${selectedRange.value}`)
   }
 }
 
 async function handleRetry() {
-  await fetchMetrics({ workspaceId, teamId, months: computeMonths(selectedPeriod.value) })
+  await fetchMetrics({ workspaceId, teamId, months: computeFetchMonths(selectedYear.value, selectedRange.value) })
   await fetchCurrentMonthTickets()
 }
 
+const selectedMonth = computed(() => isSingleMonth.value ? selectedMonths.value[0] : undefined)
+
 function variationLabel(metric: 'ticketsCount' | 'pointsSum' | 'bugsCount' | 'medianDevCycleHours'): string {
-  const v = momVariation(devId, metric)
+  const v = momVariation(devId, metric, selectedMonth.value)
   if (v === null) return ''
   const sign = v > 0 ? '+' : ''
   return `${sign}${v}% vs mois précédent`
@@ -291,19 +299,34 @@ function handleTicketClick(ticketId: string) {
         <h1 class="text-2xl font-bold text-gray-900">
           {{ devInfo?.display_name ?? devId }}
         </h1>
-        <!-- Period selector -->
-        <div class="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shrink-0">
-          <button
-            v-for="period in PERIODS"
-            :key="period.value"
-            class="rounded-md px-3 py-1 text-sm font-medium transition-colors"
-            :class="selectedPeriod === period.value
-              ? 'bg-brand-primary text-white'
-              : 'text-gray-600 hover:bg-gray-100'"
-            @click="selectedPeriod = period.value"
-          >
-            {{ period.label }}
-          </button>
+        <!-- Period selector : year + range -->
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <div class="relative">
+            <select
+              v-model.number="selectedYear"
+              class="appearance-none rounded-lg border border-gray-200 bg-white py-2 pl-4 pr-9 text-sm font-medium text-gray-700 shadow-sm hover:border-gray-300 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+            >
+              <option v-for="y in availableYears" :key="y" :value="y">
+                {{ y === currentYear ? `${y} (en cours)` : y }}
+              </option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-gray-400">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M5.5 7.5L10 12l4.5-4.5h-9z" /></svg>
+            </span>
+          </div>
+          <div class="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1">
+            <button
+              v-for="r in VELOCITE_RANGES"
+              :key="r.value"
+              class="rounded-md px-3 py-1 text-sm font-medium transition-colors"
+              :class="selectedRange === r.value
+                ? 'bg-brand-primary text-white'
+                : 'text-gray-600 hover:bg-gray-100'"
+              @click="selectedRange = r.value"
+            >
+              {{ r.label }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -327,13 +350,13 @@ function handleTicketClick(ticketId: string) {
             <div class="group relative">
               <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
               <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                Tickets livrés (passés en Q/A, Done ou Deployed) sur la période sélectionnée.
+                Tickets livrés (passés en In Review, Done ou Deployed) sur la période sélectionnée.
               </div>
             </div>
           </div>
           <p class="text-2xl font-semibold text-gray-900">{{ aggregatedMetrics.ticketsCount }}</p>
-          <p v-if="isSingleMonth && momVariation(devId, 'ticketsCount') !== null" class="text-xs mt-1.5 text-gray-400">
-            <span :class="(momVariation(devId, 'ticketsCount') ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-500'">{{ variationLabel('ticketsCount') }}</span>
+          <p v-if="isSingleMonth && momVariation(devId, 'ticketsCount', selectedMonth) !== null" class="text-xs mt-1.5 text-gray-400">
+            <span :class="(momVariation(devId, 'ticketsCount', selectedMonth) ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-500'">{{ variationLabel('ticketsCount') }}</span>
             vs mois préc.
           </p>
           <p v-else class="text-xs mt-1.5 text-gray-300">—</p>
@@ -350,8 +373,8 @@ function handleTicketClick(ticketId: string) {
             </div>
           </div>
           <p class="text-2xl font-semibold text-gray-900">{{ aggregatedMetrics.pointsSum.toFixed(0) }}</p>
-          <p v-if="isSingleMonth && momVariation(devId, 'pointsSum') !== null" class="text-xs mt-1.5 text-gray-400">
-            <span :class="(momVariation(devId, 'pointsSum') ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-500'">{{ variationLabel('pointsSum') }}</span>
+          <p v-if="isSingleMonth && momVariation(devId, 'pointsSum', selectedMonth) !== null" class="text-xs mt-1.5 text-gray-400">
+            <span :class="(momVariation(devId, 'pointsSum', selectedMonth) ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-500'">{{ variationLabel('pointsSum') }}</span>
             vs mois préc.
           </p>
           <p v-else class="text-xs mt-1.5 text-gray-300">—</p>
@@ -377,7 +400,7 @@ function handleTicketClick(ticketId: string) {
             <div class="group relative">
               <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
               <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                Temps médian In Progress → Q/A. 50% des tickets livrés plus vite que cette valeur.
+                Temps médian In Progress → In Review. 50% des tickets livrés plus vite que cette valeur.
               </div>
             </div>
           </div>
@@ -462,7 +485,7 @@ function handleTicketClick(ticketId: string) {
         <div class="bg-white rounded-lg border border-gray-200 p-4">
           <h3 class="text-sm font-semibold text-gray-700 mb-1">Cycle dev vs Temps QA</h3>
           <p class="text-xs text-gray-400 mb-3">
-            Bleu = Cycle dev (In Progress → Q/A). Vert = Temps QA (Q/A → Done). La hauteur totale = temps de livraison complet. Un bar entièrement vert signale un goulot en QA.
+            Bleu = Cycle dev (In Progress → In Review). Vert = Temps QA (In Review → Done). La hauteur totale = temps de livraison complet. Un bar entièrement vert signale un goulot en review/QA.
           </p>
           <template v-if="hasCycleQaData">
             <div class="h-48">

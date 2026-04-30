@@ -7,6 +7,7 @@ export interface MonthlyMetrics {
   p90DevCycleHours: number
   medianLeadTimeHours: number
   medianQaTimeHours: number
+  medianReviewTimeHours: number
   reworkRate: number
   wipCount: number
   ticketIds: string[]
@@ -51,12 +52,18 @@ export function useMetrics() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   }
 
-  function momVariation(devId: string, metric: keyof Omit<MonthlyMetrics, 'ticketIds'>): number | null {
+  function momVariation(
+    devId: string,
+    metric: keyof Omit<MonthlyMetrics, 'ticketIds'>,
+    targetMonth?: string,
+  ): number | null {
     if (!data.value) return null
     const months = data.value.months
     if (months.length < 2) return null
-    const curMonth = months[months.length - 1]!
-    const prevMonth = months[months.length - 2]!
+    const curMonth = targetMonth ?? months[months.length - 1]!
+    const idx = months.indexOf(curMonth)
+    if (idx <= 0) return null
+    const prevMonth = months[idx - 1]!
     const cur = data.value.metrics[devId]?.[curMonth]?.[metric] ?? 0
     const prev = data.value.metrics[devId]?.[prevMonth]?.[metric] ?? 0
     if (prev === 0) return null

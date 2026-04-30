@@ -18,6 +18,7 @@ export const ISSUES_WITH_HISTORY = /* GraphQL */ `
           startedAt
           completedAt
           updatedAt
+          labels { nodes { name } }
           history(first: 30) {
             nodes {
               id
