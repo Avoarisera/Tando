@@ -1,33 +1,35 @@
-# syntax=docker/dockerfile:1
 # ============================================================
 # Tando — Nuxt 4 SSR (node-server preset)
 # Build pack Coolify = dockerfile. NE PAS activer is_static.
-# Leçon portfolio (vault): npm install frais évite le bug
-# des optional-deps natives (@oxc-parser/binding-*) de pnpm/yarn
-# avec lockfile cross-plateforme. Le build tourne sur linux →
-# le binding linux-x64 est résolu correctement.
+#
+# Notes :
+# - package.json a un hook "postinstall": "nuxt prepare" → il tourne
+#   PENDANT `npm install`. Il charge @nuxtjs/supabase (qui exige
+#   SUPABASE_URL/KEY) et a besoin du code source. Donc on pose les ENV
+#   ET on copie la source AVANT l'install.
+# - npm install frais (pas de lockfile cross-plateforme) → bindings
+#   natifs résolus sur linux (leçon oxc-parser du vault).
+# - Image builder = bookworm complète (python3/make/g++ pour d'éventuels
+#   node-gyp). Le runner reste slim.
 # ============================================================
 
 # ---- Builder ----
-FROM node:22-bookworm-slim AS builder
+FROM node:22-bookworm AS builder
 WORKDIR /app
 
-# devDependencies requis pour `nuxt build`
 ENV NODE_ENV=development
 
-# Install frais depuis package.json (pas de lockfile cross-platform)
-COPY package.json ./
-RUN npm install --include=dev --no-audit --no-fund
-
-COPY . .
-
-# @nuxtjs/supabase valide la présence de ces vars au build.
+# @nuxtjs/supabase valide ces vars dès `nuxt prepare` (postinstall) + au build.
 # Valeurs publishable (non secrètes) injectées par Coolify en build-arg.
 ARG SUPABASE_URL
 ARG SUPABASE_KEY
 ENV SUPABASE_URL=$SUPABASE_URL
 ENV SUPABASE_KEY=$SUPABASE_KEY
 
+# Source d'abord (postinstall nuxt prepare en a besoin)
+COPY . .
+
+RUN npm install --include=dev --no-audit --no-fund
 RUN npm run build
 
 # ---- Runner ----
