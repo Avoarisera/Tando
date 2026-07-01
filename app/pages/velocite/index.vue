@@ -4,11 +4,21 @@ import type { Workspace, TeamRef } from '~/composables/useLinearWorkspace'
 definePageMeta({ layout: 'private', middleware: 'admin-only' })
 
 const {
-  workspaces, isLoading, error, isSyncing,
+  workspaces, isLoading, error,
   fetchWorkspaces, addWorkspace, deleteWorkspace,
   fetchLinearTeams, saveTeamSelection, triggerSync,
 } = useLinearWorkspace()
 const toast = useToast()
+
+// ── Per-workspace sync progress ───────────────────────────────────────────
+function wsSyncing(ws: Workspace): boolean {
+  return ws.sync_status === 'running'
+}
+function syncPct(ws: Workspace): number {
+  if (ws.sync_status === 'done') return 100
+  if (!ws.sync_teams_total) return 0
+  return Math.round((ws.sync_teams_done / ws.sync_teams_total) * 100)
+}
 
 // ── Add workspace wizard ──────────────────────────────────────────────────
 type Step = 'form' | 'teams'
@@ -378,12 +388,40 @@ function formatDate(iso: string | null): string {
           <p v-else class="text-xs text-gray-400 italic">Toutes les équipes synchronisées</p>
         </div>
 
+        <!-- Sync progress -->
+        <div v-if="wsSyncing(ws) || ws.sync_status === 'error' || ws.sync_status === 'done'" class="mb-3">
+          <AppProgress
+            :value="syncPct(ws)"
+            :indeterminate="wsSyncing(ws) && !ws.sync_teams_total"
+            :variant="ws.sync_status === 'error' ? 'red' : ws.sync_status === 'done' ? 'green' : 'blue'"
+          />
+          <p
+            class="text-xs mt-1.5"
+            :class="ws.sync_status === 'error' ? 'text-red-600' : ws.sync_status === 'done' ? 'text-green-600' : 'text-gray-500'"
+          >
+            <template v-if="wsSyncing(ws)">
+              <template v-if="ws.sync_teams_total">
+                Synchronisation… {{ syncPct(ws) }}% ·
+                {{ ws.sync_teams_done }}/{{ ws.sync_teams_total }} équipes ·
+                {{ ws.sync_issues_done }} tickets
+              </template>
+              <template v-else>Démarrage de la synchronisation…</template>
+            </template>
+            <template v-else-if="ws.sync_status === 'done'">
+              Sync OK ✓ · {{ ws.sync_issues_done }} tickets synchronisés
+            </template>
+            <template v-else>
+              Échec : {{ ws.sync_error || 'erreur inconnue' }}
+            </template>
+          </p>
+        </div>
+
         <!-- Actions -->
         <div class="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100">
-          <AppButton variant="secondary" :disabled="isSyncing" @click="handleSync(ws)">
-            {{ isSyncing ? 'Sync…' : 'Synchroniser' }}
+          <AppButton variant="secondary" :disabled="wsSyncing(ws)" @click="handleSync(ws)">
+            {{ wsSyncing(ws) ? 'Sync…' : 'Synchroniser' }}
           </AppButton>
-          <AppButton variant="ghost" :disabled="isSyncing" @click="handleFullSync(ws)">
+          <AppButton variant="ghost" :disabled="wsSyncing(ws)" @click="handleFullSync(ws)">
             Resync complet
           </AppButton>
           <AppButton variant="ghost" @click="openTeamEditor(ws)">

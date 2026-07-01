@@ -534,6 +534,13 @@ export type Database = {
           linear_api_key: string
           name: string
           selected_teams: { id: string; name: string }[] | null
+          sync_error: string | null
+          sync_finished_at: string | null
+          sync_issues_done: number
+          sync_started_at: string | null
+          sync_status: string
+          sync_teams_done: number
+          sync_teams_total: number
           user_id: string
         }
         Insert: {
@@ -543,6 +550,13 @@ export type Database = {
           linear_api_key: string
           name: string
           selected_teams?: { id: string; name: string }[] | null
+          sync_error?: string | null
+          sync_finished_at?: string | null
+          sync_issues_done?: number
+          sync_started_at?: string | null
+          sync_status?: string
+          sync_teams_done?: number
+          sync_teams_total?: number
           user_id: string
         }
         Update: {
@@ -552,6 +566,13 @@ export type Database = {
           linear_api_key?: string
           name?: string
           selected_teams?: { id: string; name: string }[] | null
+          sync_error?: string | null
+          sync_finished_at?: string | null
+          sync_issues_done?: number
+          sync_started_at?: string | null
+          sync_status?: string
+          sync_teams_done?: number
+          sync_teams_total?: number
           user_id?: string
         }
         Relationships: []
@@ -572,6 +593,7 @@ export type Database = {
       }
       auth_role: { Args: never; Returns: string }
       auth_team_id: { Args: never; Returns: string }
+      get_dashboard_snapshot: { Args: never; Returns: Json }
       upsert_leave_type_balances: {
         Args: {
           p_leave_type_id: string
