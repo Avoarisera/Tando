@@ -34,47 +34,55 @@ export type Database = {
   }
   public: {
     Tables: {
-      issue_history: {
+      invoices: {
         Row: {
-          actor_id: string | null
-          changed_at: string
-          from_status: string | null
-          id: number
-          issue_id: string
-          to_status: string | null
-          workspace_id: string
+          amount: number
+          client: string
+          created_at: string
+          created_by: string | null
+          currency: 'EUR' | 'USD' | 'GBP' | 'CAD' | 'AUD' | 'MGA'
+          due_date: string | null
+          id: string
+          invoice_date: string
+          notes: string | null
+          pdf_path: string | null
+          reference: string
+          status: 'en_attente' | 'envoyee' | 'payee'
         }
         Insert: {
-          actor_id?: string | null
-          changed_at: string
-          from_status?: string | null
-          id?: number
-          issue_id: string
-          to_status?: string | null
-          workspace_id: string
+          amount: number
+          client: string
+          created_at?: string
+          created_by?: string | null
+          currency?: 'EUR' | 'USD' | 'GBP' | 'CAD' | 'AUD' | 'MGA'
+          due_date?: string | null
+          id?: string
+          invoice_date: string
+          notes?: string | null
+          pdf_path?: string | null
+          reference: string
+          status?: 'en_attente' | 'envoyee' | 'payee'
         }
         Update: {
-          actor_id?: string | null
-          changed_at?: string
-          from_status?: string | null
-          id?: number
-          issue_id?: string
-          to_status?: string | null
-          workspace_id?: string
+          amount?: number
+          client?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: 'EUR' | 'USD' | 'GBP' | 'CAD' | 'AUD' | 'MGA'
+          due_date?: string | null
+          id?: string
+          invoice_date?: string
+          notes?: string | null
+          pdf_path?: string | null
+          reference?: string
+          status?: 'en_attente' | 'envoyee' | 'payee'
         }
         Relationships: [
           {
-            foreignKeyName: "issue_history_issue_id_fkey"
-            columns: ["issue_id"]
+            foreignKeyName: "invoices_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "linear_issues"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_history_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -224,6 +232,107 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          first_name: string
+          id: string
+          joined_at: string
+          last_name: string
+          role: string
+          team_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          first_name: string
+          id: string
+          joined_at: string
+          last_name: string
+          role: string
+          team_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          first_name?: string
+          id?: string
+          joined_at?: string
+          last_name?: string
+          role?: string
+          team_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      issue_history: {
+        Row: {
+          actor_id: string | null
+          changed_at: string
+          from_status: string | null
+          id: number
+          issue_id: string
+          to_status: string | null
+          workspace_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          changed_at: string
+          from_status?: string | null
+          id?: number
+          issue_id: string
+          to_status?: string | null
+          workspace_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          changed_at?: string
+          from_status?: string | null
+          id?: number
+          issue_id?: string
+          to_status?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issue_history_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "linear_issues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_history_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       linear_issues: {
         Row: {
@@ -417,62 +526,6 @@ export type Database = {
           },
         ]
       }
-      profiles: {
-        Row: {
-          created_at: string
-          first_name: string
-          id: string
-          joined_at: string
-          last_name: string
-          role: string
-          team_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          first_name: string
-          id: string
-          joined_at: string
-          last_name: string
-          role: string
-          team_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          first_name?: string
-          id?: string
-          joined_at?: string
-          last_name?: string
-          role?: string
-          team_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      teams: {
-        Row: {
-          created_at: string
-          id: string
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          name: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          name?: string
-        }
-        Relationships: []
-      }
       workspaces: {
         Row: {
           created_at: string | null
@@ -508,8 +561,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      auth_role: { Args: never; Returns: string }
-      auth_team_id: { Args: never; Returns: string }
       create_leave_request: {
         Args: {
           p_comment?: string
@@ -519,6 +570,8 @@ export type Database = {
         }
         Returns: string
       }
+      auth_role: { Args: never; Returns: string }
+      auth_team_id: { Args: never; Returns: string }
       upsert_leave_type_balances: {
         Args: {
           p_leave_type_id: string
