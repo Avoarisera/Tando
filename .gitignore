@@ -5,6 +5,7 @@ node_modules/
 
 # Nuxt
 .nuxt/
+.nuxtrc
 .output/
 .nitro/
 .cache/

@@ -12,7 +12,7 @@ export function useDashboard() {
     try {
       const { data, error: sbError } = await supabase.rpc('get_dashboard_snapshot')
       if (sbError) throw sbError
-      snapshot.value = data as DashboardSnapshot
+      snapshot.value = data as unknown as DashboardSnapshot
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur lors du chargement du tableau de bord'
     } finally {
@@ -21,7 +21,9 @@ export function useDashboard() {
   }
 
   return {
-    snapshot: readonly(snapshot),
+    // not wrapped in readonly(): the snapshot is passed to components typed with
+    // the mutable DashboardSnapshot, and DeepReadonly would break those props.
+    snapshot,
     isLoading: readonly(isLoading),
     error: readonly(error),
     fetchSnapshot,
