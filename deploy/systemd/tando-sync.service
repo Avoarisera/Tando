@@ -1,0 +1,24 @@
+# Tando — déclencheur de la synchronisation Linear (remplace le cron Vercel sur VPS).
+# Appelle GET /api/cron/sync avec le bearer CRON_SECRET.
+#
+# Installation : voir deploy/systemd/README.md
+[Unit]
+Description=Tando — sync Linear + snapshots (cron)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Secret + URL lus depuis un fichier hors-repo (ne pas committer le vrai secret).
+EnvironmentFile=/etc/tando/sync.env
+# -f : échoue (exit≠0) sur une réponse HTTP >=400 → le run est marqué "failed" dans journalctl.
+# --max-time : le cron synchronise TOUS les workspaces + snapshots de façon synchrone,
+#              on laisse jusqu'à 10 min avant d'abandonner.
+ExecStart=/usr/bin/curl -fsS --max-time 600 \
+  -H "Authorization: Bearer ${CRON_SECRET}" \
+  "${SYNC_URL}"
+# Durcissement léger
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

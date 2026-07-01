@@ -1,0 +1,15 @@
+# Déclenche tando-sync.service toutes les 15 min (équivalent du cron Vercel */15).
+[Unit]
+Description=Tando — planificateur de sync Linear (toutes les 15 min)
+
+[Timer]
+# Toutes les 15 min, aligné sur l'horloge (:00, :15, :30, :45).
+OnCalendar=*:0/15
+# Rejoue un tick raté (VPS éteint/redémarré) au prochain démarrage.
+Persistent=true
+# Petit décalage aléatoire pour éviter de taper l'API pile à la seconde 0.
+RandomizedDelaySec=30
+Unit=tando-sync.service
+
+[Install]
+WantedBy=timers.target
