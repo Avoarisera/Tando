@@ -1,17 +1,7 @@
-import { serverSupabaseServiceRole } from '#supabase/server'
+import { requireAdmin } from '../utils/require-admin'
 
 export default defineEventHandler(async (event) => {
-  const token = getHeader(event, 'authorization')?.replace('Bearer ', '')
-  if (!token) {
-    throw createError({ statusCode: 401, statusMessage: 'Non authentifié' })
-  }
-
-  const supabase = serverSupabaseServiceRole(event)
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user?.id) {
-    throw createError({ statusCode: 401, statusMessage: 'Session invalide' })
-  }
+  const { supabase, user } = await requireAdmin(event)
 
   const { name, apiKey } = await readBody<{ name: string; apiKey: string }>(event)
   if (!name || !apiKey) {

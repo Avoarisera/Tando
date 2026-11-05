@@ -1,26 +1,22 @@
-import { serverSupabaseServiceRole } from '#supabase/server'
+import { requireAdmin } from '../utils/require-admin'
 
 interface TeamRef { id: string; name: string }
 
 export default defineEventHandler(async (event) => {
-  const token = getHeader(event, 'authorization')?.replace('Bearer ', '')
-  if (!token) throw createError({ statusCode: 401, statusMessage: 'Non authentifié' })
-
-  const supabase = serverSupabaseServiceRole(event)
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user?.id) throw createError({ statusCode: 401, statusMessage: 'Session invalide' })
+  // Workspaces are shared by all admins (decision 2026-11-05, TND-17)
+  const { supabase } = await requireAdmin(event)
 
   const { workspaceId, teams } = await readBody<{ workspaceId: string; teams: TeamRef[] }>(event)
   if (!workspaceId) throw createError({ statusCode: 400, statusMessage: 'workspaceId requis' })
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('workspaces')
     .update({ selected_teams: teams })
     .eq('id', workspaceId)
-    .eq('user_id', user.id)
+    .select('id')
 
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+  if (!updated?.length) throw createError({ statusCode: 404, statusMessage: 'Workspace introuvable' })
 
   return { ok: true }
 })

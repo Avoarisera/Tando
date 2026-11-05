@@ -15,9 +15,14 @@ function lastNClosedMonths(n: number): string[] {
 
 export default defineEventHandler(async (event) => {
   // Vercel Cron injects Authorization: Bearer <CRON_SECRET>
+  // Fail closed: without a configured secret the endpoint is disabled, otherwise
+  // anyone could trigger a service-role sync of every workspace (TND-18).
   const auth = getHeader(event, 'authorization')
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && auth !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    throw createError({ statusCode: 503, statusMessage: 'CRON_SECRET non configuré' })
+  }
+  if (auth !== `Bearer ${cronSecret}`) {
     throw createError({ statusCode: 401, statusMessage: 'Non autorisé' })
   }
 
