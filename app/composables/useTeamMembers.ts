@@ -24,7 +24,7 @@ export function useTeamMembers() {
       members.value = (data ?? []) as TeamMember[]
     }
     catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = errorMessage(e)
     }
     finally {
       isLoading.value = false

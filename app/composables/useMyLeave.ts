@@ -33,7 +33,7 @@ export function useMyLeave() {
       loaded.value = true
     }
     catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = errorMessage(e)
     }
     finally {
       isLoading.value = false

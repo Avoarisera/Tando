@@ -112,7 +112,7 @@ async function loadHolidays() {
   hLoading.value = true
   hError.value = null
   try { await fetchHolidays(hCountry.value, Number(hYear.value)) }
-  catch (e) { hError.value = e instanceof Error ? e.message : String(e) }
+  catch (e) { hError.value = errorMessage(e) }
   finally { hLoading.value = false }
 }
 watch([tab, hCountry, hYear], ([tb]) => { if (tb === 'holidays') loadHolidays() }, { immediate: true })
