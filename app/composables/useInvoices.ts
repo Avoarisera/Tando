@@ -72,7 +72,13 @@ export function useInvoices() {
     const { data, error: signError } = await supabase.storage
       .from('invoices')
       .createSignedUrl(path, 60)
-    if (signError) throw signError
+    if (signError) {
+      // The row points to a file that is not in the bucket (TND-16)
+      if (/not found/i.test(signError.message)) {
+        throw new Error('Fichier PDF introuvable — utilisez « Remplacer » pour le joindre à nouveau')
+      }
+      throw signError
+    }
     return data.signedUrl
   }
 

@@ -97,7 +97,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto space-y-8">
+  <!-- the admin table has 8 columns: give it more room (TND-06) -->
+  <div :class="isAdmin ? 'max-w-7xl' : 'max-w-5xl'" class="mx-auto space-y-8">
     <!-- Page header -->
     <div class="flex items-center justify-between">
       <h1 class="text-xl font-semibold text-gray-900">Demandes de congé</h1>
@@ -271,6 +272,7 @@ onMounted(async () => {
           : `Refuser la demande de ${confirmAction.employeeName} ?`"
         :description="`Du ${formatDate(confirmAction.startDate)} au ${formatDate(confirmAction.endDate)}`"
         :confirm-label="confirmAction.type === 'approve' ? 'Approuver' : 'Refuser'"
+        :confirm-variant="confirmAction.type === 'approve' ? 'primary' : 'danger'"
         @confirm="confirmAction.type === 'approve' ? handleApprove() : handleReject()"
         @cancel="confirmAction = null"
       />

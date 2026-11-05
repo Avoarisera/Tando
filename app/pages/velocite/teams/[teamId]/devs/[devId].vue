@@ -299,8 +299,8 @@ function handleTicketClick(ticketId: string) {
         <h1 class="text-2xl font-bold text-gray-900">
           {{ devInfo?.display_name ?? devId }}
         </h1>
-        <!-- Period selector : year + range -->
-        <div class="flex flex-wrap items-center gap-2 shrink-0">
+        <!-- Period selector : year + range (may wrap on small screens, TND-09) -->
+        <div class="flex flex-wrap items-center gap-2">
           <div class="relative">
             <select
               v-model.number="selectedYear"
@@ -349,7 +349,7 @@ function handleTicketClick(ticketId: string) {
             <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Tickets</span>
             <div class="group relative">
               <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white hidden group-hover:block z-10 text-left leading-relaxed">
                 Tickets livrés (passés en In Review, Done ou Deployed) sur la période sélectionnée.
               </div>
             </div>
@@ -367,7 +367,7 @@ function handleTicketClick(ticketId: string) {
             <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Points</span>
             <div class="group relative">
               <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white hidden group-hover:block z-10 text-left leading-relaxed">
                 Somme des story points des tickets livrés. Reflète la complexité plus que le volume.
               </div>
             </div>
@@ -385,7 +385,7 @@ function handleTicketClick(ticketId: string) {
             <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Bugs</span>
             <div class="group relative">
               <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white hidden group-hover:block z-10 text-left leading-relaxed">
                 Tickets sans estimation (proxy bugs). À croiser avec la Composition.
               </div>
             </div>
@@ -399,7 +399,7 @@ function handleTicketClick(ticketId: string) {
             <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Cycle P50</span>
             <div class="group relative">
               <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white hidden group-hover:block z-10 text-left leading-relaxed">
                 Temps médian In Progress → In Review. 50% des tickets livrés plus vite que cette valeur.
               </div>
             </div>
@@ -416,7 +416,7 @@ function handleTicketClick(ticketId: string) {
             <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Rework</span>
             <div class="group relative">
               <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white hidden group-hover:block z-10 text-left leading-relaxed">
                 % de tickets ayant eu un retour arrière (Review/Q/A → état antérieur) sur la période.
               </div>
             </div>
@@ -430,7 +430,7 @@ function handleTicketClick(ticketId: string) {
             <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">WIP moy</span>
             <div class="group relative">
               <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white hidden group-hover:block z-10 text-left leading-relaxed">
                 Nombre moyen de tickets ouverts simultanément par mois. Au-delà de 3, le switch de contexte devient coûteux.
               </div>
             </div>
@@ -485,7 +485,7 @@ function handleTicketClick(ticketId: string) {
         <div class="bg-white rounded-lg border border-gray-200 p-4">
           <h3 class="text-sm font-semibold text-gray-700 mb-1">Cycle dev vs Temps QA</h3>
           <p class="text-xs text-gray-400 mb-3">
-            Bleu = Cycle dev (In Progress → In Review). Vert = Temps QA (In Review → Done). La hauteur totale = temps de livraison complet. Un bar entièrement vert signale un goulot en review/QA.
+            Bleu = Cycle dev (In Progress → In Review). Orange = Temps review (In Review → Q/A). Vert = Temps QA (In Review → Done). La hauteur totale = temps de livraison complet. Un bar entièrement vert signale un goulot en review/QA.
           </p>
           <template v-if="hasCycleQaData">
             <div class="h-48">

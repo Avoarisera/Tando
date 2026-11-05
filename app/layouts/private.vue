@@ -1,7 +1,13 @@
 <script setup lang="ts">
-const { loadProfile } = useCurrentUser()
+const { profile, loadProfile } = useCurrentUser()
 
 await loadProfile()
+
+// No profile means no valid session (e.g. expired cookie): go back to the login
+// page instead of rendering a half-empty private page with the wrong menu (TND-01).
+if (!profile.value) {
+  await navigateTo('/login')
+}
 </script>
 
 <template>

@@ -239,6 +239,10 @@ function formatDate(iso: string | null): string {
             id="ws-name"
             v-model="formName"
             type="text"
+            name="linear-workspace-name"
+            autocomplete="off"
+            data-1p-ignore
+            data-lpignore="true"
             placeholder="ex : Acme Engineering"
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
           >
@@ -249,6 +253,10 @@ function formatDate(iso: string | null): string {
             id="ws-key"
             v-model="formApiKey"
             type="password"
+            name="linear-api-key"
+            autocomplete="new-password"
+            data-1p-ignore
+            data-lpignore="true"
             placeholder="lin_api_..."
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
             aria-describedby="ws-key-hint"
@@ -442,6 +450,8 @@ function formatDate(iso: string | null): string {
     <AppConfirmModal
       v-if="pendingDelete"
       :title="`Supprimer « ${pendingDelete.name} » ?`"
+      confirm-variant="danger"
+      confirm-label="Supprimer"
       description="Toutes les données Linear associées (issues, historique, métriques) seront supprimées définitivement."
       @confirm="handleDelete"
       @cancel="pendingDelete = null"

@@ -440,13 +440,22 @@ describe('useInvoices', () => {
       expect(mockStorageCreateSignedUrl).toHaveBeenCalledTimes(2)
     })
 
-    it('throws when Supabase Storage returns an error', async () => {
+    it('throws a French "file not found" message when the object is missing (TND-16)', async () => {
       storageSignResult.data  = { signedUrl: '' }
       storageSignResult.error = { message: 'Object not found' }
 
       const { getSignedUrl } = useInvoices()
 
-      await expect(getSignedUrl('inv-1/nonexistent.pdf')).rejects.toThrow('Object not found')
+      await expect(getSignedUrl('inv-1/nonexistent.pdf')).rejects.toThrow('Fichier PDF introuvable')
+    })
+
+    it('rethrows other Supabase Storage errors unchanged', async () => {
+      storageSignResult.data  = { signedUrl: '' }
+      storageSignResult.error = { message: 'new row violates row-level security policy' }
+
+      const { getSignedUrl } = useInvoices()
+
+      await expect(getSignedUrl('inv-1/file.pdf')).rejects.toThrow('row-level security')
     })
   })
 

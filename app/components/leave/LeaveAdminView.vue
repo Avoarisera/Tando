@@ -126,7 +126,7 @@ async function executeAdminAction() {
 
   <template v-else>
     <!-- Mobile: card layout -->
-    <ul class="space-y-3 md:hidden">
+    <ul class="space-y-3 lg:hidden">
       <li
         v-for="req in filteredRequests"
         :key="req.id"
@@ -178,7 +178,7 @@ async function executeAdminAction() {
     </ul>
 
     <!-- Desktop: table layout -->
-    <div class="hidden md:block overflow-x-auto">
+    <div class="hidden lg:block overflow-x-auto">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
@@ -203,7 +203,7 @@ async function executeAdminAction() {
             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Créée le
             </th>
-            <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="sticky right-0 bg-gray-50 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
               Actions
             </th>
           </tr>
@@ -238,7 +238,7 @@ async function executeAdminAction() {
             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
               {{ formatDate(req.created_at) }}
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-right">
+            <td class="sticky right-0 bg-white px-4 py-3 whitespace-nowrap text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.08)]">
               <div class="flex justify-end gap-2">
                 <AppButton
                   v-if="canTakeAction(req.status)"
@@ -268,6 +268,7 @@ async function executeAdminAction() {
     :title="adminConfirmTitle"
     :description="adminConfirmAction.period"
     :confirm-label="adminConfirmAction.type === 'approve' ? 'Approuver' : 'Refuser'"
+    :confirm-variant="adminConfirmAction.type === 'approve' ? 'primary' : 'danger'"
     @confirm="executeAdminAction"
     @cancel="adminConfirmAction = null"
   />

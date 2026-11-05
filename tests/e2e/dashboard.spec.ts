@@ -147,8 +147,9 @@ test.describe('T-015-004 — Employee status list', () => {
     await expect(page.locator('th:has-text("Congé / Retour")')).toBeVisible()
   })
 
-  test('T-015-004b: at least one employee row visible', async ({ page }) => {
-    await expect(page.locator('tbody tr')).toHaveCount(2)
+  test('T-015-004b: employees AND managers are listed (2 employees + 1 manager)', async ({ page }) => {
+    // TND-05: managers are part of the headcount since lot 0
+    await expect(page.locator('tbody tr')).toHaveCount(3)
   })
 
   test('T-015-004c: status badge is "Présent" or "En congé" for each row', async ({ page }) => {

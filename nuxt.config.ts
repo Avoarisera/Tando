@@ -8,6 +8,17 @@ export default defineNuxtConfig({
   supabase: {
     redirect: false,
     types: '~/types/database.ts',
+    // `secure: true` (module default) makes Firefox/Zen drop the session cookie on
+    // http://localhost, so a reload logged the user out in dev (TND-01).
+    cookieOptions: {
+      maxAge: 60 * 60 * 8,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    },
+  },
+  app: {
+    // Native <input type="date"> follows the page language in Firefox/Zen (TND-08)
+    head: { htmlAttrs: { lang: 'fr' } },
   },
   components: {
     dirs: [{ path: '~/components', pathPrefix: false }],

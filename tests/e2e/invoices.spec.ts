@@ -409,9 +409,9 @@ test.describe('T-016-011 — F40: Voir PDF (signed URL)', () => {
       page.locator('tr', { hasText: 'FAC-PDF-011' }).locator('button:has-text("Voir PDF")').click(),
     ])
 
-    await newPage.waitForLoadState()
-    // New tab opened — URL contains the faked signed token or is navigating to it
-    expect(newPage.url()).toContain('token=test123')
+    // TND-16: the tab is opened synchronously (about:blank, so pop-up blockers allow
+    // it) and then navigated to the signed URL once it is known.
+    await newPage.waitForRequest(/token=test123/, { timeout: 10_000 })
     await newPage.close()
   })
 
@@ -440,7 +440,8 @@ test.describe('T-016-011 — F40: Voir PDF (signed URL)', () => {
 
     await page.locator('tr', { hasText: 'FAC-PDF-011B' }).locator('button:has-text("Voir PDF")').click()
 
-    await expect(page.locator('text=Impossible de générer le lien PDF')).toBeVisible({ timeout: 5_000 })
+    // TND-16: a missing object now gets an actionable French message
+    await expect(page.locator('text=Fichier PDF introuvable')).toBeVisible({ timeout: 5_000 })
   })
 })
 

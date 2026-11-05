@@ -47,7 +47,10 @@ function formatAmount(amount: number, currency: string): string {
 
 <template>
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-    <div class="overflow-x-auto">
+    <!-- `relative` makes this scroller the containing block of the sr-only (absolute)
+         file inputs below; without it they escape and widen the whole page on
+         mobile (~840px instead of 390px, TND-09) -->
+    <div class="relative overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b border-gray-100 text-left text-gray-500">

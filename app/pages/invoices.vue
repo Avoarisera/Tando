@@ -103,11 +103,20 @@ async function handleUpload(invoiceId: string, file: File) {
 }
 
 async function handleViewPdf(path: string) {
+  // Open the tab synchronously, inside the click: opened after the await it is
+  // no longer a user gesture and Safari/Firefox block it as a pop-up (TND-16).
+  const tab = window.open('', '_blank')
   try {
     const url = await getSignedUrl(path)
-    window.open(url, '_blank', 'noopener')
+    if (tab) {
+      tab.opener = null
+      tab.location.href = url
+    } else {
+      window.location.assign(url)
+    }
   } catch (e) {
-    toast.add('Impossible de générer le lien PDF', 'error')
+    tab?.close()
+    toast.add(e instanceof Error ? e.message : 'Impossible de générer le lien PDF', 'error')
   }
 }
 </script>

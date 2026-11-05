@@ -10,6 +10,11 @@ const password = ref('')
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 
+// Until Vue has hydrated, @submit.prevent is not bound: a click would trigger a
+// native GET submit that reloads /login? and silently empties the form (TND-04).
+const isReady = ref(false)
+onMounted(() => { isReady.value = true })
+
 // Navigate once auth state propagates — avoids the race between signInWithPassword
 // resolving and useSupabaseUser() updating via onAuthStateChange
 watch(user, async (newUser) => {
@@ -42,7 +47,7 @@ async function handleSubmit() {
         <p class="mt-1 text-sm text-gray-500">Connectez-vous à votre espace</p>
       </div>
 
-      <form @submit.prevent="handleSubmit" novalidate>
+      <form method="post" @submit.prevent="handleSubmit" novalidate>
         <div class="space-y-5">
           <div>
             <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
@@ -86,7 +91,7 @@ async function handleSubmit() {
 
           <button
             type="submit"
-            :disabled="isLoading"
+            :disabled="isLoading || !isReady"
             class="w-full flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
           >
             <AppSpinner v-if="isLoading" />
