@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Invoice, InvoiceStatus } from '~/types/index'
 
-definePageMeta({ middleware: 'admin-only', layout: 'private' })
+definePageMeta({ titleKey: 'nav.invoices', middleware: 'admin-only', layout: 'private' })
 
 const {
   invoices,
@@ -14,6 +14,8 @@ const {
   getSignedUrl,
 } = useInvoices()
 const toast = useToast()
+const { t } = useI18n()
+const route = useRoute()
 
 type FilterStatus = 'all' | InvoiceStatus
 
@@ -31,27 +33,22 @@ const filteredInvoices = computed(() => {
     : invoices.value.filter(i => i.status === filter.value)
   if (trimmedSearch.value.length < 3) return byStatus
   const lower = trimmedSearch.value.toLowerCase()
-  return byStatus.filter(i => i.reference.toLowerCase().includes(lower))
+  return byStatus.filter(i => i.reference.toLowerCase().includes(lower) || i.client.toLowerCase().includes(lower))
 })
 
-const emptyDescription = computed(() => {
-  if (trimmedSearch.value.length >= 3 && filter.value !== 'all') {
-    return `Aucune facture « ${trimmedSearch.value} » avec ce statut.`
-  }
-  if (trimmedSearch.value.length >= 3) {
-    return `Aucune référence ne correspond à « ${trimmedSearch.value} ».`
-  }
-  return 'Essayez un autre statut.'
+const counts = computed(() => ({
+  all: invoices.value.length,
+  en_attente: invoices.value.filter(i => i.status === 'en_attente').length,
+  envoyee: invoices.value.filter(i => i.status === 'envoyee').length,
+  payee: invoices.value.filter(i => i.status === 'payee').length,
+}))
+const FILTERS: FilterStatus[] = ['all', 'en_attente', 'envoyee', 'payee']
+
+onMounted(async () => {
+  await fetchInvoices()
+  // /invoices?new=1 (dashboard shortcut) opens the creation panel
+  if (route.query.new === '1') openModal()
 })
-
-const FILTER_OPTIONS: { value: FilterStatus; label: string }[] = [
-  { value: 'all',        label: 'Toutes' },
-  { value: 'en_attente', label: 'En attente' },
-  { value: 'envoyee',    label: 'Envoyée' },
-  { value: 'payee',      label: 'Payée' },
-]
-
-onMounted(fetchInvoices)
 
 function openModal() {
   formError.value = null
@@ -69,9 +66,9 @@ async function handleCreate(payload: Omit<Invoice, 'id' | 'created_at' | 'create
   try {
     await createInvoice(payload)
     closeModal()
-    toast.add('Facture enregistrée')
+    toast.add(t('invoices.saved'))
   } catch (e) {
-    formError.value = e instanceof Error ? e.message : 'Erreur lors de la création'
+    formError.value = e instanceof Error ? e.message : t('invoices.createError')
   } finally {
     isSubmitting.value = false
   }
@@ -80,23 +77,23 @@ async function handleCreate(payload: Omit<Invoice, 'id' | 'created_at' | 'create
 async function handleStatusChange(id: string, status: InvoiceStatus) {
   try {
     await updateStatus(id, status)
-    toast.add('Statut mis à jour')
+    toast.add(t('invoices.statusSaved'))
   } catch (e) {
-    toast.add(e instanceof Error ? e.message : 'Erreur de mise à jour', 'error')
+    toast.add(e instanceof Error ? e.message : t('rules.saveError'), 'error')
   }
 }
 
 async function handleUpload(invoiceId: string, file: File) {
   if (file.type !== 'application/pdf') {
-    toast.add('Seuls les fichiers PDF sont acceptés', 'error')
+    toast.add(t('invoices.pdfOnly'), 'error')
     return
   }
   uploadingId.value = invoiceId
   try {
     await uploadPdf(invoiceId, file)
-    toast.add('PDF enregistré')
+    toast.add(t('invoices.pdfSaved'))
   } catch (e) {
-    toast.add(e instanceof Error ? e.message : "Erreur lors de l'envoi du PDF", 'error')
+    toast.add(e instanceof Error ? e.message : t('invoices.uploadError'), 'error')
   } finally {
     uploadingId.value = null
   }
@@ -116,112 +113,55 @@ async function handleViewPdf(path: string) {
     }
   } catch (e) {
     tab?.close()
-    toast.add(e instanceof Error ? e.message : 'Impossible de générer le lien PDF', 'error')
+    toast.add(e instanceof Error ? e.message : t('invoices.linkError'), 'error')
   }
 }
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto">
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-xl font-semibold text-gray-900">Factures</h1>
-      <AppButton @click="openModal">Nouvelle facture</AppButton>
-    </div>
-
-    <!-- Recherche -->
-    <div class="mb-4">
-      <label for="invoice-search" class="sr-only">Rechercher par référence</label>
-      <div class="relative max-w-xs">
-        <svg
-          class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="2"
-          stroke="currentColor"
-          aria-hidden="true"
-        >
-          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0Z" />
-        </svg>
-        <input
-          id="invoice-search"
-          v-model="searchQuery"
-          type="search"
-          placeholder="Rechercher une référence…"
-          class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-        />
+  <div class="wb-page wb-stack">
+    <div class="wb-row-b wb-wrap">
+      <div class="wb-fb">
+        <div class="wb-fb-s">
+          <WbInput id="invoice-search" v-model="searchQuery" icon="search" type="search" :aria-label="t('invoices.search')" :placeholder="t('invoices.search')" />
+        </div>
+        <div class="wb-fb-c">
+          <WbFilterChip
+            v-for="f in FILTERS"
+            :key="f"
+            :model-value="filter === f"
+            :count="counts[f]"
+            @update:model-value="filter = f"
+          >
+            {{ f === 'all' ? t('invoices.all') : t(`invoices.status.${f}`) }}
+          </WbFilterChip>
+        </div>
       </div>
-      <p v-if="trimmedSearch.length > 0 && trimmedSearch.length < 3" class="mt-1 text-xs text-gray-400">
-        Saisissez au moins 3 caractères pour lancer la recherche.
-      </p>
+      <WbButton icon="plus" aria-haspopup="dialog" @click="openModal">{{ t('dashboard.newInvoice') }}</WbButton>
     </div>
+    <p v-if="trimmedSearch.length > 0 && trimmedSearch.length < 3" class="caption wb-mut">{{ t('invoices.searchHint') }}</p>
 
-    <!-- Filtres -->
-    <div class="flex flex-wrap gap-2 mb-6">
-      <button
-        v-for="opt in FILTER_OPTIONS"
-        :key="opt.value"
-        class="px-3 py-1.5 rounded-full text-sm font-medium transition-colors"
-        :class="filter === opt.value
-          ? 'bg-brand-primary text-white'
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-        @click="filter = opt.value"
-      >
-        {{ opt.label }}
-      </button>
+    <WbErrorState v-if="error" :message="error" @retry="fetchInvoices" />
+    <WbSkeleton v-else-if="isLoading && !invoices.length" variant="table" />
+    <div v-else-if="!invoices.length" class="wb-card">
+      <WbEmptyState art="invoice" :title="t('invoices.emptyTitle')">
+        {{ t('invoices.emptyText') }}
+        <template #action><WbButton icon="plus" @click="openModal">{{ t('dashboard.newInvoice') }}</WbButton></template>
+      </WbEmptyState>
     </div>
-
-    <!-- 1. Loading -->
-    <template v-if="isLoading">
-      <AppSkeleton v-for="i in 5" :key="i" class="mb-3 h-12" />
-    </template>
-
-    <!-- 2. Error -->
-    <AppErrorBanner
-      v-else-if="error"
-      :message="error"
-      @retry="fetchInvoices"
-    />
-
-    <!-- 3. Empty (global) -->
-    <AppEmptyState
-      v-else-if="invoices.length === 0"
-      title="Aucune facture pour le moment"
-      description="Créez votre première facture en cliquant sur « Nouvelle facture »."
-    >
-      <AppButton class="mt-4" @click="openModal">Nouvelle facture</AppButton>
-    </AppEmptyState>
-
-    <!-- 3b. Empty (filtered / search) -->
-    <AppEmptyState
-      v-else-if="filteredInvoices.length === 0"
-      title="Aucune facture trouvée"
-      :description="emptyDescription"
-    />
-
-    <!-- 4. Content -->
-    <InvoiceTable
-      v-else
-      :invoices="filteredInvoices"
-      :uploading-id="uploadingId"
-      @status-change="handleStatusChange"
-      @upload="handleUpload"
-      @view-pdf="handleViewPdf"
-    />
-
-    <!-- Modal création -->
-    <AppModal
-      v-if="showModal"
-      title="Nouvelle facture"
-      @close="closeModal"
-    >
-      <InvoiceForm
-        :is-submitting="isSubmitting"
-        :error="formError"
-        @submit="handleCreate"
-        @cancel="closeModal"
+    <p v-else-if="!filteredInvoices.length" class="wb-card wb-card-b wb-mut">{{ t('invoices.noMatch') }}</p>
+    <WbCard v-else :pad="false">
+      <InvoiceTable
+        :invoices="filteredInvoices"
+        :uploading-id="uploadingId"
+        @status-change="handleStatusChange"
+        @upload="handleUpload"
+        @view-pdf="handleViewPdf"
       />
-    </AppModal>
+    </WbCard>
+
+    <WbSidePanel v-if="showModal" :title="t('dashboard.newInvoice')" :width="640" @close="closeModal">
+      <InvoiceForm :is-submitting="isSubmitting" :error="formError" @submit="handleCreate" @cancel="closeModal" />
+    </WbSidePanel>
   </div>
 </template>

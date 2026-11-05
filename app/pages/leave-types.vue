@@ -1,531 +1,282 @@
 <script setup lang="ts">
-import type { LeaveType, AdminBalanceRow } from '~/types/index'
+import type { LeaveType } from '~/types/index'
 
-definePageMeta({ middleware: 'admin-only', layout: 'private' })
+definePageMeta({ titleKey: 'nav.rules', middleware: 'admin-only', layout: 'private' })
 
+const { t } = useI18n()
 const { leaveTypes, isLoading, error, fetchLeaveTypes, createLeaveType, updateLeaveType, toggleLeaveType } = useLeaveTypes()
-const {
-  adminBalances,
-  isLoadingAdmin,
-  adminError,
-  fetchAdminBalances,
-  updateAllocatedDays,
-  upsertTypeBalances,
-} = useLeaveBalances()
+const { adminBalances, isLoadingAdmin, adminError, fetchAdminBalances, updateAllocatedDays, upsertTypeBalances } = useLeaveBalances()
 const toast = useToast()
+const route = useRoute()
+const router = useRouter()
 
-const activeTab = ref<'types' | 'balances'>('types')
-const selectedYear = ref(new Date().getFullYear())
-
-const showModal = ref(false)
-const editingType = ref<LeaveType | null>(null)
-
-const formName = ref('')
-const formColor = ref('#4CAF50')
-const formError = ref<string | null>(null)
-const isSaving = ref(false)
-const togglingId = ref<string | null>(null)
-
-const editingDays = ref<Record<string, number>>({})
-const daysError = ref<Record<string, string>>({})
-const savingId = ref<string | null>(null)
-const bulkDays = ref<Record<string, number>>({})
-const bulkError = ref<Record<string, string>>({})
-const bulkSavingId = ref<string | null>(null)
-
-const allDisabledWarning = computed(
-  () => leaveTypes.value.length > 0 && leaveTypes.value.every(t => !t.is_active),
-)
-
-const balancesByType = computed(() => {
-  const map = new Map<string, { type: AdminBalanceRow['leave_types'], rows: AdminBalanceRow[] }>()
-  for (const b of adminBalances.value) {
-    if (!map.has(b.leave_type_id)) {
-      map.set(b.leave_type_id, { type: b.leave_types, rows: [] })
-    }
-    map.get(b.leave_type_id)!.rows.push(b)
-  }
-  return [...map.values()]
+const tab = computed<'types' | 'balances'>({
+  get: () => (route.query.tab === 'balances' ? 'balances' : 'types'),
+  set: (v) => { router.replace({ query: { ...route.query, tab: v } }) },
 })
-
-watch(editingType, (type) => {
-  if (type) {
-    formName.value = type.name
-    formColor.value = type.color
-  } else {
-    formName.value = ''
-    formColor.value = '#4CAF50'
-  }
-}, { immediate: true })
-
-watch(selectedYear, (year) => fetchAdminBalances(year))
+const tabs = computed(() => [
+  { id: 'types', label: t('rules.tabTypes'), count: leaveTypes.value.length },
+  { id: 'balances', label: t('rules.tabBalances') },
+])
 
 onMounted(() => fetchLeaveTypes(false))
 
-function openBalancesTab() {
-  activeTab.value = 'balances'
-  fetchAdminBalances(selectedYear.value)
-}
+// ── Types ────────────────────────────────────────────────────────────────────
+const editing = ref<LeaveType | null>(null)
+const creating = ref(false)
+const formName = ref('')
+const formColor = ref('#007840')
+const formError = ref<string | null>(null)
+const isSaving = ref(false)
+const togglingId = ref<string | null>(null)
+const allInactive = computed(() => leaveTypes.value.length > 0 && leaveTypes.value.every(x => !x.is_active))
 
-function openCreateModal() {
-  editingType.value = null
-  showModal.value = true
-}
-
-function openEditModal(type: LeaveType) {
-  editingType.value = type
-  showModal.value = true
-}
-
-function closeModal() {
-  showModal.value = false
-  editingType.value = null
+function startCreate() {
+  editing.value = null
+  creating.value = true
+  formName.value = ''
+  formColor.value = '#007840'
   formError.value = null
 }
+function startEdit(type: LeaveType) {
+  creating.value = false
+  editing.value = type
+  formName.value = type.name
+  formColor.value = type.color
+  formError.value = null
+}
+function stopEdit() {
+  editing.value = null
+  creating.value = false
+}
 
-async function handleSave() {
-  if (!formName.value.trim()) return
+async function save() {
+  if (!formName.value.trim()) {
+    formError.value = t('rules.nameRequired')
+    return
+  }
   isSaving.value = true
   formError.value = null
   try {
-    if (editingType.value) {
-      await updateLeaveType(editingType.value.id, formName.value, formColor.value)
-      toast.add('Type de congé modifié')
-    } else {
-      await createLeaveType(formName.value, formColor.value)
-      toast.add('Type de congé ajouté')
+    if (editing.value) {
+      await updateLeaveType(editing.value.id, formName.value.trim(), formColor.value)
+      toast.add(t('rules.typeSaved'))
     }
-    closeModal()
+    else {
+      await createLeaveType(formName.value.trim(), formColor.value)
+      toast.add(t('rules.typeAdded'))
+    }
+    stopEdit()
     await fetchLeaveTypes(false)
-  } catch (e) {
-    formError.value = e instanceof Error ? e.message : "Erreur lors de l'enregistrement"
-  } finally {
+  }
+  catch (e) {
+    formError.value = e instanceof Error ? e.message : t('rules.saveError')
+  }
+  finally {
     isSaving.value = false
   }
 }
 
-async function handleToggle(type: LeaveType) {
-  if (togglingId.value === type.id) return
+async function toggle(type: LeaveType) {
   togglingId.value = type.id
   try {
     await toggleLeaveType(type.id, !type.is_active)
-    toast.add(type.is_active ? 'Type désactivé' : 'Type activé')
+    toast.add(type.is_active ? t('rules.deactivated') : t('rules.activated'))
     await fetchLeaveTypes(false)
-  } catch (e) {
-    toast.add(e instanceof Error ? e.message : 'Erreur lors de la mise à jour', 'error')
-  } finally {
+  }
+  catch (e) {
+    toast.add(e instanceof Error ? e.message : t('rules.saveError'), 'error')
+  }
+  finally {
     togglingId.value = null
   }
 }
 
-function validateDays(days: number | undefined): string | null {
-  if (days === undefined || isNaN(days)) return 'Valeur invalide'
-  if (!Number.isInteger(days)) return 'Le nombre de jours doit être un entier'
-  if (days < 0) return 'Le nombre de jours ne peut pas être négatif'
-  return null
+// ── Balances ─────────────────────────────────────────────────────────────────
+const year = ref(new Date().getFullYear())
+const typeId = ref('')
+const yearOptions = computed(() => [year.value - 1, year.value, year.value + 1].map(y => ({ value: String(y), label: String(y) })))
+const yearModel = computed({ get: () => String(year.value), set: (v: string) => { year.value = Number(v) } })
+const typeOptions = computed(() => leaveTypes.value.map(x => ({ value: x.id, label: x.name })))
+
+watch([tab, year], ([tb]) => { if (tb === 'balances') fetchAdminBalances(year.value) }, { immediate: true })
+watch(leaveTypes, (types) => { if (!typeId.value && types[0]) typeId.value = types[0].id }, { immediate: true })
+
+const rows = computed(() => adminBalances.value
+  .filter(b => b.leave_type_id === typeId.value)
+  .map(b => ({ ...b, name: fullName(b.profiles), left: b.allocated_days - b.used_days }))
+  .sort((a, b) => a.name.localeCompare(b.name)))
+
+function validDays(v: string): number | null {
+  if (!/^\d+$/.test(v.trim())) return null
+  return Number(v)
 }
 
-function startEdit(b: AdminBalanceRow) {
-  editingDays.value[b.id] = b.allocated_days
-  delete daysError.value[b.id]
-}
+const drafts = ref<Record<string, string>>({})
+const draftErrors = ref<Record<string, string>>({})
+const savingId = ref<string | null>(null)
 
-function cancelEdit(id: string) {
-  delete editingDays.value[id]
-  delete daysError.value[id]
-}
-
-async function handleSaveDays(b: AdminBalanceRow) {
-  const days = editingDays.value[b.id]
-  const validationError = validateDays(days)
-  if (validationError) {
-    daysError.value[b.id] = validationError
+async function saveRow(id: string) {
+  const days = validDays(drafts.value[id] ?? '')
+  if (days === null) {
+    draftErrors.value[id] = t('rules.daysInvalid')
     return
   }
-  delete daysError.value[b.id]
-  savingId.value = b.id
+  delete draftErrors.value[id]
+  savingId.value = id
   try {
-    await updateAllocatedDays(b.id, days as number)
-    toast.add('Solde mis à jour')
-    await fetchAdminBalances(selectedYear.value)
-    delete editingDays.value[b.id]
-  } catch (e) {
-    toast.add(e instanceof Error ? e.message : 'Erreur lors de la mise à jour', 'error')
-  } finally {
+    await updateAllocatedDays(id, days)
+    toast.add(t('rules.balanceSaved'))
+    delete drafts.value[id]
+    await fetchAdminBalances(year.value)
+  }
+  catch (e) {
+    toast.add(e instanceof Error ? e.message : t('rules.saveError'), 'error')
+  }
+  finally {
     savingId.value = null
   }
 }
 
-async function handleBulkSet(typeId: string) {
-  const days = bulkDays.value[typeId]
-  const validationError = validateDays(days)
-  if (validationError) {
-    bulkError.value[typeId] = validationError
+const bulk = ref('')
+const bulkError = ref<string | null>(null)
+const bulkSaving = ref(false)
+async function applyAll() {
+  const days = validDays(bulk.value)
+  if (days === null) {
+    bulkError.value = t('rules.daysInvalid')
     return
   }
-  delete bulkError.value[typeId]
-  bulkSavingId.value = typeId
+  bulkError.value = null
+  bulkSaving.value = true
   try {
-    await upsertTypeBalances(typeId, selectedYear.value, days as number)
-    toast.add('Quota appliqué à tous les employés')
-    await fetchAdminBalances(selectedYear.value)
-    delete bulkDays.value[typeId]
-  } catch (e) {
-    toast.add(e instanceof Error ? e.message : "Erreur lors de l'application du quota", 'error')
-  } finally {
-    bulkSavingId.value = null
+    await upsertTypeBalances(typeId.value, year.value, days)
+    toast.add(t('rules.appliedAll'))
+    bulk.value = ''
+    await fetchAdminBalances(year.value)
+  }
+  catch (e) {
+    toast.add(e instanceof Error ? e.message : t('rules.saveError'), 'error')
+  }
+  finally {
+    bulkSaving.value = false
   }
 }
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto">
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-xl font-semibold text-gray-900">Administration des congés</h1>
-      <AppButton v-if="activeTab === 'types'" @click="openCreateModal">Ajouter un type</AppButton>
+  <div class="wb-page wb-stack">
+    <div class="wb-row-b wb-wrap">
+      <WbTabs v-model="tab" :tabs="tabs" :label="t('nav.rules')" />
+      <WbButton v-if="tab === 'types'" icon="plus" @click="startCreate">{{ t('rules.addType') }}</WbButton>
     </div>
 
-    <!-- Tabs -->
-    <div class="border-b border-gray-200 mb-6">
-      <nav class="flex gap-6" aria-label="Onglets administration">
-        <button
-          class="pb-3 text-sm font-medium border-b-2 transition-colors"
-          :class="activeTab === 'types'
-            ? 'border-brand-primary text-brand-primary'
-            : 'border-transparent text-gray-500 hover:text-gray-700'"
-          @click="activeTab = 'types'"
-        >
-          Types de congé
-        </button>
-        <button
-          class="pb-3 text-sm font-medium border-b-2 transition-colors"
-          :class="activeTab === 'balances'
-            ? 'border-brand-primary text-brand-primary'
-            : 'border-transparent text-gray-500 hover:text-gray-700'"
-          @click="openBalancesTab"
-        >
-          Soldes
-        </button>
-      </nav>
-    </div>
-
-    <!-- Tab: Types -->
-    <template v-if="activeTab === 'types'">
-      <!-- Warning banner -->
-      <div
-        v-if="allDisabledWarning"
-        class="rounded-md bg-amber-50 border border-amber-200 p-3 mb-4 text-sm text-amber-800"
-      >
-        Attention : aucun type de congé actif. Les employés ne pourront pas créer de demandes.
-      </div>
-
-      <!-- 1. Loading -->
-      <template v-if="isLoading">
-        <AppSkeleton v-for="i in 4" :key="i" class="mb-3 h-12" />
-      </template>
-
-      <!-- 2. Error -->
-      <AppErrorBanner
-        v-else-if="error"
-        :message="error"
-        @retry="fetchLeaveTypes(false)"
-      />
-
-      <!-- 3. Empty -->
-      <AppEmptyState
-        v-else-if="leaveTypes.length === 0"
-        title="Aucun type de congé"
-        description="Ajoutez un premier type de congé pour permettre aux employés de créer des demandes."
-      >
-        <AppButton class="mt-4" @click="openCreateModal">Ajouter un type</AppButton>
-      </AppEmptyState>
-
-      <!-- 4. Content -->
-      <div v-else class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b border-gray-100 text-left text-gray-500">
-                <th class="px-4 py-3 w-12 font-medium">Couleur</th>
-                <th class="px-4 py-3 font-medium">Nom</th>
-                <th class="px-4 py-3 font-medium">Statut</th>
-                <th class="px-4 py-3 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="type in leaveTypes"
-                :key="type.id"
-                :class="['border-b border-gray-100 last:border-0 transition-opacity', !type.is_active && 'opacity-50']"
-              >
-                <td class="px-4 py-3">
-                  <span
-                    class="w-5 h-5 rounded-full inline-block"
-                    :style="{ backgroundColor: type.color }"
-                    :title="type.color"
-                    :aria-label="`Couleur ${type.color}`"
-                  />
-                </td>
-                <td class="px-4 py-3 font-medium text-gray-900">{{ type.name }}</td>
-                <td class="px-4 py-3">
-                  <AppBadge
-                    :label="type.is_active ? 'Actif' : 'Inactif'"
-                    :variant="type.is_active ? 'green' : 'gray'"
-                  />
-                </td>
-                <td class="px-4 py-3 text-right space-x-2">
-                  <AppButton variant="ghost" @click="openEditModal(type)">Modifier</AppButton>
-                  <AppButton
-                    :variant="type.is_active ? 'secondary' : 'ghost'"
-                    :disabled="togglingId === type.id"
-                    @click="handleToggle(type)"
-                  >
-                    <span v-if="togglingId === type.id" class="flex items-center gap-2">
-                      <AppSpinner color="gray" />
-                      {{ type.is_active ? 'Désactivation…' : 'Activation…' }}
-                    </span>
-                    <span v-else>{{ type.is_active ? 'Désactiver' : 'Activer' }}</span>
-                  </AppButton>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </template>
-
-    <!-- Tab: Soldes -->
-    <template v-else-if="activeTab === 'balances'">
-      <!-- Year selector -->
-      <div class="flex items-center gap-3 mb-6">
-        <label for="balance-year" class="text-sm font-medium text-gray-700">Année</label>
-        <select
-          id="balance-year"
-          v-model="selectedYear"
-          class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
-        >
-          <option v-for="y in [selectedYear - 1, selectedYear, selectedYear + 1]" :key="y" :value="y">
-            {{ y }}
-          </option>
-        </select>
-      </div>
-
-      <!-- 1. Loading -->
-      <template v-if="isLoadingAdmin">
-        <AppSkeleton v-for="i in 3" :key="i" class="mb-4 h-32" />
-      </template>
-
-      <!-- 2. Error -->
-      <AppErrorBanner
-        v-else-if="adminError"
-        :message="adminError"
-        @retry="fetchAdminBalances(selectedYear)"
-      />
-
-      <!-- 3. Empty -->
-      <AppEmptyState
-        v-else-if="balancesByType.length === 0"
-        title="Aucun solde pour cette année"
-        description="Créez un type de congé pour initialiser automatiquement les soldes."
-      />
-
-      <!-- 4. Content — grouped by leave type -->
-      <div v-else class="space-y-6">
-        <div
-          v-for="group in balancesByType"
-          :key="group.type.id"
-          class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
-        >
-          <!-- Group header -->
-          <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50">
-            <div class="flex items-center gap-2">
-              <span
-                class="w-3 h-3 rounded-full inline-block flex-shrink-0"
-                :style="{ backgroundColor: group.type.color }"
-                :aria-label="`Couleur ${group.type.color}`"
-              />
-              <span class="font-medium text-gray-900 text-sm">{{ group.type.name }}</span>
-            </div>
-            <!-- Bulk set -->
-            <div class="flex flex-wrap items-center gap-2">
-              <label :for="`bulk-${group.type.id}`" class="text-xs text-gray-500">
-                Appliquer à tous :
-              </label>
-              <div class="flex flex-col gap-1">
-                <input
-                  :id="`bulk-${group.type.id}`"
-                  v-model.number="bulkDays[group.type.id]"
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="jours"
-                  class="w-20 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                  :class="{ 'border-red-400': bulkError[group.type.id] }"
-                  :aria-label="`Quota pour ${group.type.name}`"
-                  :aria-describedby="bulkError[group.type.id] ? `bulk-error-${group.type.id}` : undefined"
-                  @input="delete bulkError[group.type.id]"
-                />
-                <span
-                  v-if="bulkError[group.type.id]"
-                  :id="`bulk-error-${group.type.id}`"
-                  class="text-xs text-red-600"
-                  role="alert"
-                >
-                  {{ bulkError[group.type.id] }}
-                </span>
-              </div>
-              <AppButton
-                variant="secondary"
-                :disabled="bulkDays[group.type.id] === undefined || bulkSavingId === group.type.id"
-                @click="handleBulkSet(group.type.id)"
-              >
-                <span v-if="bulkSavingId === group.type.id" class="flex items-center gap-1">
-                  <AppSpinner color="gray" />
-                  Envoi…
-                </span>
-                <span v-else>Appliquer</span>
-              </AppButton>
-            </div>
-          </div>
-
-          <!-- Per-employee rows -->
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+    <!-- Types -->
+    <template v-if="tab === 'types'">
+      <WbBanner v-if="allInactive" tone="warning">{{ t('rules.allInactive') }}</WbBanner>
+      <WbErrorState v-if="error" :message="error" @retry="fetchLeaveTypes(false)" />
+      <WbSkeleton v-else-if="isLoading && !leaveTypes.length" variant="table" />
+      <div v-else :class="editing || creating ? 'wb-split' : undefined">
+        <WbCard :pad="false">
+          <div class="wb-scroll wb-dt">
+            <table>
+              <caption class="wb-sr">{{ t('rules.tabTypes') }}</caption>
               <thead>
-                <tr class="text-left text-gray-500 border-b border-gray-100">
-                  <th class="px-4 py-2 font-medium">Employé</th>
-                  <th class="px-4 py-2 font-medium text-right">Alloués</th>
-                  <th class="px-4 py-2 font-medium text-right">Utilisés</th>
-                  <th class="px-4 py-2 font-medium text-right">Restants</th>
-                  <th class="px-4 py-2 font-medium text-right">Action</th>
+                <tr>
+                  <th scope="col">{{ t('rules.name') }}</th>
+                  <th scope="col">{{ t('rules.status') }}</th>
+                  <th scope="col" class="is-r">{{ t('rules.actions') }}</th>
                 </tr>
               </thead>
               <tbody>
-                <tr
-                  v-for="b in group.rows"
-                  :key="b.id"
-                  class="border-b border-gray-100 last:border-0"
-                >
-                  <td class="px-4 py-3 text-gray-900">
-                    {{ b.profiles.first_name }} {{ b.profiles.last_name }}
+                <tr v-for="lt in leaveTypes" :key="lt.id" :class="{ 'is-sel': editing?.id === lt.id }" :data-type="lt.name">
+                  <td><WbTypeBadge :name="lt.name" :color="lt.color" /></td>
+                  <td>
+                    <WbBadge :tone="lt.is_active ? 'success' : 'neutral'" :icon="lt.is_active ? 'circle-check' : 'ban'">
+                      {{ lt.is_active ? t('rules.active') : t('rules.inactive') }}
+                    </WbBadge>
                   </td>
-                  <td class="px-4 py-3 text-right">
-                    <template v-if="editingDays[b.id] !== undefined">
-                      <input
-                        v-model.number="editingDays[b.id]"
-                        type="number"
-                        min="0"
-                        step="1"
-                        class="w-16 border border-gray-300 rounded px-2 py-0.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                        :class="{ 'border-red-400': daysError[b.id] }"
-                        :aria-label="`Jours alloués pour ${b.profiles.first_name} ${b.profiles.last_name}`"
-                        :aria-describedby="daysError[b.id] ? `days-error-${b.id}` : undefined"
-                        @input="delete daysError[b.id]"
-                      />
-                      <span
-                        v-if="daysError[b.id]"
-                        :id="`days-error-${b.id}`"
-                        class="block text-xs text-red-600 mt-0.5 text-right"
-                        role="alert"
-                      >
-                        {{ daysError[b.id] }}
-                      </span>
-                    </template>
-                    <span v-else class="text-gray-900">{{ b.allocated_days }}</span>
-                  </td>
-                  <td class="px-4 py-3 text-right text-gray-500">{{ b.used_days }}</td>
-                  <td
-                    class="px-4 py-3 text-right"
-                    :class="(b.allocated_days - b.used_days) < 0 ? 'text-red-600' : 'text-gray-900'"
-                  >
-                    {{ b.allocated_days - b.used_days }}
-                  </td>
-                  <td class="px-4 py-3 text-right">
-                    <template v-if="editingDays[b.id] !== undefined">
-                      <AppButton
-                        variant="ghost"
-                        :disabled="savingId === b.id"
-                        @click="handleSaveDays(b)"
-                      >
-                        <span v-if="savingId === b.id" class="flex items-center gap-1">
-                          <AppSpinner color="gray" />
-                          Envoi…
-                        </span>
-                        <span v-else>Enregistrer</span>
-                      </AppButton>
-                      <AppButton variant="ghost" @click="cancelEdit(b.id)">Annuler</AppButton>
-                    </template>
-                    <AppButton v-else variant="ghost" @click="startEdit(b)">Modifier</AppButton>
+                  <td class="is-r">
+                    <div class="wb-row" style="justify-content: flex-end; gap: 4px">
+                      <WbButton variant="ghost" size="sm" icon="pencil" @click="startEdit(lt)">{{ t('rules.edit') }}</WbButton>
+                      <WbButton variant="ghost" size="sm" :loading="togglingId === lt.id" @click="toggle(lt)">
+                        {{ lt.is_active ? t('rules.deactivate') : t('rules.activate') }}
+                      </WbButton>
+                    </div>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
-        </div>
+        </WbCard>
+
+        <WbCard v-if="editing || creating" :title="editing ? t('rules.editTitle', { name: editing.name }) : t('rules.addType')">
+          <form class="wb-stack-s" novalidate @submit.prevent="save">
+            <WbInput id="type-name" v-model="formName" :label="t('rules.name')" :error="formError" maxlength="60" />
+            <WbColorPicker v-model="formColor" :label="t('rules.color')" />
+            <div class="wb-row" style="gap: 8px">
+              <WbButton type="submit" :loading="isSaving">{{ t('rules.save') }}</WbButton>
+              <WbButton variant="ghost" @click="stopEdit">{{ t('approvals.cancel') }}</WbButton>
+            </div>
+          </form>
+        </WbCard>
       </div>
     </template>
 
-    <!-- Modal create / edit -->
-    <AppModal
-      v-if="showModal"
-      :title="editingType ? 'Modifier le type de congé' : 'Ajouter un type de congé'"
-      @close="closeModal"
-    >
-      <form @submit.prevent="handleSave">
-        <!-- Name field -->
-        <div class="mb-4">
-          <label for="type-name" class="block text-sm font-medium text-gray-700 mb-1">
-            Nom <span class="text-red-500" aria-hidden="true">*</span>
-          </label>
-          <input
-            id="type-name"
-            v-model="formName"
-            type="text"
-            required
-            autocomplete="off"
-            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
-            placeholder="ex. Congé exceptionnel"
-          />
+    <!-- Balances -->
+    <template v-else>
+      <div class="wb-row-b wb-wrap">
+        <div class="wb-row wb-wrap">
+          <WbSelect v-model="yearModel" :options="yearOptions" :aria-label="t('rules.year')" />
+          <WbSelect v-model="typeId" :options="typeOptions" :aria-label="t('calendar.type')" />
         </div>
+        <form class="wb-row wb-wrap" novalidate @submit.prevent="applyAll">
+          <WbInput v-model="bulk" inputmode="numeric" :aria-label="t('rules.applyAllDays')" :placeholder="t('rules.applyAllDays')" :error="bulkError" style="width: 140px" />
+          <WbButton type="submit" variant="secondary" :loading="bulkSaving" :disabled="!typeId">{{ t('rules.applyAll') }}</WbButton>
+        </form>
+      </div>
 
-        <!-- Color field -->
-        <div class="mb-6">
-          <label for="type-color" class="block text-sm font-medium text-gray-700 mb-1">
-            Couleur <span class="text-red-500" aria-hidden="true">*</span>
-          </label>
-          <div class="flex items-center gap-3">
-            <input
-              id="type-color"
-              v-model="formColor"
-              type="color"
-              class="w-10 h-10 rounded cursor-pointer border border-gray-300"
-            />
-            <span class="text-sm text-gray-500 font-mono">{{ formColor }}</span>
-          </div>
+      <WbErrorState v-if="adminError" :message="adminError" @retry="fetchAdminBalances(year)" />
+      <WbSkeleton v-else-if="isLoadingAdmin && !rows.length" variant="table" />
+      <p v-else-if="!rows.length" class="wb-card wb-card-b wb-mut">{{ t('rules.noBalances') }}</p>
+      <WbCard v-else :pad="false">
+        <div class="wb-scroll wb-dt">
+          <table>
+            <caption class="wb-sr">{{ t('rules.tabBalances') }}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{{ t('dashboard.csv.person') }}</th>
+                <th scope="col" class="is-r">{{ t('balance.allocated') }}</th>
+                <th scope="col" class="is-r">{{ t('balance.used') }}</th>
+                <th scope="col" class="is-r">{{ t('balance.left') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="b in rows" :key="b.id" :data-person="b.name">
+                <td><span class="wb-cp"><WbAvatar :name="b.name" :size="32" /><b class="small">{{ b.name }}</b></span></td>
+                <td class="is-r">
+                  <form v-if="drafts[b.id] !== undefined" class="wb-row" style="justify-content: flex-end; gap: 4px" novalidate @submit.prevent="saveRow(b.id)">
+                    <WbInput v-model="drafts[b.id]" inputmode="numeric" :aria-label="t('rules.allocatedFor', { who: b.name })" :error="draftErrors[b.id]" style="width: 90px" />
+                    <WbButton type="submit" size="sm" :loading="savingId === b.id">{{ t('rules.save') }}</WbButton>
+                    <WbButton variant="ghost" size="sm" @click="delete drafts[b.id]">{{ t('approvals.cancel') }}</WbButton>
+                  </form>
+                  <button v-else type="button" class="wb-edit-n wb-num" :aria-label="t('rules.editAllocated', { who: b.name })" @click="drafts[b.id] = String(b.allocated_days)">
+                    {{ b.allocated_days }} <WbIcon name="pencil" :size="14" />
+                  </button>
+                </td>
+                <td class="is-r wb-num">{{ b.used_days }}</td>
+                <td class="is-r wb-num" :class="{ 'wb-c-danger': b.left <= 0 }"><b>{{ b.left }}</b></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-
-        <!-- Inline error -->
-        <div
-          v-if="formError"
-          class="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700"
-          role="alert"
-        >
-          {{ formError }}
-        </div>
-
-        <!-- Actions -->
-        <div class="flex justify-end gap-3">
-          <AppButton variant="secondary" type="button" @click="closeModal">Annuler</AppButton>
-          <AppButton type="submit" :disabled="isSaving || !formName.trim()">
-            <span v-if="isSaving" class="flex items-center gap-2">
-              <AppSpinner />
-              Enregistrement…
-            </span>
-            <span v-else>{{ editingType ? 'Modifier' : 'Ajouter' }}</span>
-          </AppButton>
-        </div>
-      </form>
-    </AppModal>
+      </WbCard>
+    </template>
   </div>
 </template>
+
+<style scoped>
+.wb-edit-n { all: unset; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; padding: 4px 8px; border-radius: var(--radius-sm); }
+.wb-edit-n:hover { background: var(--surface-2); }
+.wb-edit-n:focus-visible { outline: 2px solid var(--focus); }
+</style>
