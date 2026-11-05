@@ -20,35 +20,14 @@ const expanded = ref<Record<string, boolean>>({})
 const ticketsCache = ref<Record<string, TicketRow[]>>({})
 const loadingMonth = ref<string | null>(null)
 
-const METRIC_CONFIG: Record<MetricKey, { label: string; unit: string; note: string }> = {
-  ticketsCount: {
-    label: 'Tickets/mois',
-    unit: 'tickets',
-    note: 'Compte les tickets passés en In Review ou plus loin dans le mois (date de transition).',
-  },
-  pointsSum: {
-    label: 'Points/mois',
-    unit: 'pts',
-    note: 'Somme des estimates des tickets livrés. Tickets sans estimation exclus de la somme.',
-  },
-  bugsCount: {
-    label: 'Bugs urgents/mois',
-    unit: 'tickets',
-    note: 'Tickets livrés sans estimation (proxy "bug urgent"). Heuristique — l\'absence d\'estimate reflète souvent un ticket non planifié.',
-  },
-  medianDevCycleHours: {
-    label: 'Cycle dev (médiane)',
-    unit: 'h',
-    note: 'Médiane de (in_review_at − started_at). Mesure le temps dev pur, sans code review ni QA.',
-  },
-  avgSize: {
-    label: 'Taille moyenne',
-    unit: 'pts',
-    note: 'Moyenne des estimates des tickets livrés avec estimation.',
-  },
-}
-
-const config = computed(() => METRIC_CONFIG[props.metric])
+const { t, locale } = useI18n()
+const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
+const UNITS: Record<MetricKey, string> = { ticketsCount: 'tickets', pointsSum: 'pts', bugsCount: 'tickets', medianDevCycleHours: 'h', avgSize: 'pts' }
+const config = computed(() => ({
+  label: t(`velocityB.drill.${props.metric}.label`),
+  unit: UNITS[props.metric],
+  note: t(`velocityB.drill.${props.metric}.note`),
+}))
 
 function getValue(month: string): number {
   return props.devMetrics[month]?.[props.metric] ?? 0
@@ -65,11 +44,7 @@ function formatValue(v: number): string {
   return props.metric === 'medianDevCycleHours' ? `${v.toFixed(0)}h` : v.toFixed(1)
 }
 
-function monthLabel(m: string): string {
-  const [year, month] = m.split('-')
-  const labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
-  return `${labels[parseInt(month!) - 1]} ${year}`
-}
+const monthLabel = (m: string) => velociteMonth(m, tag.value, true)
 
 async function toggleMonth(month: string) {
   expanded.value[month] = !expanded.value[month]
@@ -96,117 +71,48 @@ function linearUrl(identifier: string | null): string {
   return `https://linear.app/issue/${identifier}`
 }
 
-// Fermer avec Échap
-onMounted(() => {
-  const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') emit('close') }
-  window.addEventListener('keydown', handleKey)
-  onUnmounted(() => window.removeEventListener('keydown', handleKey))
-})
 </script>
 
 <template>
-  <!-- Backdrop -->
-  <div
-    class="fixed inset-0 z-40 bg-black/30"
-    aria-hidden="true"
-    @click="emit('close')"
-  />
-
-  <!-- Panel -->
-  <div
-    role="dialog"
-    aria-modal="true"
-    :aria-label="`Détail du calcul : ${config.label}`"
-    class="fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto bg-white shadow-xl flex flex-col"
-  >
-    <!-- Header -->
-    <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-      <div>
-        <p class="text-xs text-gray-400 uppercase tracking-wide">Détail du calcul</p>
-        <h2 class="text-base font-semibold text-gray-900">{{ config.label }}</h2>
-        <p class="text-sm text-gray-500">{{ devName }}</p>
-      </div>
-      <button
-        class="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-        aria-label="Fermer"
-        @click="emit('close')"
-      >
-        ✕
-      </button>
-    </div>
-
-    <!-- Formule -->
-    <div class="border-b border-gray-100 bg-gray-50 px-5 py-3">
-      <p class="text-xs text-gray-500 mb-1">Formule (moyenne sur {{ months.length }} mois)</p>
-      <p class="font-mono text-sm text-gray-800">
-        <strong>{{ formatValue(avgValue) }} {{ config.unit }}</strong>
-        = ({{ monthlyValues.map(v => formatValue(v)).join(' + ') }})
-        / {{ months.length }}
+  <WbSidePanel :title="config.label" :subtitle="devName" @close="emit('close')">
+    <div class="wb-card wb-card-b wb-stack-s" style="background: var(--bg); box-shadow: none">
+      <p class="caption wb-mut">{{ t('velocityB.drill.formula', { n: months.length }) }}</p>
+      <p class="wb-mono">
+        <b>{{ formatValue(avgValue) }} {{ config.unit }}</b>
+        = ({{ monthlyValues.map(v => formatValue(v)).join(' + ') }}) / {{ months.length }}
       </p>
     </div>
 
-    <!-- Mois dépliables -->
-    <div class="flex-1 px-5 py-4 space-y-2">
-      <div
-        v-for="(month, i) in months"
-        :key="month"
-        class="rounded-lg border border-gray-200 overflow-hidden"
-      >
-        <button
-          class="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-          @click="toggleMonth(month)"
-        >
-          <span class="text-sm font-medium text-gray-700">{{ monthLabel(month) }}</span>
-          <div class="flex items-center gap-3">
-            <span class="font-mono text-sm font-semibold text-gray-900">
-              {{ formatValue(monthlyValues[i] ?? 0) }} {{ config.unit }}
-            </span>
-            <span class="text-gray-400 text-xs">{{ expanded[month] ? '▼' : '▶' }}</span>
-          </div>
+    <ul class="wb-stack-s wb-drill">
+      <li v-for="(month, i) in months" :key="month" class="wb-card">
+        <button type="button" class="wb-drill-h" :aria-expanded="!!expanded[month]" @click="toggleMonth(month)">
+          <span class="h3">{{ monthLabel(month) }}</span>
+          <span class="wb-row" style="gap: 8px">
+            <b class="wb-num small">{{ formatValue(monthlyValues[i] ?? 0) }} {{ config.unit }}</b>
+            <WbIcon name="chevron-down" :size="14" :class="{ 'wb-drill-up': expanded[month] }" />
+          </span>
         </button>
-
-        <div v-if="expanded[month]" class="border-t border-gray-100 px-4 py-3">
-          <!-- Loading tickets -->
-          <template v-if="loadingMonth === month">
-            <AppSkeleton v-for="j in 3" :key="j" class="mb-1.5 h-6" />
-          </template>
-
-          <!-- Tickets -->
-          <template v-else-if="ticketsCache[month]?.length">
-            <ul class="space-y-1.5">
-              <li
-                v-for="t in ticketsCache[month]"
-                :key="t.id"
-                class="flex items-center gap-2 text-xs"
-              >
-                <a
-                  :href="linearUrl(t.identifier)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="font-mono text-brand-primary hover:underline shrink-0"
-                  @click.stop
-                >
-                  {{ t.identifier ?? '—' }}
-                </a>
-                <span class="truncate text-gray-700 flex-1">{{ t.title ?? '—' }}</span>
-                <span class="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-gray-500 font-mono">
-                  {{ t.estimate != null ? `${t.estimate}pts` : 'no est.' }}
-                </span>
-              </li>
-            </ul>
-          </template>
-
-          <p v-else class="text-xs text-gray-400">Aucun ticket trouvé pour ce mois.</p>
+        <div v-if="expanded[month]" class="wb-card-b" style="padding-top: 0">
+          <WbSkeleton v-if="loadingMonth === month" variant="table" :count="3" />
+          <ul v-else-if="ticketsCache[month]?.length" class="wb-list">
+            <li v-for="tk in ticketsCache[month]" :key="tk.id" class="small">
+              <a :href="linearUrl(tk.identifier)" target="_blank" rel="noopener noreferrer" class="wb-mono" @click.stop>{{ tk.identifier ?? '—' }}</a>
+              <span class="wb-grow">{{ tk.title ?? '—' }}</span>
+              <WbBadge size="sm"><span class="wb-num">{{ tk.estimate != null ? t('velocityB.insights.pts', { n: tk.estimate }) : t('velocityB.insights.noEstimate') }}</span></WbBadge>
+            </li>
+          </ul>
+          <p v-else class="small wb-mut">{{ t('velocityB.drill.noTickets') }}</p>
         </div>
-      </div>
-    </div>
+      </li>
+    </ul>
 
-    <!-- Note méthodo -->
-    <div class="border-t border-gray-100 bg-gray-50 px-5 py-4">
-      <p class="text-xs text-gray-500 italic">
-        <strong class="not-italic font-medium text-gray-600">Méthode :</strong>
-        {{ config.note }}
-      </p>
-    </div>
-  </div>
+    <p class="small wb-mut2"><b>{{ t('velocityB.drill.method') }}</b> {{ config.note }}</p>
+  </WbSidePanel>
 </template>
+
+<style scoped>
+.wb-drill { list-style: none; margin: 0; padding: 0; }
+.wb-drill-h { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; padding: var(--space-3) var(--space-4); }
+.wb-drill-h:focus-visible { outline: 2px solid var(--focus); }
+.wb-drill-up { transform: rotate(180deg); }
+</style>

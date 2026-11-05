@@ -1,54 +1,16 @@
 <script setup lang="ts">
-import { Bar } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-} from 'chart.js'
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip)
-
-const props = defineProps<{
-  months: readonly string[]
-  values: readonly number[]
-}>()
-
-function monthLabel(m: string): string {
-  const [year, month] = m.split('-')
-  const labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
-  return `${labels[parseInt(month!) - 1]} ${year}`
-}
-
-const chartData = computed(() => ({
-  labels: props.months.map(monthLabel),
-  datasets: [
-    {
-      label: 'Points livrés',
-      data: [...props.values],
-      backgroundColor: '#2563EB',
-      borderRadius: 4,
-    },
-  ],
-}))
-
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-    tooltip: { mode: 'index' as const, intersect: false },
-  },
-  scales: {
-    y: { beginAtZero: true },
-  },
-}
+const props = defineProps<{ months: readonly string[], values: readonly number[] }>()
+const { t, locale } = useI18n()
+const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
+const labels = computed(() => props.months.map(m => velociteMonth(m, tag.value)))
 </script>
 
 <template>
-  <div class="h-48">
-    <Bar :data="chartData" :options="chartOptions" />
-  </div>
+  <WbBarChart
+    :title="t('velocityB.charts.points')"
+    :labels="labels"
+    :series="[{ label: t('velocityB.charts.pointsDelivered'), data: values, color: '--chart-1' }]"
+    :height="200"
+    :legend="false"
+  />
 </template>

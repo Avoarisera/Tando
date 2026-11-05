@@ -13,123 +13,74 @@ export interface TicketRow {
   cycle_dev_hours?: number | null
 }
 
-const props = defineProps<{
-  tickets: TicketRow[]
-  isLoading: boolean
-}>()
-
+const props = defineProps<{ tickets: TicketRow[], isLoading: boolean }>()
 const emit = defineEmits<{ 'ticket-click': [id: string] }>()
+const { t, locale } = useI18n()
+const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 
 const PAGE_SIZE = 10
 const page = ref(1)
-
-// Reset to page 1 whenever tickets change
 watch(() => props.tickets, () => { page.value = 1 })
-
 const totalPages = computed(() => Math.max(1, Math.ceil(props.tickets.length / PAGE_SIZE)))
-const paginated = computed(() =>
-  props.tickets.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE),
-)
-
-function cycleHours(t: TicketRow): string {
-  if (t.cycle_dev_hours == null) return '—'
-  return `${t.cycle_dev_hours.toFixed(0)}h`
-}
+const paginated = computed(() => props.tickets.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
 
 function linearUrl(identifier: string | null): string {
-  if (!identifier) return '#'
-  return `https://linear.app/issue/${identifier}`
+  return identifier ? `https://linear.app/issue/${identifier}` : '#'
 }
 </script>
 
 <template>
   <div>
-    <template v-if="isLoading">
-      <AppSkeleton v-for="i in 5" :key="i" class="mb-2 h-10" />
-    </template>
-
-    <AppEmptyState
-      v-else-if="tickets.length === 0"
-      title="Aucun ticket livré sur cette période"
-    />
-
-    <div v-else class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-gray-200 text-left text-xs text-gray-500">
-            <th class="pb-2 pr-4 font-medium">Ticket</th>
-            <th class="pb-2 pr-4 font-medium">Titre</th>
-            <th class="pb-2 pr-4 font-medium text-right">Pts</th>
-            <th class="pb-2 pr-4 font-medium">Statut</th>
-            <th class="pb-2 pr-4 font-medium text-right">Cycle dev</th>
-            <th class="pb-2 font-medium" />
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="t in paginated"
-            :key="t.id"
-            class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-            @click="emit('ticket-click', t.id)"
-          >
-            <td class="py-2 pr-4">
-              <a
-                :href="linearUrl(t.identifier)"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="font-mono text-xs text-brand-primary hover:underline"
-                @click.stop
-              >
-                {{ t.identifier ?? '—' }}
-              </a>
-            </td>
-            <td class="py-2 pr-4 max-w-[280px]">
-              <span class="truncate block text-gray-800">{{ t.title ?? '—' }}</span>
-            </td>
-            <td class="py-2 pr-4 text-right text-gray-600 font-medium">
-              {{ t.estimate ?? '—' }}
-            </td>
-            <td class="py-2 pr-4">
-              <span class="inline-block rounded-full px-2 py-0.5 text-xs bg-green-100 text-green-700">
-                {{ t.status }}
-              </span>
-            </td>
-            <td class="py-2 pr-4 text-right text-gray-600 font-mono text-xs">
-              {{ cycleHours(t) }}
-            </td>
-            <td class="py-2 text-right">
-              <span
-                v-if="t.hasRework"
-                class="inline-block rounded-full px-2 py-0.5 text-xs font-medium bg-red-50 text-red-600"
-                title="Ce ticket a eu au moins un retour arrière depuis Review ou Q/A"
-              >
-                ↩ rework
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- Pagination -->
-      <div v-if="totalPages > 1" class="mt-3 flex items-center justify-between text-xs text-gray-500">
-        <span>{{ tickets.length }} tickets · page {{ page }} / {{ totalPages }}</span>
-        <div class="flex items-center gap-1">
-          <button
-            class="rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-            :disabled="page === 1"
-            @click="page--"
-          >
-            ← Précédent
-          </button>
-          <button
-            class="rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-            :disabled="page === totalPages"
-            @click="page++"
-          >
-            Suivant →
-          </button>
+    <div v-if="isLoading" class="wb-card-b"><WbSkeleton variant="table" :count="5" /></div>
+    <p v-else-if="tickets.length === 0" class="wb-card-b wb-mut">{{ t('velocityB.tickets.empty') }}</p>
+    <template v-else>
+      <div class="wb-scroll wb-dt">
+        <table>
+          <caption class="wb-sr">{{ t('velocityB.tickets.caption') }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ t('velocityB.tickets.ticket') }}</th>
+              <th scope="col">{{ t('velocityB.tickets.title') }}</th>
+              <th scope="col" class="is-r">{{ t('velocityB.tickets.points') }}</th>
+              <th scope="col">{{ t('velocityB.tickets.status') }}</th>
+              <th scope="col" class="is-r">{{ t('velocityB.tickets.cycle') }}</th>
+              <th scope="col"><span class="wb-sr">{{ t('velocityB.kpi.rework') }}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="tk in paginated" :key="tk.id" class="wb-tk-row" @click="emit('ticket-click', tk.id)">
+              <td>
+                <a :href="linearUrl(tk.identifier)" target="_blank" rel="noopener noreferrer" class="wb-mono" @click.stop>{{ tk.identifier ?? '—' }}</a>
+              </td>
+              <td class="wb-tk-title">
+                <button type="button" class="wb-tk-open" @click.stop="emit('ticket-click', tk.id)">{{ tk.title ?? '—' }}</button>
+              </td>
+              <td class="is-r wb-num">{{ tk.estimate ?? '—' }}</td>
+              <td><WbBadge tone="success" size="sm">{{ tk.status }}</WbBadge></td>
+              <td class="is-r wb-num">{{ velociteDuration(tk.cycle_dev_hours ?? null, tag) }}</td>
+              <td>
+                <WbBadge v-if="tk.hasRework" tone="danger" icon="undo-2" size="sm">
+                  <span :title="t('velocityB.tickets.reworkTip')">{{ t('velocityB.kpi.rework') }}</span>
+                </WbBadge>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-if="totalPages > 1" class="wb-pg small wb-mut2">
+        <span class="wb-num">{{ t('velocityB.tickets.page', { n: tickets.length, page, pages: totalPages }) }}</span>
+        <div class="wb-row" style="gap: 4px">
+          <WbButton variant="ghost" size="sm" icon="chevron-left" :disabled="page === 1" @click="page--">{{ t('velocityB.tickets.prev') }}</WbButton>
+          <WbButton variant="ghost" size="sm" icon-right="chevron-right" :disabled="page === totalPages" @click="page++">{{ t('velocityB.tickets.next') }}</WbButton>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
+
+<style scoped>
+.wb-tk-row { cursor: pointer; }
+.wb-tk-title { max-width: 320px; }
+.wb-tk-open { all: unset; cursor: pointer; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.wb-tk-open:focus-visible { outline: 2px solid var(--focus); }
+</style>

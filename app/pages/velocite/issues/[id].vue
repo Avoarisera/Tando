@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HistoryEvent } from '~/components/velocite/HistoryTimeline.vue'
 
-definePageMeta({ layout: 'private', middleware: 'admin-only' })
+definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'admin-only' })
 
 interface IssueDetail {
   id: string
@@ -27,6 +27,8 @@ const issueId = route.params.id as string
 const workspaceId = route.query.workspaceId as string
 const returnUrl = route.query.returnUrl as string | undefined
 const { goBack } = useBackNavigation(returnUrl ?? '/velocite')
+const { t, locale } = useI18n()
+const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -35,7 +37,7 @@ const history = ref<HistoryEvent[]>([])
 
 onMounted(async () => {
   if (!workspaceId) {
-    error.value = 'workspaceId manquant dans l\'URL'
+    error.value = t('velocityA.ticket.missingWs')
     return
   }
   isLoading.value = true
@@ -47,7 +49,7 @@ onMounted(async () => {
     issue.value = res.issue
     history.value = res.history
   } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : 'Erreur lors du chargement du ticket'
+    error.value = e instanceof Error ? e.message : t('velocityA.ticket.loadError')
   } finally {
     isLoading.value = false
   }
@@ -74,15 +76,15 @@ const cycleHours = computed<number | null>(() => {
   return h > 0 ? h : null
 })
 
-function formatDuration(hours: number | null): string {
-  if (hours === null) return '—'
-  if (hours < 24) return `${hours.toFixed(0)}h`
-  return `${(hours / 24).toFixed(1)}j`
+function formatDuration(hours: number | null): { value: string, unit?: string } {
+  if (hours === null) return { value: '—' }
+  if (hours < 24) return { value: hours.toFixed(0), unit: 'h' }
+  return { value: (hours / 24).toFixed(1), unit: locale.value === 'en' ? 'd' : 'j' }
 }
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+  return new Intl.DateTimeFormat(tag.value, { day: '2-digit', month: '2-digit' }).format(new Date(iso))
 }
 
 function linearUrl(identifier: string | null): string {
@@ -90,107 +92,63 @@ function linearUrl(identifier: string | null): string {
   return `https://linear.app/issue/${identifier}`
 }
 
-const backUrl = computed(() => returnUrl ?? '/velocite')
+const cycle = computed(() => formatDuration(cycleHours.value))
+const statusTone = computed(() => {
+  const st = issue.value?.status ?? ''
+  if (/done|deployed/i.test(st)) return 'success' as const
+  if (/cancel/i.test(st)) return 'danger' as const
+  return 'info' as const
+})
+
+usePageHeader(() => ({
+  crumbs: [
+    { label: t('nav.velocity'), to: '/velocite' },
+    { label: issue.value?.identifier ?? t('velocityA.ticket.crumb') },
+  ],
+}))
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto">
-    <!-- Breadcrumb -->
-    <div class="mb-6">
-      <button class="text-sm text-brand-primary hover:underline" @click="goBack">← Retour</button>
-    </div>
+  <div class="wb-page wb-stack">
+    <div><WbButton variant="ghost" size="sm" icon="arrow-left" @click="goBack">{{ t('velocityA.ticket.back') }}</WbButton></div>
 
-    <!-- Loading -->
-    <template v-if="isLoading">
-      <AppSkeleton class="h-8 w-2/3 mb-3" />
-      <AppSkeleton class="h-5 w-1/3 mb-6" />
-      <AppSkeleton v-for="i in 6" :key="i" class="h-12 mb-3" />
-    </template>
+    <WbErrorState v-if="error" :message="error" @retry="$router.go(0)" />
+    <WbSkeleton v-else-if="isLoading || !issue" variant="metric" :count="4" />
 
-    <!-- Erreur -->
-    <AppErrorBanner
-      v-else-if="error"
-      :message="error"
-      @retry="$router.go(0)"
-    />
-
-    <template v-else-if="issue">
-      <!-- En-tête ticket -->
-      <div class="mb-6">
-        <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2 mb-1">
-              <a
-                :href="linearUrl(issue.identifier)"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="font-mono text-sm text-brand-primary hover:underline font-medium"
-                :title="`Ouvrir ${issue.identifier} dans Linear`"
-              >
-                {{ issue.identifier ?? issueId }}
-              </a>
-              <span
-                v-if="issue.status"
-                class="inline-block rounded-full px-2 py-0.5 text-xs bg-green-100 text-green-700"
-              >
-                {{ issue.status }}
-              </span>
-            </div>
-            <h1 class="text-xl font-bold text-gray-900 leading-snug">
-              {{ issue.title ?? 'Titre non disponible' }}
-            </h1>
-          </div>
+    <template v-else>
+      <div class="wb-stack-s">
+        <div class="wb-row wb-wrap">
           <a
+            class="wb-mono wb-ext"
             :href="linearUrl(issue.identifier)"
             target="_blank"
             rel="noopener noreferrer"
-            class="shrink-0 text-xs text-gray-400 hover:text-brand-primary transition-colors"
-            aria-label="Ouvrir dans Linear"
+            :title="t('velocityA.ticket.openLinear', { id: issue.identifier ?? issueId })"
           >
-            ↗ Linear
+            {{ issue.identifier ?? issueId }}
+            <WbIcon name="external-link" :size="14" />
+            <span class="wb-sr">{{ t('velocityA.ticket.openLinear', { id: issue.identifier ?? issueId }) }}</span>
           </a>
+          <WbBadge v-if="issue.status" :tone="statusTone">{{ issue.status }}</WbBadge>
         </div>
+        <h2 class="h1">{{ issue.title ?? t('velocityA.ticket.untitled') }}</h2>
       </div>
 
-      <!-- KPIs rapides -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        <div class="rounded-lg border border-gray-200 bg-white p-3">
-          <p class="text-xs text-gray-500 mb-1">Estimation</p>
-          <p class="text-lg font-bold text-gray-900">
-            {{ issue.estimate != null ? `${issue.estimate} pts` : '—' }}
-          </p>
-        </div>
-        <div class="rounded-lg border border-gray-200 bg-white p-3">
-          <p class="text-xs text-gray-500 mb-1">Cycle dev</p>
-          <p class="text-lg font-bold text-gray-900 font-mono">
-            {{ formatDuration(cycleHours) }}
-          </p>
-        </div>
-        <div class="rounded-lg border border-gray-200 bg-white p-3">
-          <p class="text-xs text-gray-500 mb-1">Démarré le</p>
-          <p class="text-sm font-medium text-gray-700">{{ formatDate(issue.started_at) }}</p>
-        </div>
-        <div class="rounded-lg border border-gray-200 bg-white p-3">
-          <p class="text-xs text-gray-500 mb-1">En QA le</p>
-          <p class="text-sm font-medium text-gray-700">{{ formatDate(issue.qa_started_at) }}</p>
-        </div>
+      <div class="wb-grid wb-cols-4">
+        <WbMetricCard :label="t('velocityA.ticket.estimate')" :value="issue.estimate ?? '—'" :unit="issue.estimate != null ? t('velocityA.ticket.pts') : undefined" />
+        <WbMetricCard :label="t('velocityA.ticket.cycle')" :value="cycle.value" :unit="cycle.unit" />
+        <WbMetricCard :label="t('velocityA.ticket.started')" :value="formatDate(issue.started_at)" />
+        <WbMetricCard :label="t('velocityA.ticket.qa')" :value="formatDate(issue.qa_started_at)" />
       </div>
+      <p class="caption wb-mut">{{ t('velocityA.ticket.method') }}</p>
 
-      <!-- Note méthodo cycle time -->
-      <p class="mb-6 text-xs text-gray-400 italic">
-        Le cycle dev mesure le temps entre <em>started_at</em> et <em>qa_started_at</em> — sans inclure le temps QA/PO.
-      </p>
-
-      <!-- Timeline -->
-      <div class="rounded-lg border border-gray-200 bg-white p-4 md:p-6">
-        <h2 class="text-base font-semibold text-gray-800 mb-4">Timeline des transitions</h2>
-
-        <HistoryTimeline
-          :history="history"
-          :started-at="issue.started_at"
-          :qa-started-at="issue.qa_started_at"
-        />
-      </div>
+      <WbCard :title="t('velocityA.ticket.transitions')">
+        <HistoryTimeline :history="history" :started-at="issue.started_at" :qa-started-at="issue.qa_started_at" />
+      </WbCard>
     </template>
   </div>
 </template>
+
+<style scoped>
+.wb-ext { display: inline-flex; gap: 4px; align-items: center; }
+</style>
