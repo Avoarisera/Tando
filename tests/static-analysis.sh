@@ -29,13 +29,11 @@ check_file() {
 source "$STATIC/rfc-001.sh"
 source "$STATIC/rfc-003.sh"
 source "$STATIC/rfc-004.sh"
-source "$STATIC/rfc-005.sh"
 source "$STATIC/rfc-006.sh"
-source "$STATIC/rfc-007.sh"
-source "$STATIC/rfc-008-009.sh"
 source "$STATIC/rfc-011.sh"
 source "$STATIC/rfc-015.sh"
 source "$STATIC/rfc-016.sh"
+source "$STATIC/rfc-refonte.sh"
 
 # --- TypeScript compile ------------------------------------------------------
 echo ""
