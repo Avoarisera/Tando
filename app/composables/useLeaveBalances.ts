@@ -26,7 +26,7 @@ export function useLeaveBalances() {
       const currentYear = new Date().getFullYear()
       const { data, error: sbError } = await supabase
         .from('leave_balances')
-        .select('*, leave_types(id, name, color)')
+        .select('*, leave_types(id, name, color, tracks_balance)')
         .eq('user_id', userId)
         .eq('year', currentYear)
         .order('created_at', { ascending: true })

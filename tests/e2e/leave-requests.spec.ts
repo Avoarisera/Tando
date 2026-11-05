@@ -128,13 +128,13 @@ test.describe('R3 — Request panel', () => {
     await expect(page.getByRole('button', { name: 'Envoyer la demande' })).toBeEnabled()
   })
 
-  test('T-R3-014: a type without days left blocks the request with a danger banner', async ({ page }) => {
+  test('T-R3-014: going over the balance warns but no longer blocks (TND-23: the admin decides)', async ({ page }) => {
     const a = weekdayAhead(10)
     test.skip(!sameYear(a), 'end of year')
     await page.locator(`${PANEL} .wb-rc`, { hasText: 'RTT' }).click()
     await pickRange(page, a, a)
-    await expect(page.locator(`${PANEL} .wb-banner.wb-t-danger`)).toContainText('Solde insuffisant.')
-    await expect(page.getByRole('button', { name: 'Envoyer la demande' })).toBeDisabled()
+    await expect(page.locator(`${PANEL} .wb-banner.wb-t-warning`)).toContainText('à titre exceptionnel')
+    await expect(page.getByRole('button', { name: 'Envoyer la demande' })).toBeEnabled()
   })
 
   test('T-R3-015: the comment counter follows the text', async ({ page }) => {

@@ -8,7 +8,7 @@ const props = defineProps<{ items: LeaveRequestWithRelations[], isAdmin: boolean
 
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
-const { requests, balanceAfter, decide } = useApprovals()
+const { requests, balanceAfter, decide, approveException } = useApprovals()
 const { events } = useCalendar()
 const { members } = useTeamMembers()
 const toast = useToast()
@@ -80,6 +80,35 @@ async function confirmRefuse() {
   }
 }
 
+// Exceptional approval beyond the balance (admin, reason mandatory — TND-23)
+const excepting = ref<LeaveRequestWithRelations | null>(null)
+const exReason = ref('')
+const exError = ref<string | null>(null)
+watch(excepting, () => { exReason.value = ''; exError.value = null })
+watch(exReason, () => { exError.value = null })
+async function confirmException() {
+  const r = excepting.value
+  if (!r) return
+  if (!exReason.value.trim()) {
+    exError.value = t('tnd23.reasonRequired')
+    return
+  }
+  busy.value = r.id
+  try {
+    await approveException(r.id, exReason.value.trim())
+    toast.add(t('tnd23.approved', { who: r.profiles.first_name }))
+    selected.value = selected.value.filter(id => id !== r.id)
+    excepting.value = null
+  }
+  catch (e) {
+    exError.value = e instanceof Error ? e.message : t('approvals.error')
+  }
+  finally {
+    busy.value = null
+  }
+}
+const overOf = (r: LeaveRequestWithRelations) => { const b = balanceAfter(r); return b !== null && b < 0 ? -b : 0 }
+
 // Bulk approval (admin)
 const selected = ref<string[]>([])
 const allSelected = computed({
@@ -95,6 +124,11 @@ async function approveSelected() {
   bulkBusy.value = true
   let ok = 0
   for (const id of [...selected.value]) {
+    const req = props.items.find(x => x.id === id)
+    if (req && overOf(req)) {
+      toast.add(t('tnd23.bulkSkipped', { who: req.profiles.first_name }), 'error')
+      continue
+    }
     try {
       await decide(id, 'approve')
       ok++
@@ -135,7 +169,23 @@ async function approveSelected() {
       @update:selected="toggle(r.id, $event)"
       @approve="approve(r)"
       @refuse="refusing = r"
+      @exception="excepting = r"
     />
+
+    <WbModal
+      v-if="excepting"
+
+      :title="t('tnd23.modalTitle', { who: fullName(excepting.profiles) })"
+      :description="t('tnd23.modalText', { who: excepting.profiles.first_name, n: fmtDays(overOf(excepting), tag) }, overOf(excepting))"
+      @close="excepting = null"
+    >
+      <p class="small">{{ excepting.leave_types?.name }} · {{ formatPeriod(excepting.start_date, excepting.end_date, tag) }}</p>
+      <WbTextarea id="exception-reason" v-model="exReason" :label="t('tnd23.reason')" :hint="t('tnd23.reasonHint')" :max="500" :error="exError" required />
+      <template #footer>
+        <WbButton variant="secondary" @click="excepting = null">{{ t('approvals.cancel') }}</WbButton>
+        <WbButton :loading="busy === excepting.id" data-action="confirm-exception" @click="confirmException">{{ t('tnd23.confirm') }}</WbButton>
+      </template>
+    </WbModal>
 
     <WbModal
       v-if="refusing"

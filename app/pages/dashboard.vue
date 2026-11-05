@@ -110,8 +110,8 @@ function exportMonth() {
   const last = monthDays(month).at(-1)!
   const rows = requests.value.filter(r => r.status === 'approved' && r.start_date <= last && r.end_date >= first)
   const esc = (v: string | number) => `"${String(v).replaceAll('"', '""')}"`
-  const header = [t('dashboard.csv.person'), t('dashboard.csv.team'), t('dashboard.csv.type'), t('dashboard.csv.start'), t('dashboard.csv.end'), t('dashboard.csv.days')]
-  const lines = rows.map(r => [fullName(r.profiles), r.profiles.teams?.name ?? '', r.leave_types?.name ?? '', r.start_date, r.end_date, r.days_count].map(esc).join(';'))
+  const header = [t('dashboard.csv.person'), t('dashboard.csv.team'), t('dashboard.csv.type'), t('dashboard.csv.start'), t('dashboard.csv.end'), t('dashboard.csv.days'), t('tnd23.badge')]
+  const lines = rows.map(r => [fullName(r.profiles), r.profiles.teams?.name ?? '', r.leave_types?.name ?? '', r.start_date, r.end_date, r.days_count, r.is_exception ? (r.exception_reason ?? t('tnd23.badge')) : ''].map(esc).join(';'))
   const blob = new Blob([`﻿${[header.map(esc).join(';'), ...lines].join('\r\n')}`], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)

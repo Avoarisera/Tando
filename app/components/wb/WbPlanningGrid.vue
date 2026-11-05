@@ -1,5 +1,5 @@
 <script setup lang="ts">
-export interface PlanSpan { id: string, from: string, to: string, label: string, color: string, pending?: boolean }
+export interface PlanSpan { id: string, from: string, to: string, label: string, color: string, pending?: boolean, /** own requests: 'rejected' | 'cancel_requested' styling (TND-23) */ state?: string }
 export interface PlanPerson { id: string, name: string, spans: PlanSpan[], /** optional section (team) — a header row is shown when it changes */ group?: string }
 
 const props = withDefaults(defineProps<{
@@ -81,7 +81,7 @@ const presence = computed(() => props.days.map((d) => {
           <div
             v-for="s in visibleSpans(p)"
             :key="s.id"
-            :class="['wb-bar', { 'is-pend': s.pending }]"
+            :class="['wb-bar', { 'is-pend': s.pending && s.state !== 'rejected', 'is-rej': s.state === 'rejected', 'is-canc': s.state === 'cancel_requested' }]"
             :title="s.label"
             :style="{ ...leaveVars(s.color), left: `calc(${s.a} * var(--c) + 2px)`, width: `calc(${s.z - s.a + 1} * var(--c) - 4px)` }"
           >

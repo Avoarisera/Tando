@@ -1,5 +1,6 @@
 <script setup lang="ts">
-export interface CalBar { id: string, from: string, to: string, who: string, type?: string, color: string, pending?: boolean }
+export type BarState = 'pending' | 'approved' | 'rejected' | 'cancel_requested'
+export interface CalBar { id: string, from: string, to: string, who: string, type?: string, color: string, pending?: boolean, /** own requests only: shown with their status */ state?: BarState }
 
 const props = withDefaults(defineProps<{ month: string, events: CalBar[], today: string, holidays?: Record<string, string> }>(), { holidays: () => ({}) })
 defineEmits<{ day: [iso: string] }>()
@@ -29,6 +30,13 @@ const weeks = computed(() => {
   })
 })
 const short = computed(() => shortNames(props.events.map(b => b.who)))
+/** Status words on one's own bars (TND-23): pending, refused, cancellation asked */
+function stateLabel(bar: CalBar): string {
+  if (bar.state === 'rejected') return t('tnd23.state.rejected')
+  if (bar.state === 'cancel_requested') return t('tnd23.state.cancelRequested')
+  if (bar.pending) return t('calendar.pendingShort')
+  return ''
+}
 </script>
 
 <template>
@@ -49,12 +57,12 @@ const short = computed(() => shortNames(props.events.map(b => b.who)))
       <div
         v-for="bar in week.bars"
         :key="bar.id"
-        :class="['wb-bar', { 'is-pend': bar.pending }]"
+        :class="['wb-bar', { 'is-pend': bar.pending && bar.state !== 'rejected', 'is-rej': bar.state === 'rejected', 'is-canc': bar.state === 'cancel_requested' }]"
         :style="{ ...leaveVars(bar.color), left: `calc(${bar.s} * 100% / 7 + 3px)`, width: `calc(${bar.f - bar.s + 1} * 100% / 7 - 6px)`, '--l': bar.l }"
-        :title="`${bar.who} · ${bar.type ?? ''}${bar.pending ? ` · ${t('leave.status.pending')}` : ''}`"
+        :title="`${bar.who} · ${bar.type ?? ''}${stateLabel(bar) ? ` · ${stateLabel(bar)}` : ''}`"
       >
         <WbAvatar :name="bar.who" :size="16" />
-        <span>{{ short(bar.who) }}{{ bar.pending ? ` · ${t('calendar.pendingShort')}` : '' }}</span>
+        <span>{{ short(bar.who) }}{{ stateLabel(bar) ? ` · ${stateLabel(bar)}` : '' }}</span>
       </div>
     </div>
   </div>

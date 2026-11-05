@@ -37,15 +37,17 @@ const modes = computed(() => [
 const typeOptions = computed(() => [{ value: 'all', label: t('calendar.allTypes') }, ...leaveTypes.value.map(lt => ({ value: lt.name, label: lt.name }))])
 const teamOptions = computed(() => [{ value: 'all', label: t('calendar.allTeams') }, ...teams.value.map(tm => ({ value: tm.id, label: tm.name }))])
 
-// Refused requests never show; own pending ones are hatched
+// Colleagues: approved leave only. One's own requests show with their status.
 const visible = computed(() => events.value.filter(e =>
-  e.status !== 'rejected'
+  // refused: only one's own, still to come (TND-23)
+  (e.status !== 'rejected' || (e.isOwn && e.endDate >= today))
   && (!onlyMe.value || e.isOwn)
   && (typeFilter.value === 'all' || e.leaveTypeName === typeFilter.value)
   && (teamFilter.value === 'all' || e.teamId === teamFilter.value)))
 
 const bars = computed<CalBar[]>(() => visible.value.map(e => ({
   id: e.id, from: e.startDate, to: e.endDate, who: e.employeeName, type: e.leaveTypeName, color: e.leaveTypeColor, pending: e.status !== 'approved',
+  state: e.isOwn ? (e.state as CalBar['state']) : undefined,
 })))
 
 // Legend: only the types shown in the current month or planning window
@@ -74,7 +76,7 @@ const people = computed<PlanPerson[]>(() => members.value
     id: m.id,
     name: fullName(m),
     group: teamNameOf(m.team_id),
-    spans: visible.value.filter(e => e.userId === m.id).map(e => ({ id: e.id, from: e.startDate, to: e.endDate, label: e.leaveTypeName, color: e.leaveTypeColor, pending: e.status !== 'approved' })),
+    spans: visible.value.filter(e => e.userId === m.id).map(e => ({ id: e.id, from: e.startDate, to: e.endDate, label: e.isOwn && e.state === 'rejected' ? `${e.leaveTypeName} · ${t('tnd23.state.rejected')}` : e.leaveTypeName, color: e.leaveTypeColor, pending: e.status !== 'approved', state: e.isOwn ? e.state : undefined })),
   }))
   .filter(p => !onlyMe.value || p.spans.length)
   .sort((a, b) => (a.group === t('r8a.people.noTeam') ? 1 : 0) - (b.group === t('r8a.people.noTeam') ? 1 : 0) || (a.group ?? '').localeCompare(b.group ?? '') || a.name.localeCompare(b.name)))
@@ -195,7 +197,9 @@ function goToday() {
 
           <ul v-if="legend.length" class="wb-leg caption wb-cal-leg">
             <li v-for="l in legend" :key="l.name"><WbTypeBadge :name="l.name" :color="l.color" /></li>
-            <li>{{ t('calendar.hatched') }}</li>
+            <li class="wb-leg-st"><i class="is-pend" />{{ t('tnd23.legend.pending') }}</li>
+            <li class="wb-leg-st"><i class="is-ok" />{{ t('tnd23.legend.approved') }}</li>
+            <li class="wb-leg-st"><i class="is-rej" />{{ t('tnd23.legend.rejected') }}</li>
           </ul>
         </template>
       </div>

@@ -259,6 +259,8 @@ export type Database = {
       }
       leave_requests: {
         Row: {
+          is_exception: boolean
+          exception_reason: string | null
           admin_reviewed_at: string | null
           admin_reviewed_by: string | null
           cancel_requested_at: string | null
@@ -279,6 +281,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          is_exception?: boolean
+          exception_reason?: string | null
           admin_reviewed_at?: string | null
           admin_reviewed_by?: string | null
           cancel_requested_at?: string | null
@@ -299,6 +303,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          is_exception?: boolean
+          exception_reason?: string | null
           admin_reviewed_at?: string | null
           admin_reviewed_by?: string | null
           cancel_requested_at?: string | null
@@ -356,6 +362,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          tracks_balance: boolean
         }
         Insert: {
           color: string
@@ -363,6 +370,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          tracks_balance?: boolean
         }
         Update: {
           color?: string
@@ -370,6 +378,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          tracks_balance?: boolean
         }
         Relationships: []
       }
@@ -836,6 +845,10 @@ export type Database = {
       admin_delete_team: {
         Args: { p_id: string }
         Returns: undefined
+      }
+      approve_leave_exception: {
+        Args: { p_request_id: string, p_reason: string }
+        Returns: string
       }
       admin_save_team: {
         Args: { p_id: string | null, p_name: string, p_manager_id: string | null, p_member_ids: string[] }

@@ -119,7 +119,7 @@ function resetFilters() {
                 <td><WbTypeBadge :name="r.leave_types?.name ?? ''" :color="r.leave_types?.color" /></td>
                 <td class="wb-num">{{ formatPeriod(r.start_date, r.end_date, tag) }}</td>
                 <td class="is-r wb-num">{{ fmtDays(Number(r.days_count), tag) }}</td>
-                <td><WbStatusBadge :status="r.status" /></td>
+                <td><span class="wb-row" style="gap: 6px"><WbStatusBadge :status="r.status" /><WbBadge v-if="r.is_exception" tone="warning" size="sm" icon="shield" :title="r.exception_reason ?? undefined">{{ t('tnd23.badge') }}</WbBadge></span></td>
               </tr>
             </tbody>
           </table>

@@ -53,6 +53,10 @@ function remaining(id: string): number | null {
 }
 
 const typeCards = computed(() => leaveTypes.value.map((lt) => {
+  // sick / unpaid leave: no balance at all (TND-23)
+  if (lt.tracks_balance === false) {
+    return { id: lt.id, name: lt.name, color: lt.color, left: null, disabled: false, meta: t('tnd23.noCount') }
+  }
   const left = remaining(lt.id)
   return {
     id: lt.id,
@@ -130,7 +134,8 @@ const summary = computed(() => {
   if (!days.value) return t('request.noWorkingDay')
   return `${t('leave.workingDays', { n: fmtDays(days.value, tag.value) }, days.value)} · ${formatPeriod(start.value, lastDay.value, tag.value)}`
 })
-const invalid = computed(() => !typeId.value || !days.value || tooMany.value || !sameYear.value || crossesBlocked.value)
+// Going over the balance warns but does not block: the admin may approve it as an exception (TND-23)
+const invalid = computed(() => !typeId.value || !days.value || !sameYear.value || crossesBlocked.value)
 const title = computed(() => (editing.value ? t('request.editTitle') : t('nav.leave')))
 const approvalNote = computed(() => (profile.value?.role === 'manager' ? t('request.byAdmin') : t('request.byManager')))
 
@@ -142,7 +147,8 @@ async function send() {
     const input = { leaveTypeId: typeId.value, startDate: start.value, endDate: lastDay.value, comment: comment.value.trim() || null, startHalf: startHalf.value, endHalf: endHalf.value }
     if (editing.value) await updateRequest(editing.value.id, input)
     else await createRequest(input)
-    await Promise.all([fetchMine(), fetchBalances()])
+    // the new request shows on the calendar right away (TND-23)
+    await Promise.all([fetchMine(), fetchBalances(), fetchEvents()])
     toast.add(editing.value ? t('request.updated') : t('request.sent'))
     close()
   }
@@ -201,8 +207,8 @@ async function send() {
     <div class="wb-card wb-card-b wb-stack-s wb-req-sum">
       <p class="h3 wb-num" aria-live="polite">{{ summary }}</p>
       <p v-if="countsOnBalance && days && !tooMany">{{ t('request.after') }} <b class="wb-num">{{ t('leave.days', { n: fmtDays(after, tag) }, after) }}</b></p>
-      <WbBanner v-if="tooMany" tone="danger" :title="t('request.tooManyTitle')">
-        {{ t('request.tooManyText', { n: fmtDays(selectedType?.left ?? 0, tag) }, selectedType?.left ?? 0) }}
+      <WbBanner v-if="tooMany" tone="warning" :title="t('request.tooManyTitle')">
+        {{ t('tnd23.overText', { n: fmtDays(-after, tag) }, -after) }}
       </WbBanner>
       <WbBanner v-if="!sameYear" tone="danger">{{ t('request.twoYears') }}</WbBanner>
       <WbBanner v-if="crossesBlocked" tone="danger">{{ t('request.overlapOwn') }}</WbBanner>

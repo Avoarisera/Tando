@@ -28,6 +28,7 @@ const editing = ref<LeaveType | null>(null)
 const creating = ref(false)
 const formName = ref('')
 const formColor = ref('#007840')
+const formTracks = ref(true)
 const formError = ref<string | null>(null)
 const isSaving = ref(false)
 const togglingId = ref<string | null>(null)
@@ -38,6 +39,7 @@ function startCreate() {
   creating.value = true
   formName.value = ''
   formColor.value = '#007840'
+  formTracks.value = true
   formError.value = null
 }
 function startEdit(type: LeaveType) {
@@ -45,6 +47,7 @@ function startEdit(type: LeaveType) {
   editing.value = type
   formName.value = type.name
   formColor.value = type.color
+  formTracks.value = type.tracks_balance !== false
   formError.value = null
 }
 function stopEdit() {
@@ -61,11 +64,11 @@ async function save() {
   formError.value = null
   try {
     if (editing.value) {
-      await updateLeaveType(editing.value.id, formName.value.trim(), formColor.value)
+      await updateLeaveType(editing.value.id, formName.value.trim(), formColor.value, formTracks.value)
       toast.add(t('rules.typeSaved'))
     }
     else {
-      await createLeaveType(formName.value.trim(), formColor.value)
+      await createLeaveType(formName.value.trim(), formColor.value, formTracks.value)
       toast.add(t('rules.typeAdded'))
     }
     stopEdit()
@@ -149,15 +152,18 @@ const year = ref(new Date().getFullYear())
 const typeId = ref('')
 const yearOptions = computed(() => [year.value - 1, year.value, year.value + 1].map(y => ({ value: String(y), label: String(y) })))
 const yearModel = computed({ get: () => String(year.value), set: (v: string) => { year.value = Number(v) } })
-const typeOptions = computed(() => leaveTypes.value.map(x => ({ value: x.id, label: x.name })))
+const typeOptions = computed(() => leaveTypes.value.filter(x => x.tracks_balance !== false).map(x => ({ value: x.id, label: x.name })))
+const overOnly = ref(false)
 
 watch([tab, year], ([tb]) => { if (tb === 'balances') fetchAdminBalances(year.value) }, { immediate: true })
-watch(leaveTypes, (types) => { if (!typeId.value && types[0]) typeId.value = types[0].id }, { immediate: true })
+watch(leaveTypes, (types) => { const first = types.find(x => x.tracks_balance !== false); if (!typeId.value && first) typeId.value = first.id }, { immediate: true })
 
 const rows = computed(() => adminBalances.value
   .filter(b => b.leave_type_id === typeId.value)
   .map(b => ({ ...b, name: fullName(b.profiles), left: b.allocated_days - b.used_days }))
+  .filter(b => !overOnly.value || b.left < 0)
   .sort((a, b) => a.name.localeCompare(b.name)))
+const overCount = computed(() => adminBalances.value.filter(b => b.leave_type_id === typeId.value && b.allocated_days - b.used_days < 0).length)
 
 // Tables: 20 rows per page, count and pages under each table
 const typesPager = usePagination(leaveTypes)
@@ -248,7 +254,7 @@ async function applyAll() {
               </thead>
               <tbody>
                 <tr v-for="lt in typesPager.items.value" :key="lt.id" :class="{ 'is-sel': editing?.id === lt.id }" :data-type="lt.name">
-                  <td><WbTypeBadge :name="lt.name" :color="lt.color" /></td>
+                  <td><span class="wb-row" style="gap: 6px"><WbTypeBadge :name="lt.name" :color="lt.color" /><span v-if="lt.tracks_balance === false" class="caption wb-mut2">{{ t('tnd23.noCount') }}</span></span></td>
                   <td>
                     <WbBadge :tone="lt.is_active ? 'success' : 'neutral'" :icon="lt.is_active ? 'circle-check' : 'ban'">
                       {{ lt.is_active ? t('rules.active') : t('rules.inactive') }}
@@ -273,6 +279,10 @@ async function applyAll() {
           <form class="wb-stack-s" novalidate @submit.prevent="save">
             <WbInput id="type-name" v-model="formName" :label="t('rules.name')" :error="formError" maxlength="60" />
             <WbColorPicker v-model="formColor" :label="t('rules.color')" />
+            <div class="wb-stack-s" style="gap: 2px">
+              <WbCheckbox v-model="formTracks" :label="t('tnd23.tracks')" />
+              <p class="caption wb-mut2">{{ t('tnd23.tracksHint') }}</p>
+            </div>
             <div class="wb-row" style="gap: 8px">
               <WbButton type="submit" size="sm" :loading="isSaving">{{ t('rules.save') }}</WbButton>
               <WbButton variant="ghost" size="sm" @click="stopEdit">{{ t('approvals.cancel') }}</WbButton>
@@ -324,6 +334,7 @@ async function applyAll() {
         <div class="wb-row wb-wrap">
           <WbSelect v-model="yearModel" :options="yearOptions" :aria-label="t('rules.year')" />
           <WbSelect v-model="typeId" :options="typeOptions" :aria-label="t('calendar.type')" />
+          <WbFilterChip v-model="overOnly" :count="overCount">{{ t('tnd23.overFilter') }}</WbFilterChip>
         </div>
         <form class="wb-row wb-wrap" novalidate @submit.prevent="applyAll">
           <WbInput v-model="bulk" inputmode="numeric" :aria-label="t('rules.applyAllDays')" :placeholder="t('rules.applyAllDays')" :error="bulkError" style="width: 140px" />
@@ -360,7 +371,7 @@ async function applyAll() {
                   </button>
                 </td>
                 <td class="is-r wb-num">{{ b.used_days }}</td>
-                <td class="is-r wb-num" :class="{ 'wb-c-danger': b.left <= 0 }"><b>{{ b.left }}</b></td>
+                <td class="is-r wb-num" :class="{ 'wb-c-danger': b.left <= 0 }"><b>{{ b.left }}</b><span v-if="b.left < 0" class="caption"> · {{ t('tnd23.advance') }}</span></td>
               </tr>
             </tbody>
           </table>

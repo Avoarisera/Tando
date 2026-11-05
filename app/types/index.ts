@@ -33,6 +33,9 @@ export interface LeaveRequest {
   review_comment: string | null
   cancel_requested_at: string | null
   cancelled_at: string | null
+  /** approved by the admin beyond the balance (TND-23) */
+  is_exception?: boolean
+  exception_reason?: string | null
 }
 
 export interface LeaveType {
@@ -40,6 +43,8 @@ export interface LeaveType {
   name: string
   color: string
   is_active: boolean
+  /** false for sick / unpaid leave: no balance, no check (TND-23) */
+  tracks_balance?: boolean
   created_at: string
 }
 
@@ -63,7 +68,7 @@ export type LeaveBalanceWithType = LeaveBalance & { leave_types: LeaveType }
 
 export type AdminBalanceRow = LeaveBalance & {
   profiles: Pick<Profile, 'id' | 'first_name' | 'last_name'>
-  leave_types: Pick<LeaveType, 'id' | 'name' | 'color'>
+  leave_types: Pick<LeaveType, 'id' | 'name' | 'color' | 'tracks_balance'>
 }
 
 export interface TeamMemberBalance {
@@ -91,7 +96,7 @@ export interface AdminConfirmAction {
 }
 
 export type LeaveRequestWithRelations = LeaveRequest & {
-  leave_types: Pick<LeaveType, 'id' | 'name' | 'color'>
+  leave_types: Pick<LeaveType, 'id' | 'name' | 'color' | 'tracks_balance'>
   profiles: Pick<Profile, 'id' | 'first_name' | 'last_name' | 'team_id'> & {
     teams: Pick<Team, 'name'> | null
   }
@@ -145,6 +150,8 @@ export interface CalendarEvent {
   endDate: string
   status: LeaveStatus
   isOwn: boolean
+  /** raw request status (status maps cancel_requested to approved) */
+  state?: LeaveStatus
   teamId?: string
   teamName?: string
 }
