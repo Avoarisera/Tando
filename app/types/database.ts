@@ -833,6 +833,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_delete_team: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      admin_save_team: {
+        Args: { p_id: string | null, p_name: string, p_manager_id: string | null, p_member_ids: string[] }
+        Returns: string
+      }
       admin_upsert_team: {
         Args: { p_id: string; p_name: string }
         Returns: string

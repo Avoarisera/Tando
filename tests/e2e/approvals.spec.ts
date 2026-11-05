@@ -44,16 +44,16 @@ test.describe('R4 — Admin', () => {
   })
 
   test('T-R4-001: shows the open requests with their level, and the sidebar count', async ({ page }) => {
-    await expect(page.locator(EDDY)).toContainText('Niveau 2')
-    await expect(page.locator(EMMA)).toContainText('Niveau 1')
+    await expect(page.locator(EDDY)).toContainText('Validée par le manager')
+    await expect(page.locator(EMMA)).toContainText('Attend Marc (manager)')
     const n = await page.locator(CARD).count()
     expect(n).toBeGreaterThanOrEqual(2)
     await expect(page.locator(SIDE_COUNT)).toHaveText(String(n))
   })
 
   test('T-R4-002: a level-1 request warns that the manager is skipped', async ({ page }) => {
-    await expect(page.locator(EMMA)).toContainText('Vous allez approuver sans l’avis du manager')
-    await expect(page.locator(EDDY)).not.toContainText('sans l’avis du manager')
+    await expect(page.locator(EMMA)).toContainText('Marc n’a pas encore validé : vous approuverez sans son avis')
+    await expect(page.locator(EDDY)).not.toContainText('vous approuverez sans son avis')
   })
 
   test('T-R4-003: impact shows overlaps, presence and the balance after (negative in danger)', async ({ page }) => {
@@ -66,7 +66,7 @@ test.describe('R4 — Admin', () => {
   test('T-R4-004: level and search filters narrow the list; reset restores it', async ({ page }) => {
     await expect(page.locator(EMMA)).toBeVisible()
     const all = await page.locator(CARD).count()
-    await page.getByRole('button', { name: /Niveau 2/ }).click()
+    await page.getByRole('button', { name: /Validées par le manager/ }).click()
     await expect(page.locator(EDDY)).toBeVisible()
     await expect(page.locator(EMMA)).toHaveCount(0)
     await page.getByRole('button', { name: 'Réinitialiser' }).click()
@@ -118,7 +118,7 @@ test.describe('R4 — Manager', () => {
     await signIn(page, ACCOUNTS.manager)
     await expect(page.locator(EMMA)).toBeVisible()
     await expect(page.locator(EDDY)).toHaveCount(0) // already validated by the manager
-    await expect(page.locator(CARD, { hasText: 'Niveau' })).toHaveCount(0)
+    await expect(page.locator(CARD, { hasText: /Validée par le manager|Attend .* \(manager\)/ })).toHaveCount(0)
     // The team planning is folded by default to keep the queue compact
     await expect(page.locator(`${EMMA} .wb-plan`)).toHaveCount(0)
     const toggle = page.locator(`${EMMA} button[aria-expanded]`)

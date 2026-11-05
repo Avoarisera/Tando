@@ -122,6 +122,30 @@ test.describe('R5 — Personnes et équipes', () => {
     await page.getByRole('tab', { name: /Équipes/ }).click()
     await expect(page.locator('tr[data-team="Équipe A"]')).toContainText('Manager : Marc Manager')
   })
+
+  test('T-R5-013: create a team, it shows at once; edit shows its members; delete it', async ({ page }) => {
+    const name = `Équipe E2E ${Date.now() % 100000}`
+    await page.getByRole('tab', { name: /Équipes/ }).click()
+    await page.click('[data-action="new-team"]')
+    await page.fill('#team-name', name)
+    await page.locator('.wb-panel button[type="submit"]').click()
+    await expect(page.getByText('Équipe créée')).toBeVisible()
+    const row = page.locator(`tr[data-team="${name}"]`)
+    await expect(row).toBeVisible()
+    await expect(row).toContainText('Aucun manager')
+
+    await page.locator('tr[data-team="Équipe A"] [data-action="edit-team"]').click()
+    await expect(page.locator('.wb-panel')).toContainText('3 membres')
+    await expect(page.locator('#team-manager')).toHaveValue(/.+/)
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.wb-panel')).toHaveCount(0)
+
+    await row.locator('[data-action="edit-team"]').click()
+    await page.click('[data-action="delete-team"]')
+    await page.locator('.wb-tm-del').getByRole('button', { name: 'Supprimer' }).click()
+    await expect(page.getByText('Équipe supprimée')).toBeVisible()
+    await expect(row).toHaveCount(0)
+  })
 })
 
 // ============================================================

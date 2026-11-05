@@ -251,8 +251,8 @@
     "tabTodo": "To approve",
     "tabDone": "Handled",
     "search": "Search for a person",
-    "level1": "Level 1",
-    "level2": "Level 2",
+    "level1": "Waiting for the manager",
+    "level2": "Approved by the manager",
     "reset": "Reset",
     "emptyTitle": "Nothing to approve 🎉",
     "emptyText": "New requests from your team will show up here.",
@@ -267,7 +267,7 @@
     "noOverlap": "No overlap",
     "presence": "In on {day}: {n} / {of}",
     "balanceAfter": "Balance after: {n} d",
-    "skipsManager": "You are approving without the manager’s review",
+    "skipsManager": "{who} has not validated yet: you will approve without their opinion",
     "approve": "Approve",
     "refuse": "Decline",
     "approved": "Request from {who} approved",
@@ -286,7 +286,16 @@
     "keepTitle": "Keep the leave of {who}?",
     "keepText": "The cancellation is declined: the leave stays approved.",
     "cancelAccepted": "Cancellation from {who} accepted",
-    "cancelRefused": "The leave of {who} is kept"
+    "cancelRefused": "The leave of {who} is kept",
+    "stepWaitManager": "Waiting for {who} (manager)",
+    "stepNoManager": "No manager: yours to decide",
+    "stepManagerOk": "Approved by the manager",
+    "flowHint": "Flow: employee → team manager → admin",
+    "flowTitle": "Approval flow",
+    "flow1": "The employee sends the request",
+    "flow2": "Their team manager validates it",
+    "flow3": "You give the final approval",
+    "flowNoManager": "With no manager in the team (or for a manager’s own request), it comes straight to you. You can also approve before the manager."
   },
   "dashboard": {
     "headcount": "Headcount",
@@ -877,5 +886,20 @@
     "next": "Next page",
     "page": "Page {n}",
     "pagination": "Pagination"
+  },
+  "teams": {
+    "editTitle": "Team {name}",
+    "hint": "Pick the members, then their manager. The manager validates the team’s requests before the admin.",
+    "members": "No members | {n} member | {n} members",
+    "movesFrom": "will leave {team}",
+    "manager": "Team manager",
+    "managerHint": "Chosen among the ticked members. Without a manager, requests go straight to the admin.",
+    "noManager": "No manager",
+    "nameRequired": "Enter the team name.",
+    "saved": "Team saved",
+    "deleted": "Team deleted",
+    "delete": "Delete the team",
+    "deleteConfirm": "Delete this team? | Delete this team? Its member will have no team. | Delete this team? Its {n} members will have no team.",
+    "deleteYes": "Delete"
   }
 }

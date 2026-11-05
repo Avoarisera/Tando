@@ -251,8 +251,8 @@
     "tabTodo": "À valider",
     "tabDone": "Traitées",
     "search": "Rechercher une personne",
-    "level1": "Niveau 1",
-    "level2": "Niveau 2",
+    "level1": "En attente du manager",
+    "level2": "Validées par le manager",
     "reset": "Réinitialiser",
     "emptyTitle": "Rien à valider 🎉",
     "emptyText": "Les nouvelles demandes de votre équipe apparaîtront ici.",
@@ -267,7 +267,7 @@
     "noOverlap": "Aucun chevauchement",
     "presence": "Présents le {day} : {n} / {of}",
     "balanceAfter": "Solde après : {n} j",
-    "skipsManager": "Vous allez approuver sans l’avis du manager",
+    "skipsManager": "{who} n’a pas encore validé : vous approuverez sans son avis",
     "approve": "Approuver",
     "refuse": "Refuser",
     "approved": "Demande de {who} approuvée",
@@ -286,7 +286,16 @@
     "keepTitle": "Garder le congé de {who} ?",
     "keepText": "L’annulation est refusée : le congé reste approuvé.",
     "cancelAccepted": "Annulation de {who} acceptée",
-    "cancelRefused": "Le congé de {who} est maintenu"
+    "cancelRefused": "Le congé de {who} est maintenu",
+    "stepWaitManager": "Attend {who} (manager)",
+    "stepNoManager": "Pas de manager : à vous",
+    "stepManagerOk": "Validée par le manager",
+    "flowHint": "Circuit : employé → manager de l’équipe → admin",
+    "flowTitle": "Circuit de validation",
+    "flow1": "L’employé envoie sa demande",
+    "flow2": "Le manager de son équipe la valide",
+    "flow3": "Vous donnez l’accord final",
+    "flowNoManager": "Sans manager dans l’équipe (ou si la demande vient d’un manager), elle arrive directement chez vous. Vous pouvez aussi approuver avant le manager."
   },
   "dashboard": {
     "headcount": "Effectif",
@@ -877,5 +886,20 @@
     "next": "Page suivante",
     "page": "Page {n}",
     "pagination": "Pagination"
+  },
+  "teams": {
+    "editTitle": "Équipe {name}",
+    "hint": "Choisissez les membres puis leur manager. Le manager valide les demandes de son équipe avant l’admin.",
+    "members": "Aucun membre | {n} membre | {n} membres",
+    "movesFrom": "quittera {team}",
+    "manager": "Manager de l’équipe",
+    "managerHint": "Choisi parmi les membres cochés. Sans manager, les demandes arrivent directement à l’admin.",
+    "noManager": "Aucun manager",
+    "nameRequired": "Indiquez le nom de l’équipe.",
+    "saved": "Équipe enregistrée",
+    "deleted": "Équipe supprimée",
+    "delete": "Supprimer l’équipe",
+    "deleteConfirm": "Supprimer cette équipe ? | Supprimer cette équipe ? Son membre n’aura plus d’équipe. | Supprimer cette équipe ? Ses {n} membres n’auront plus d’équipe.",
+    "deleteYes": "Supprimer"
   }
 }

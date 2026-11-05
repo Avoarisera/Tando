@@ -13,6 +13,12 @@ const { events } = useCalendar()
 const { members } = useTeamMembers()
 const toast = useToast()
 
+/** Managers of the requester's team (not the requester): who should validate at step 1 */
+function managersOf(r: LeaveRequestWithRelations) {
+  return members.value
+    .filter(m => m.role === 'manager' && m.team_id && m.team_id === r.profiles.team_id && m.id !== r.profiles.id)
+    .map(m => m.first_name)
+}
 function teamSize(r: LeaveRequestWithRelations) {
   return members.value.filter(m => m.role !== 'admin' && m.team_id && m.team_id === r.profiles.team_id).length
 }
@@ -119,6 +125,7 @@ async function approveSelected() {
       :request="r"
       :events="events"
       :team-size="teamSize(r)"
+      :managers="managersOf(r)"
       :balance-after="balanceAfter(r)"
       :is-admin="isAdmin"
       :selectable="bulk && isAdmin"

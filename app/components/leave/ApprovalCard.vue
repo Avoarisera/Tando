@@ -8,6 +8,8 @@ const props = defineProps<{
   /** Approved leave of everyone visible, to compute overlaps */
   events: readonly CalendarEvent[]
   teamSize: number
+  /** First names of the team managers (step 1 validators) */
+  managers?: string[]
   balanceAfter: number | null
   isAdmin: boolean
   selectable?: boolean
@@ -67,7 +69,14 @@ const impact = computed(() => {
 })
 
 // Admin acting on a request the manager has not seen yet
-const skipsManager = computed(() => props.isAdmin && r.value.status === 'pending')
+// Step of the approval flow, in plain words for the admin
+const managerNames = computed(() => (props.managers ?? []).join(', '))
+const skipsManager = computed(() => props.isAdmin && r.value.status === 'pending' && !!props.managers?.length)
+const stepLabel = computed(() => {
+  if (r.value.status === 'manager_approved') return t('approvals.stepManagerOk')
+  return props.managers?.length ? t('approvals.stepWaitManager', { who: managerNames.value }) : t('approvals.stepNoManager')
+})
+const stepTone = computed(() => (r.value.status === 'manager_approved' ? 'success' : props.managers?.length ? 'warning' : 'neutral'))
 const highlight = computed(() => ({ from: r.value.start_date, to: r.value.end_date }))
 const showPlan = ref(false)
 const planDays = computed(() => {
@@ -86,9 +95,7 @@ const planDays = computed(() => {
           <h3 class="h3">{{ who }}</h3>
           <span v-if="team" class="small wb-mut">{{ team }}</span>
           <WbStatusBadge v-if="isCancellation" status="cancel_requested" />
-          <WbBadge v-else-if="isAdmin" :tone="r.status === 'manager_approved' ? 'info' : 'warning'" size="sm">
-            {{ r.status === 'manager_approved' ? t('approvals.level2') : t('approvals.level1') }}
-          </WbBadge>
+          <WbBadge v-else-if="isAdmin" :tone="stepTone" size="sm" :title="t('approvals.flowHint')">{{ stepLabel }}</WbBadge>
         </div>
         <div class="wb-acx-l2 small wb-mut2">
           <WbTypeBadge :name="r.leave_types?.name ?? ''" :color="r.leave_types?.color" />
@@ -105,7 +112,7 @@ const planDays = computed(() => {
             </li>
           </ul>
         </div>
-        <div v-if="skipsManager && !isCancellation" class="caption wb-c-warning wb-acx-warn"><WbIcon name="triangle-alert" :size="13" />{{ t('approvals.skipsManager') }}</div>
+        <div v-if="skipsManager && !isCancellation" class="caption wb-c-warning wb-acx-warn"><WbIcon name="triangle-alert" :size="13" />{{ t('approvals.skipsManager', { who: managerNames }) }}</div>
       </div>
       <div class="wb-acx-a">
         <WbButton v-if="planning?.length" variant="ghost" size="sm" icon="table" :aria-expanded="showPlan" @click="showPlan = !showPlan">

@@ -46,7 +46,7 @@ test.describe('R4 — Decisions', () => {
     await expect(page.locator(EMMA)).toHaveCount(0)
 
     await signIn(page, ACCOUNTS.admin)
-    await expect(page.locator(EMMA)).toContainText('Niveau 2')
+    await expect(page.locator(EMMA)).toContainText('Validée par le manager')
   })
 
   test('T-R4-021: admin refuses Eddy with a reason (mandatory since R8)', async ({ page }) => {

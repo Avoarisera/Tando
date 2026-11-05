@@ -69,6 +69,13 @@ function resetFilters() {
   <div class="wb-page wb-stack">
     <WbTabs v-model="tab" :tabs="tabs" :label="t('nav.approvals')" />
 
+    <ol v-if="isAdmin && tab === 'todo'" class="wb-ap-flow small" :aria-label="t('approvals.flowTitle')">
+      <li><span class="wb-ap-n">1</span>{{ t('approvals.flow1') }}</li>
+      <li><span class="wb-ap-n">2</span>{{ t('approvals.flow2') }}</li>
+      <li><span class="wb-ap-n">3</span>{{ t('approvals.flow3') }}</li>
+      <li class="wb-mut2">{{ t('approvals.flowNoManager') }}</li>
+    </ol>
+
     <div v-if="isAdmin" class="wb-fb wb-ap-toolbar">
       <div class="wb-fb-s"><WbInput v-model="search" icon="search" type="search" :aria-label="t('approvals.search')" :placeholder="t('approvals.search')" /></div>
       <div class="wb-fb-c">
@@ -125,6 +132,12 @@ function resetFilters() {
 </template>
 
 <style scoped>
+/* Approval flow, always visible above the queue */
+.wb-ap-flow { list-style: none; margin: 0; padding: var(--space-3) var(--space-4); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-5); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); color: var(--ink-2); }
+.wb-ap-flow li { display: inline-flex; align-items: center; gap: var(--space-2); }
+.wb-ap-flow li:last-child { flex-basis: 100%; }
+.wb-ap-n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: var(--brand-tint); color: var(--brand-text); font-size: 12px; font-weight: 700; line-height: 1; }
+
 .wb-ap-toolbar { padding: var(--space-2) var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 .wb-ap-toolbar :deep(.wb-btn) { margin: 0; }
 </style>

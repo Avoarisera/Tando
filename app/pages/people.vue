@@ -20,7 +20,7 @@ async function load() {
     const [{ data, error: e }] = await Promise.all([
       supabase.from('profiles').select('id, first_name, last_name, role, team_id, joined_at, country').order('last_name'),
       loadDefaultCountry(),
-      fetchTeams(),
+      fetchTeams(true),
       fetchSnapshot(),
     ])
     if (e) throw e
@@ -128,29 +128,75 @@ async function savePerson() {
   }
 }
 
-// ── Teams ────────────────────────────────────────────────────────────────────
+// ── Teams: name, manager and members in one panel ───────────────────────────
 const teamPanel = ref(false)
 const teamId = ref<string | null>(null)
 const teamNameDraft = ref('')
+const teamManager = ref('')
+const teamMembers = ref<string[]>([])
 const teamError = ref<string | null>(null)
+const confirmDelete = ref(false)
+const memberSearch = ref('')
+/** Admins validate every team: they are never members */
+const assignable = computed(() => people.value.filter(p => p.role !== 'admin'))
+const memberList = computed(() => {
+  const q = memberSearch.value.trim().toLowerCase()
+  return assignable.value
+    .filter(p => !q || fullName(p).toLowerCase().includes(q))
+    .sort((a, b) => Number(teamMembers.value.includes(b.id)) - Number(teamMembers.value.includes(a.id)) || fullName(a).localeCompare(fullName(b)))
+})
+const managerChoices = computed(() => [
+  { value: '', label: t('teams.noManager') },
+  ...assignable.value.filter(p => teamMembers.value.includes(p.id)).map(p => ({ value: p.id, label: fullName(p) })),
+])
+function otherTeamOf(p: Person) {
+  return p.team_id && p.team_id !== teamId.value ? teamName(p.team_id) : ''
+}
 function openTeam(id: string | null, name = '') {
   teamId.value = id
   teamNameDraft.value = name
+  teamMembers.value = id ? people.value.filter(p => p.team_id === id && p.role !== 'admin').map(p => p.id) : []
+  teamManager.value = id ? people.value.find(p => p.team_id === id && p.role === 'manager')?.id ?? '' : ''
   teamError.value = null
+  memberSearch.value = ''
+  confirmDelete.value = false
   teamPanel.value = true
 }
+function toggleMember(id: string, on: boolean) {
+  teamMembers.value = on ? [...new Set([...teamMembers.value, id])] : teamMembers.value.filter(x => x !== id)
+  if (!on && teamManager.value === id) teamManager.value = ''
+}
 async function saveTeam() {
-  saving.value = true
   teamError.value = null
-  const { error: e } = await supabase.rpc('admin_upsert_team', { p_id: teamId.value as unknown as string, p_name: teamNameDraft.value })
+  if (!teamNameDraft.value.trim()) {
+    teamError.value = t('teams.nameRequired')
+    return
+  }
+  saving.value = true
+  const { error: e } = await supabase.rpc('admin_save_team', {
+    p_id: teamId.value, p_name: teamNameDraft.value, p_manager_id: teamManager.value || null, p_member_ids: teamMembers.value,
+  })
   saving.value = false
   if (e) {
     teamError.value = e.message
     return
   }
-  toast.add(teamId.value ? t('r8a.people.teamRenamed') : t('r8a.people.teamCreated'))
+  toast.add(teamId.value ? t('teams.saved') : t('r8a.people.teamCreated'))
   teamPanel.value = false
-  await fetchTeams()
+  await Promise.all([fetchTeams(true), load()])
+}
+async function deleteTeam() {
+  if (!teamId.value) return
+  saving.value = true
+  const { error: e } = await supabase.rpc('admin_delete_team', { p_id: teamId.value })
+  saving.value = false
+  if (e) {
+    teamError.value = e.message
+    return
+  }
+  toast.add(t('teams.deleted'))
+  teamPanel.value = false
+  await Promise.all([fetchTeams(true), load()])
 }
 
 const teamCards = computed(() => teams.value.map((tm) => {
@@ -239,7 +285,7 @@ const teamsPager = usePagination(computed(() => teamCards.value))
                   <span v-if="tm.managers.length" class="small">{{ t('people.managedBy', { who: tm.managers.map(fullName).join(', ') }) }}</span>
                   <WbBadge v-else tone="warning" icon="triangle-alert" size="sm">{{ t('people.noManager') }}</WbBadge>
                 </td>
-                <td class="is-r"><WbButton variant="ghost" size="sm" icon="pencil" @click="openTeam(tm.id, tm.name)">{{ t('r8a.people.rename') }}</WbButton></td>
+                <td class="is-r"><WbButton variant="ghost" size="sm" icon="pencil" data-action="edit-team" @click="openTeam(tm.id, tm.name)">{{ t('rules.edit') }}</WbButton></td>
               </tr>
             </tbody>
           </table>
@@ -271,11 +317,42 @@ const teamsPager = usePagination(computed(() => teamCards.value))
       </form>
     </WbSidePanel>
 
-    <WbSidePanel v-if="teamPanel" :title="teamId ? t('r8a.people.renameTitle') : t('r8a.people.newTeam')" :width="440" @close="teamPanel = false">
+    <WbSidePanel v-if="teamPanel" :title="teamId ? t('teams.editTitle', { name: teamNameDraft }) : t('r8a.people.newTeam')" :subtitle="t('teams.hint')" :width="520" @close="teamPanel = false">
       <form class="wb-stack" novalidate @submit.prevent="saveTeam">
         <WbBanner v-if="teamError" tone="danger">{{ teamError }}</WbBanner>
         <WbInput id="team-name" v-model="teamNameDraft" :label="t('r8a.people.teamName')" maxlength="60" required />
-        <div class="wb-panel-f"><WbButton type="submit" block :loading="saving">{{ t('rules.save') }}</WbButton></div>
+
+        <fieldset class="wb-tm-f">
+          <legend class="wb-label">{{ t('teams.members', { n: teamMembers.length }, teamMembers.length) }}</legend>
+          <WbInput v-model="memberSearch" icon="search" type="search" :aria-label="t('approvals.search')" :placeholder="t('approvals.search')" />
+          <ul class="wb-tm-list">
+            <li v-for="p in memberList" :key="p.id">
+              <WbCheckbox :model-value="teamMembers.includes(p.id)" :aria-label="fullName(p)" @update:model-value="(v: boolean) => toggleMember(p.id, v)" />
+              <WbAvatar :name="fullName(p)" :size="26" />
+              <span class="wb-grow small"><b>{{ fullName(p) }}</b>
+                <span v-if="otherTeamOf(p)" :class="teamMembers.includes(p.id) ? 'wb-c-warning' : 'wb-mut2'"> · {{ teamMembers.includes(p.id) ? t('teams.movesFrom', { team: otherTeamOf(p) }) : otherTeamOf(p) }}</span>
+              </span>
+              <WbBadge size="sm" :tone="ROLE_TONE[p.role]">{{ t(`roles.${p.role}`) }}</WbBadge>
+            </li>
+            <li v-if="!memberList.length" class="small wb-mut">{{ t('people.noMatch') }}</li>
+          </ul>
+        </fieldset>
+
+        <WbSelect id="team-manager" v-model="teamManager" :options="managerChoices" :label="t('teams.manager')" :hint="t('teams.managerHint')" />
+
+        <div class="wb-panel-f">
+          <WbButton type="submit" block :loading="saving">{{ t('rules.save') }}</WbButton>
+          <template v-if="teamId">
+            <WbButton v-if="!confirmDelete" variant="ghost" block icon="trash-2" data-action="delete-team" @click="confirmDelete = true">{{ t('teams.delete') }}</WbButton>
+            <div v-else class="wb-tm-del">
+              <p class="small">{{ t('teams.deleteConfirm', { n: teamMembers.length }, teamMembers.length) }}</p>
+              <div class="wb-row" style="gap: 8px">
+                <WbButton variant="danger" size="sm" :loading="saving" @click="deleteTeam">{{ t('teams.deleteYes') }}</WbButton>
+                <WbButton variant="ghost" size="sm" @click="confirmDelete = false">{{ t('approvals.cancel') }}</WbButton>
+              </div>
+            </div>
+          </template>
+        </div>
       </form>
     </WbSidePanel>
   </div>
@@ -287,4 +364,11 @@ const teamsPager = usePagination(computed(() => teamCards.value))
 .wb-adm-f { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); flex: 1; min-width: 0; }
 .wb-adm-bar :deep(.wb-btn) { margin: 0; }
 .wb-adm-bar-end { justify-content: flex-end; }
+/* Team panel */
+.wb-tm-f { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.wb-tm-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.wb-tm-list li { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); }
+.wb-tm-list li + li { border-top: 1px solid var(--border); }
+.wb-tm-del { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--danger-border); background: var(--danger-tint); border-radius: var(--radius-md); }
+.wb-tm-del :deep(.wb-btn) { margin: 0; }
 </style>
