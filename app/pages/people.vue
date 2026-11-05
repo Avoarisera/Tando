@@ -27,7 +27,7 @@ async function load() {
     people.value = (data ?? []) as Person[]
   }
   catch (e) {
-    error.value = e instanceof Error ? e.message : String(e)
+    error.value = errorMessage(e)
   }
   finally {
     isLoading.value = false

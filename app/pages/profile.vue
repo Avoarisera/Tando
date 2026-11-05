@@ -39,7 +39,8 @@ const email = computed(() => supabaseUser.value?.email ?? '')
 const subtitle = computed(() => [profile.value ? t(`roles.${profile.value.role}`) : '', teamName.value ?? t('profile.allCompany'), profile.value?.country ? t(`countries.${profile.value.country}`) : ''].filter(Boolean).join(' · '))
 const joined = computed(() => (profile.value?.joined_at ? fmtDate(profile.value.joined_at, tag.value, { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''))
 
-const rows = computed(() => balances.value.map((b) => {
+// Types without balance (sick / unpaid leave) are not listed (TND-23)
+const rows = computed(() => balances.value.filter(b => b.leave_types?.tracks_balance !== false).map((b) => {
   const reserved = reservedDays(mine.value, b.leave_type_id, year)
   return { id: b.id, name: b.leave_types.name, color: b.leave_types.color, allocated: b.allocated_days, used: b.used_days, reserved, left: b.allocated_days - b.used_days - reserved }
 }))
@@ -119,7 +120,7 @@ async function changePassword() {
               <td class="is-r wb-num">{{ r.allocated }}</td>
               <td class="is-r wb-num">{{ r.used }}</td>
               <td class="is-r wb-num">{{ r.reserved }}</td>
-              <td class="is-r wb-num" :class="{ 'wb-c-danger': r.left <= 0 }"><b>{{ r.left }}</b></td>
+              <td class="is-r wb-num" :class="{ 'wb-c-danger': r.left <= 0 }"><b>{{ r.left }}</b><span v-if="r.left < 0" class="caption"> · {{ t('tnd23.advance') }}</span></td>
             </tr>
           </tbody>
         </table>

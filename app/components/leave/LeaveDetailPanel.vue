@@ -4,6 +4,7 @@ const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const { detailId, closeDetail, openEdit } = useLeavePanel()
 const { requests, fetchMine } = useMyLeave()
 const { cancelRequest } = useLeaveRequests()
+const { fetchEvents: refreshCalendar } = useCalendar()
 const { fetchBalances } = useLeaveBalances()
 const toast = useToast()
 const { profile } = useCurrentUser()
@@ -60,7 +61,7 @@ async function confirmCancel() {
   busy.value = true
   try {
     const status = await cancelRequest(request.value.id)
-    await Promise.all([fetchMine(), fetchBalances()])
+    await Promise.all([fetchMine(), fetchBalances(), refreshCalendar()])
     toast.add(status === 'cancelled' ? t('detail.cancelledToast') : t('detail.askedToast'))
     confirming.value = false
   }
@@ -75,7 +76,8 @@ async function confirmCancel() {
 
 <template>
   <WbSidePanel v-if="request" :title="request.leave_types?.name ?? ''" :subtitle="subtitle" @close="closeDetail">
-    <div><WbStatusBadge :status="request.status" /></div>
+    <div class="wb-row" style="gap: 6px"><WbStatusBadge :status="request.status" /><WbBadge v-if="request.is_exception" tone="warning" size="sm" icon="shield">{{ t('tnd23.badge') }}</WbBadge></div>
+    <div v-if="request.is_exception && request.exception_reason" class="wb-why small"><b>{{ t('tnd23.reasonLabel') }}</b> {{ request.exception_reason }}</div>
     <WbStepper :steps="steps" />
     <div v-if="request.review_comment && request.status === 'rejected'" class="wb-why small"><b>{{ t('detail.reason') }}</b> {{ request.review_comment }}</div>
     <div class="wb-stack-s">

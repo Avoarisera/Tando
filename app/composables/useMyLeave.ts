@@ -25,7 +25,7 @@ export function useMyLeave() {
       if (!userId) return
       const { data, error: sbError } = await supabase
         .from('leave_requests')
-        .select('*, leave_types (id, name, color), profiles!user_id (id, first_name, last_name, team_id, teams (name))')
+        .select('*, leave_types (id, name, color, tracks_balance), profiles!user_id (id, first_name, last_name, team_id, teams (name))')
         .eq('user_id', userId)
         .order('start_date', { ascending: false })
       if (sbError) throw sbError
@@ -33,7 +33,7 @@ export function useMyLeave() {
       loaded.value = true
     }
     catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = errorMessage(e)
     }
     finally {
       isLoading.value = false

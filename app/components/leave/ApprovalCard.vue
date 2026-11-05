@@ -16,9 +16,11 @@ const props = defineProps<{
   busy?: boolean
   /** Dense team planning around the request (manager view) */
   planning?: PlanPerson[]
+  /** Short card for a grid of cards: actions at the bottom */
+  compact?: boolean
 }>()
 const selected = defineModel<boolean>('selected', { default: false })
-defineEmits<{ approve: [], refuse: [] }>()
+defineEmits<{ approve: [], refuse: [], exception: [] }>()
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 
@@ -72,6 +74,9 @@ const impact = computed(() => {
 // Step of the approval flow, in plain words for the admin
 const managerNames = computed(() => (props.managers ?? []).join(', '))
 const skipsManager = computed(() => props.isAdmin && r.value.status === 'pending' && !!props.managers?.length)
+// Over the balance (TND-23): the manager still validates step 1, only the admin can
+// approve, and only "à titre exceptionnel"
+const overBy = computed(() => (props.balanceAfter !== null && props.balanceAfter < 0 && !isCancellation.value ? -props.balanceAfter : 0))
 const stepLabel = computed(() => {
   if (r.value.status === 'manager_approved') return t('approvals.stepManagerOk')
   return props.managers?.length ? t('approvals.stepWaitManager', { who: managerNames.value }) : t('approvals.stepNoManager')
@@ -86,7 +91,7 @@ const planDays = computed(() => {
 </script>
 
 <template>
-  <article class="wb-ac wb-acx" :class="{ 'is-sel': selected }" :data-id="r.id">
+  <article class="wb-ac wb-acx" :class="{ 'is-sel': selected, 'is-compact': compact }" :data-id="r.id">
     <div class="wb-acx-row">
       <WbCheckbox v-if="selectable" v-model="selected" class="wb-acx-chk" :aria-label="t('approvals.select', { who })" />
       <WbAvatar :name="who" :size="36" />
@@ -112,6 +117,7 @@ const planDays = computed(() => {
             </li>
           </ul>
         </div>
+        <div v-if="overBy" class="caption wb-c-danger wb-acx-warn"><WbIcon name="wallet" :size="13" />{{ isAdmin ? t('tnd23.overAdmin', { n: fmtDays(overBy, tag) }, overBy) : t('tnd23.overManager', { n: fmtDays(overBy, tag) }, overBy) }}</div>
         <div v-if="skipsManager && !isCancellation" class="caption wb-c-warning wb-acx-warn"><WbIcon name="triangle-alert" :size="13" />{{ t('approvals.skipsManager', { who: managerNames }) }}</div>
       </div>
       <div class="wb-acx-a">
@@ -119,7 +125,8 @@ const planDays = computed(() => {
           {{ showPlan ? t('v2.hidePlanning') : t('v2.showPlanning') }}
         </WbButton>
         <WbButton variant="secondary" size="sm" :disabled="busy" @click="$emit('refuse')">{{ isCancellation ? t('approvals.keepLeave') : t('approvals.refuse') }}</WbButton>
-        <WbButton icon="check" size="sm" :loading="busy" @click="$emit('approve')">{{ isCancellation ? t('approvals.acceptCancel') : t('approvals.approve') }}</WbButton>
+        <WbButton v-if="overBy && isAdmin" icon="shield" size="sm" :loading="busy" data-action="approve-exception" @click="$emit('exception')">{{ t('tnd23.approveException') }}</WbButton>
+        <WbButton v-else icon="check" size="sm" :loading="busy" @click="$emit('approve')">{{ isCancellation ? t('approvals.acceptCancel') : t('approvals.approve') }}</WbButton>
       </div>
     </div>
 
@@ -150,6 +157,15 @@ const planDays = computed(() => {
 .wb-acx-warn { display: inline-flex; gap: 4px; align-items: center; }
 .wb-acx-a { display: flex; gap: var(--space-2); align-items: center; flex: none; }
 .wb-acx-a :deep(.wb-btn) { margin: 0; flex: none; }
+/* Compact card (grid of cards): content on top, actions on a bottom row */
+.wb-acx.is-compact { display: flex; flex-direction: column; height: 100%; padding: var(--space-3); gap: var(--space-2); }
+.wb-acx.is-compact .wb-acx-row { flex-wrap: wrap; flex: 1; align-content: flex-start; gap: var(--space-2) var(--space-3); }
+.wb-acx.is-compact .wb-acx-main { flex: 1 1 0; min-width: 0; }
+.wb-acx.is-compact .wb-acx-a { flex-basis: 100%; }
+.wb-acx.is-compact .wb-quote { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-acx.is-compact .wb-acx-a { width: 100%; justify-content: flex-end; flex-wrap: wrap; margin-top: auto; padding-top: var(--space-2); border-top: 1px solid var(--border); }
+.wb-acx.is-compact .wb-acx-a :deep(.wb-btn) { flex: 1 1 auto; }
+.wb-acx.is-compact .wb-acx-a :deep(.wb-btn-ghost) { flex: 0 0 auto; }
 @container wbapp (max-width: 767px) {
   .wb-acx-row { flex-wrap: wrap; }
   .wb-acx-main { flex-basis: calc(100% - 80px); }

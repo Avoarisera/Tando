@@ -36,7 +36,7 @@ export function useApprovals() {
       const [{ data: reqs, error: e1 }, { data: bals, error: e2 }] = await Promise.all([
         supabase
           .from('leave_requests')
-          .select('*, leave_types (id, name, color), profiles!user_id (id, first_name, last_name, team_id, teams (name))')
+          .select('*, leave_types (id, name, color, tracks_balance), profiles!user_id (id, first_name, last_name, team_id, teams (name))')
           .order('start_date', { ascending: true }),
         supabase
           .from('leave_balances')
@@ -50,7 +50,7 @@ export function useApprovals() {
       loaded.value = true
     }
     catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = errorMessage(e)
     }
     finally {
       isLoading.value = false
@@ -64,6 +64,8 @@ export function useApprovals() {
 
   /** Remaining days of the requester if this request is approved (pending ones reserved) */
   function balanceAfter(r: LeaveRequestWithRelations): number | null {
+    // sick / unpaid leave: no balance to compare with (TND-23)
+    if (r.leave_types?.tracks_balance === false) return null
     const b = balances.value.find(x => x.user_id === r.user_id && x.leave_type_id === r.leave_type_id)
     if (!b) return null
     const year = Number(r.start_date.slice(0, 4))
@@ -86,5 +88,14 @@ export function useApprovals() {
     return status
   }
 
-  return { requests: readonly(requests), loaded: readonly(loaded), isLoading: readonly(isLoading), error: readonly(error), toReview, reviewed, fetchAll, balanceAfter, decide, meId }
+  /** Admin only: approve beyond the balance, with a mandatory reason (TND-23) */
+  async function approveException(id: string, reason: string) {
+    const { error: e } = await supabase.rpc('approve_leave_exception', { p_request_id: id, p_reason: reason })
+    if (e) throw new Error(e.message)
+    const now = new Date().toISOString()
+    requests.value = requests.value.map(x => (x.id === id ? { ...x, status: 'approved' as const, admin_reviewed_at: now, is_exception: true, exception_reason: reason } : x))
+    return 'approved' as const
+  }
+
+  return { requests: readonly(requests), loaded: readonly(loaded), isLoading: readonly(isLoading), error: readonly(error), toReview, reviewed, fetchAll, balanceAfter, decide, approveException, meId }
 }

@@ -326,7 +326,12 @@
       "end": "End",
       "days": "Days"
     },
-    "alertUnderstaffed": "{team} team: {n} of {of} present on {day}"
+    "alertUnderstaffed": "{team} team: {n} of {of} present on {day}",
+    "departuresTitle": "Upcoming departures",
+    "departuresSub": "No departure in 14 days | {n} departure in 14 days | {n} departures in 14 days",
+    "noDepartures": "No departure in the next 14 days.",
+    "tomorrow": "tomorrow",
+    "inDaysShort": "in {n} d"
   },
   "rules": {
     "tabTypes": "Leave types",
@@ -864,7 +869,8 @@
     "members": "Members",
     "manager": "Manager",
     "typesHint": "Active types are offered when requesting leave.",
-    "settingsSaveHint": "Changes apply to the next invoices and invitations."
+    "settingsSaveHint": "Changes apply to the next invoices and invitations.",
+    "awayTodayCount": "Nobody | {n} away | {n} away"
   },
   "v3": {
     "auth": {
@@ -902,5 +908,36 @@
     "delete": "Delete the team",
     "deleteConfirm": "Delete this team? | Delete this team? Its member will have no team. | Delete this team? Its {n} members will have no team.",
     "deleteYes": "Delete"
+  },
+  "tnd23": {
+    "noCount": "Not counted",
+    "tracks": "Counted against a balance",
+    "tracksHint": "Untick for sick or unpaid leave: no balance, no limit.",
+    "overText": "This request goes {n} day over your balance: the admin will have to approve it as an exception. | This request goes {n} days over your balance: the admin will have to approve it as an exception.",
+    "overManager": "{n} day over the balance: only the admin can approve it, as an exception. | {n} days over the balance: only the admin can approve it, as an exception.",
+    "overAdmin": "{n} day over the balance: exceptional approval with a reason. | {n} days over the balance: exceptional approval with a reason.",
+    "approveException": "Approve as an exception",
+    "modalTitle": "Exceptional approval for {who}",
+    "modalText": "{who} goes {n} day over the balance. The balance will become negative (advance). | {who} goes {n} days over the balance. The balance will become negative (advance).",
+    "reason": "Reason",
+    "reasonHint": "For example: advance on next year’s balance, HR agreement.",
+    "reasonRequired": "Enter the reason for the exceptional approval.",
+    "reasonLabel": "Exceptional approval:",
+    "confirm": "Approve",
+    "approved": "{who}’s request approved as an exception",
+    "bulkSkipped": "{who} is over the balance: approve it on its own, as an exception",
+    "badge": "Exception",
+    "advance": "advance",
+    "overFilter": "Over the balance",
+    "state": {
+      "rejected": "refused",
+      "cancelRequested": "cancellation asked"
+    },
+    "legend": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Refused (only you see it)"
+    },
+    "loadingMore": "Loading… {n} more request | Loading… {n} more requests"
   }
 }

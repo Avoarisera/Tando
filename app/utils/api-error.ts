@@ -12,3 +12,17 @@ export function readableApiError(raw: string | null | undefined): string | null 
   if (status >= 500 || !text) return null
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
+
+/**
+ * Message of anything thrown: Error, Supabase/PostgREST error objects
+ * ({ message, details, hint }), strings. Never "[object Object]".
+ */
+export function errorMessage(e: unknown, fallback = 'Erreur inattendue'): string {
+  if (e instanceof Error && e.message) return e.message
+  if (typeof e === 'string' && e) return e
+  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string') {
+    const m = (e as { message: string }).message
+    if (m) return m
+  }
+  return fallback
+}

@@ -66,7 +66,7 @@ function resetFilters() {
 </script>
 
 <template>
-  <div class="wb-page wb-stack">
+  <div class="wb-page wb-stack wb-ap-page">
     <WbTabs v-model="tab" :tabs="tabs" :label="t('nav.approvals')" />
 
     <ol v-if="isAdmin && tab === 'todo'" class="wb-ap-flow small" :aria-label="t('approvals.flowTitle')">
@@ -95,12 +95,14 @@ function resetFilters() {
         <WbEmptyState art="inbox" :title="t('approvals.emptyTitle')">{{ t('approvals.emptyText') }}</WbEmptyState>
       </div>
       <p v-else-if="!shown.length" class="wb-card wb-card-b wb-mut">{{ t('approvals.noMatch') }}</p>
-      <ApprovalQueue v-else role="tabpanel" :items="shown" :is-admin="isAdmin" bulk :with-planning="!isAdmin" />
+      <div v-else class="wb-ap-scroll">
+        <ApprovalQueue role="tabpanel" :items="shown" :is-admin="isAdmin" bulk grid :with-planning="!isAdmin" />
+      </div>
     </template>
 
     <template v-else>
       <p v-if="!shownDone.length" class="wb-card wb-card-b wb-mut">{{ t('approvals.noneDone') }}</p>
-      <WbCard v-else :pad="false" role="tabpanel">
+      <WbCard v-else :pad="false" role="tabpanel" class="wb-ap-done">
         <div class="wb-scroll wb-dt">
           <table>
             <caption class="wb-sr">{{ t('approvals.tabDone') }}</caption>
@@ -119,7 +121,7 @@ function resetFilters() {
                 <td><WbTypeBadge :name="r.leave_types?.name ?? ''" :color="r.leave_types?.color" /></td>
                 <td class="wb-num">{{ formatPeriod(r.start_date, r.end_date, tag) }}</td>
                 <td class="is-r wb-num">{{ fmtDays(Number(r.days_count), tag) }}</td>
-                <td><WbStatusBadge :status="r.status" /></td>
+                <td><span class="wb-row" style="gap: 6px"><WbStatusBadge :status="r.status" /><WbBadge v-if="r.is_exception" tone="warning" size="sm" icon="shield" :title="r.exception_reason ?? undefined">{{ t('tnd23.badge') }}</WbBadge></span></td>
               </tr>
             </tbody>
           </table>
@@ -132,6 +134,15 @@ function resetFilters() {
 </template>
 
 <style scoped>
+/* Desktop: the page never scrolls; the list of requests scrolls under the filters */
+@container wbapp (min-width: 1024px) {
+  .wb-main > .wb-ap-page { flex: none; height: calc(100dvh - 56px - var(--space-5) - var(--space-8) - 8px); max-height: calc(100dvh - 56px - var(--space-5) - var(--space-8) - 8px); min-height: 0; overflow: hidden; }
+  /* positioned, so absolutely placed bits (hidden checkboxes) stay inside the scroll area */
+  .wb-ap-scroll { position: relative; flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 2px; margin: -2px; }
+  .wb-ap-scroll :deep(.wb-aq-bar) { top: 0; }
+  .wb-ap-done { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+  .wb-ap-done :deep(.wb-scroll) { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+}
 /* Approval flow, always visible above the queue */
 .wb-ap-flow { list-style: none; margin: 0; padding: var(--space-3) var(--space-4); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-5); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); color: var(--ink-2); }
 .wb-ap-flow li { display: inline-flex; align-items: center; gap: var(--space-2); }

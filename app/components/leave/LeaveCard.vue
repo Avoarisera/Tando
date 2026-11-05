@@ -27,6 +27,7 @@ const steps = computed(() => leaveSteps(
     </div>
     <WbStepper class="wb-lc-steps" :steps="steps" inline />
     <WbStatusBadge class="wb-lc-status" :status="request.status" />
+    <WbBadge v-if="request.is_exception" tone="warning" size="sm" icon="shield" :title="request.exception_reason ?? undefined">{{ t('tnd23.badge') }}</WbBadge>
     <div v-if="request.status === 'rejected' && request.review_comment" class="wb-why small wb-lc-why"><b>{{ t('detail.reason') }}</b> {{ request.review_comment }}</div>
   </article>
 </template>

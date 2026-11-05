@@ -25,11 +25,11 @@ export function useLeaveTypes() {
     }
   }
 
-  async function createLeaveType(name: string, color: string): Promise<void> {
+  async function createLeaveType(name: string, color: string, tracksBalance?: boolean): Promise<void> {
     const currentYear = new Date().getFullYear()
     const { data, error: sbError } = await supabase
       .from('leave_types')
-      .insert({ name: name.trim(), color, is_active: true })
+      .insert({ name: name.trim(), color, is_active: true, ...(tracksBalance === undefined ? {} : { tracks_balance: tracksBalance }) })
       .select('id')
       .single()
     if (sbError) throw sbError
@@ -41,10 +41,10 @@ export function useLeaveTypes() {
     if (rpcError) throw rpcError
   }
 
-  async function updateLeaveType(id: string, name: string, color: string) {
+  async function updateLeaveType(id: string, name: string, color: string, tracksBalance?: boolean) {
     const { error: sbError } = await supabase
       .from('leave_types')
-      .update({ name: name.trim(), color })
+      .update({ name: name.trim(), color, ...(tracksBalance === undefined ? {} : { tracks_balance: tracksBalance }) })
       .eq('id', id)
     if (sbError) throw sbError
   }

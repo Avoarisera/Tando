@@ -34,7 +34,7 @@ const dateLabel = computed(() => {
 const pending = computed(() => mine.value.filter(r => r.status === 'pending' || r.status === 'manager_approved'))
 
 // Main balance: the first one (Congés payés in the seed), others listed below
-const balanceRows = computed(() => balances.value.map((b) => {
+const balanceRows = computed(() => balances.value.filter(b => b.leave_types?.tracks_balance !== false).map((b) => {
   const reserved = reservedDays(mine.value, b.leave_type_id, year)
   return { id: b.id, name: b.leave_types.name, color: b.leave_types.color, allocated: b.allocated_days, used: b.used_days, reserved, left: b.allocated_days - b.used_days - reserved }
 }))
@@ -76,7 +76,7 @@ const teamPeople = computed<PlanPerson[]>(() => members.value
   .map(m => ({
     id: m.id,
     name: fullName(m),
-    spans: events.value.filter(e => e.userId === m.id && (e.status === 'approved' || e.isOwn)).map(e => ({ id: e.id, from: e.startDate, to: e.endDate, label: e.leaveTypeName, color: e.leaveTypeColor, pending: e.status !== 'approved' })),
+    spans: events.value.filter(e => e.userId === m.id && (e.status === 'approved' || e.isOwn)).map(e => ({ id: e.id, from: e.startDate, to: e.endDate, label: e.isOwn && e.state === 'rejected' ? `${e.leaveTypeName} · ${t('tnd23.state.rejected')}` : e.leaveTypeName, color: e.leaveTypeColor, pending: e.status !== 'approved', state: e.isOwn ? e.state : undefined })),
   })))
 
 const presentToday = computed(() => {
@@ -173,7 +173,7 @@ const pct = (b: { allocated: number, used: number, reserved: number }) => {
             <li v-for="b in balanceRows" :key="b.id">
               <div class="wb-row-b">
                 <WbTypeBadge :name="b.name" :color="b.color" />
-                <span class="small wb-num"><b>{{ fmtDays(b.left, tag) }}</b> <span class="wb-mut">/ {{ fmtDays(Number(b.allocated), tag) }} j</span></span>
+                <span class="small wb-num" :class="{ 'wb-c-danger': b.left < 0 }"><b>{{ fmtDays(b.left, tag) }}</b> <span class="wb-mut">/ {{ fmtDays(Number(b.allocated), tag) }} j</span><template v-if="b.left < 0"> · {{ t('tnd23.advance') }}</template></span>
               </div>
               <div class="wb-bal-bar" role="img" :aria-label="t('home.usedReserved', { used: b.used, reserved: b.reserved })" :style="leaveVars(b.color)">
                 <span class="u" :style="{ width: `${pct(b).used}%` }" />

@@ -143,9 +143,36 @@ async function main() {
       p_leave_type_id: IDS.congePaye, p_start_date: dec(14), p_end_date: dec(16),
     })
     if (r2.data) created.push(r2.data)
-    await service.from('leave_balances').update({ allocated_days: bal.allocated_days }).eq('id', bal.id)
-    check('TND-19a', 'pas de dépassement de solde via les demandes en attente', !r1.error && !!r2.error,
-      r1.error ? `1re demande refusée: ${r1.error.message}` : '')
+    // TND-23: going over the balance no longer blocks the request…
+    check('TND-23a', 'une demande au-delà du solde est acceptée en attente (plus bloquée)', !r1.error && !r2.error,
+      r1.error?.message ?? r2.error?.message ?? '')
+    const admin = await signIn('admin@waka.com')
+    const manager = await signIn('manager@waka.com')
+    if (r1.data) await admin.rpc('review_leave_request', { p_request_id: r1.data, p_decision: 'approve' })
+    // …but a plain approval cannot overdraw it
+    const plain = r2.data ? await admin.rpc('review_leave_request', { p_request_id: r2.data, p_decision: 'approve' }) : { error: { message: 'pas de demande' } }
+    check('TND-23b', 'une approbation normale ne fait pas passer le solde en négatif', !!plain.error)
+    const byManager = r2.data ? await manager.rpc('approve_leave_exception', { p_request_id: r2.data, p_reason: 'manager' }) : { error: {} }
+    check('TND-23c', 'un manager ne peut pas accorder d\'exception', !!byManager.error)
+    const byEmployee = r2.data ? await eddy.rpc('approve_leave_exception', { p_request_id: r2.data, p_reason: 'moi' }) : { error: {} }
+    check('TND-23d', 'un employé ne peut pas s\'accorder une exception', !!byEmployee.error)
+    const noReason = r2.data ? await admin.rpc('approve_leave_exception', { p_request_id: r2.data, p_reason: '  ' }) : { error: {} }
+    check('TND-23e', 'le motif de l\'exception est obligatoire', !!noReason.error)
+    const ok = r2.data ? await admin.rpc('approve_leave_exception', { p_request_id: r2.data, p_reason: 'Avance sur l\'an prochain' }) : { error: { message: 'pas de demande' } }
+    const { data: after } = await service.from('leave_balances').select('allocated_days, used_days').eq('id', bal.id).single()
+    const { data: req } = await service.from('leave_requests').select('status, is_exception').eq('id', r2.data ?? '00000000-0000-0000-0000-000000000000').maybeSingle()
+    check('TND-23f', 'l\'admin approuve à titre exceptionnel : demande marquée, solde négatif',
+      !ok.error && req?.status === 'approved' && req?.is_exception === true && Number(after.allocated_days) - Number(after.used_days) < 0, ok.error?.message ?? '')
+    // restore Eddy's balance (deleting the requests at the end does not give the days back)
+    await service.from('leave_balances').update({ allocated_days: bal.allocated_days, used_days: bal.used_days }).eq('id', bal.id)
+    // TND-23: a type without balance needs no balance row
+    const { data: sick } = await service.from('leave_types').select('id').eq('tracks_balance', false).limit(1).maybeSingle()
+    if (sick) {
+      await service.from('leave_balances').delete().eq('user_id', IDS.eddy).eq('leave_type_id', sick.id).eq('year', Y)
+      const s1 = await eddy.rpc('create_leave_request', { p_leave_type_id: sick.id, p_start_date: dec(21), p_end_date: dec(22) })
+      if (s1.data) created.push(s1.data)
+      check('TND-23g', 'un type sans décompte se pose sans solde configuré', !s1.error, s1.error?.message ?? '')
+    }
     const past = await eddy.rpc('create_leave_request', {
       p_leave_type_id: IDS.congePaye, p_start_date: `${Y}-01-05`, p_end_date: `${Y}-01-06`,
     })

@@ -64,6 +64,8 @@ export function useCalendar() {
           endDate: r.end_date,
           // cancel_requested is still leave: shown like approved
           status: (r.status === 'cancel_requested' ? 'approved' : r.status) as LeaveStatus,
+          // raw status, to style one's own requests (pending / refused / cancellation asked)
+          state: r.status as LeaveStatus,
           isOwn: r.user_id === currentUserId,
           teamId: r.profiles?.teams?.id,
           teamName: r.profiles?.teams?.name,

@@ -326,7 +326,12 @@
       "end": "Fin",
       "days": "Jours"
     },
-    "alertUnderstaffed": "Équipe {team} : {n} présent(s) sur {of} le {day}"
+    "alertUnderstaffed": "Équipe {team} : {n} présent(s) sur {of} le {day}",
+    "departuresTitle": "Départs à venir",
+    "departuresSub": "Aucun départ sur 14 jours | {n} départ sur 14 jours | {n} départs sur 14 jours",
+    "noDepartures": "Aucun départ prévu dans les 14 prochains jours.",
+    "tomorrow": "demain",
+    "inDaysShort": "J-{n}"
   },
   "rules": {
     "tabTypes": "Types de congé",
@@ -864,7 +869,8 @@
     "members": "Membres",
     "manager": "Manager",
     "typesHint": "Les types actifs sont proposés à la pose d’un congé.",
-    "settingsSaveHint": "Les modifications s’appliquent aux prochaines factures et invitations."
+    "settingsSaveHint": "Les modifications s’appliquent aux prochaines factures et invitations.",
+    "awayTodayCount": "Personne | {n} absent | {n} absents"
   },
   "v3": {
     "auth": {
@@ -902,5 +908,36 @@
     "delete": "Supprimer l’équipe",
     "deleteConfirm": "Supprimer cette équipe ? | Supprimer cette équipe ? Son membre n’aura plus d’équipe. | Supprimer cette équipe ? Ses {n} membres n’auront plus d’équipe.",
     "deleteYes": "Supprimer"
+  },
+  "tnd23": {
+    "noCount": "Sans décompte",
+    "tracks": "Décompter d’un solde",
+    "tracksHint": "Décochez pour la maladie ou le congé sans solde : aucun solde, aucune limite.",
+    "overText": "Cette demande dépasse votre solde de {n} jour : elle devra être acceptée à titre exceptionnel par l’admin. | Cette demande dépasse votre solde de {n} jours : elle devra être acceptée à titre exceptionnel par l’admin.",
+    "overManager": "Dépasse le solde de {n} jour : seul l’admin pourra l’accepter, à titre exceptionnel. | Dépasse le solde de {n} jours : seul l’admin pourra l’accepter, à titre exceptionnel.",
+    "overAdmin": "Dépasse le solde de {n} jour : accord exceptionnel avec motif. | Dépasse le solde de {n} jours : accord exceptionnel avec motif.",
+    "approveException": "Approuver à titre exceptionnel",
+    "modalTitle": "Accord exceptionnel pour {who}",
+    "modalText": "{who} dépasse son solde de {n} jour. Le solde passera en négatif (avance). | {who} dépasse son solde de {n} jours. Le solde passera en négatif (avance).",
+    "reason": "Motif de l’accord",
+    "reasonHint": "Par exemple : avance sur le solde de l’an prochain, accord RH.",
+    "reasonRequired": "Indiquez le motif de l’accord exceptionnel.",
+    "reasonLabel": "Accord exceptionnel :",
+    "confirm": "Approuver",
+    "approved": "Demande de {who} approuvée à titre exceptionnel",
+    "bulkSkipped": "{who} dépasse son solde : à approuver un par un, à titre exceptionnel",
+    "badge": "Exceptionnel",
+    "advance": "avance",
+    "overFilter": "En dépassement",
+    "state": {
+      "rejected": "refusée",
+      "cancelRequested": "annulation demandée"
+    },
+    "legend": {
+      "pending": "En attente",
+      "approved": "Approuvé",
+      "rejected": "Refusé (visible par vous seul)"
+    },
+    "loadingMore": "Chargement… encore {n} demande | Chargement… encore {n} demandes"
   }
 }

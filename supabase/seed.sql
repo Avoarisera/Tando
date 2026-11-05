@@ -15,6 +15,8 @@ INSERT INTO leave_types (id, name, color, is_active) VALUES
   ('00000000-0000-0000-0000-000000000022', 'RTT',               '#2196F3', true),
   ('00000000-0000-0000-0000-000000000023', 'Congé sans solde',  '#9E9E9E', true)
 ON CONFLICT (id) DO NOTHING;
+-- TND-23: sick and unpaid leave are not counted against a balance
+UPDATE leave_types SET tracks_balance = false WHERE name IN ('Congé maladie', 'Congé sans solde');
 
 -- 3. Auth users (requires service role)
 -- NOTE: Supabase seed.sql executes with service role via `supabase db seed`
