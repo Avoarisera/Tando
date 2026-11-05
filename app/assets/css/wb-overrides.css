@@ -159,3 +159,5 @@ button.wb-bar:focus-visible { outline: 2px solid var(--brand); outline-offset: 1
 .wb-bar.is-focus { outline: 2px solid var(--brand); outline-offset: 1px; z-index: 3; animation: wb-bar-focus 1.2s ease-out 2; }
 @keyframes wb-bar-focus { 50% { outline-offset: 4px; } }
 @media (prefers-reduced-motion: reduce) { .wb-bar.is-focus { animation: none; } }
+/* Planning: the label shows whenever the bar is wide enough, cut with "…" */
+.wb-plan .wb-bar span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
