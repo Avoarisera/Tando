@@ -29,7 +29,7 @@ export function useLeaveRequests() {
         .order('created_at', { ascending: false })
 
       if (profile.value?.role === 'employee') {
-        let userId = user.value?.id
+        let userId = user.value?.sub as string | undefined
         if (!userId) {
           const { data } = await supabase.auth.getUser()
           userId = data.user?.id

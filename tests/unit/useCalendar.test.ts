@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+// useSupabaseUser() returns the JWT claims: the user id is `sub`.
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import type { CalendarEvent } from '~/types/index'
 
@@ -20,7 +21,7 @@ const { fromResult, sharedBuilder, mockFrom } = vi.hoisted(() => {
   return { fromResult, sharedBuilder, mockFrom }
 })
 
-const mockUser = vi.hoisted(() => ({ value: { id: 'user-emma' } as { id: string } | null }))
+const mockUser = vi.hoisted(() => ({ value: { sub: 'user-emma' } as { sub: string } | null }))
 
 mockNuxtImport('useSupabaseClient', () => () => ({ from: mockFrom }))
 mockNuxtImport('useSupabaseUser',   () => () => mockUser)
@@ -87,7 +88,7 @@ describe('useCalendar', () => {
     sharedBuilder.select.mockClear()
     sharedBuilder.order.mockClear()
     mockFrom.mockClear()
-    mockUser.value = { id: 'user-emma' }
+    mockUser.value = { sub: 'user-emma' }
     useState<CalendarEvent[]>('calendar-events').value = []
   })
 
@@ -118,7 +119,7 @@ describe('useCalendar', () => {
 
     it('UC-010-02: Emma sees her 2 own events regardless of status', async () => {
       fromResult.data = [EMMA_APPROVED, EMMA_PENDING, EDDY_MANAGER_APPROVED, EDDY_REJECTED]
-      mockUser.value = { id: 'user-emma' }
+      mockUser.value = { sub: 'user-emma' }
       const { events, fetchEvents } = useCalendar()
       await fetchEvents()
       const emmaEvents = events.value.filter(e => e.userId === 'user-emma')
@@ -127,7 +128,7 @@ describe('useCalendar', () => {
 
     it('UC-010-02: Emma does not see Eddy manager_approved (not own, not approved)', async () => {
       fromResult.data = [EMMA_APPROVED, EMMA_PENDING, EDDY_MANAGER_APPROVED, EDDY_REJECTED]
-      mockUser.value = { id: 'user-emma' }
+      mockUser.value = { sub: 'user-emma' }
       const { events, fetchEvents } = useCalendar()
       await fetchEvents()
       expect(events.value.find(e => e.id === 'req-42')).toBeUndefined()
@@ -135,7 +136,7 @@ describe('useCalendar', () => {
 
     it('UC-010-02: Emma does not see Eddy rejected (not own, not approved)', async () => {
       fromResult.data = [EMMA_APPROVED, EMMA_PENDING, EDDY_MANAGER_APPROVED, EDDY_REJECTED]
-      mockUser.value = { id: 'user-emma' }
+      mockUser.value = { sub: 'user-emma' }
       const { events, fetchEvents } = useCalendar()
       await fetchEvents()
       expect(events.value.find(e => e.id === 'req-44')).toBeUndefined()
@@ -143,7 +144,7 @@ describe('useCalendar', () => {
 
     it('UC-010-02: Eddy sees Emma approved (different user, status=approved)', async () => {
       fromResult.data = [EMMA_APPROVED, EDDY_MANAGER_APPROVED]
-      mockUser.value = { id: 'user-eddy' }
+      mockUser.value = { sub: 'user-eddy' }
       const { events, fetchEvents } = useCalendar()
       await fetchEvents()
       expect(events.value.find(e => e.id === 'req-43')).toBeDefined()
@@ -151,7 +152,7 @@ describe('useCalendar', () => {
 
     it('UC-010-03: isOwn is true for events belonging to current user', async () => {
       fromResult.data = [EMMA_APPROVED, EMMA_PENDING]
-      mockUser.value = { id: 'user-emma' }
+      mockUser.value = { sub: 'user-emma' }
       const { events, fetchEvents } = useCalendar()
       await fetchEvents()
       expect(events.value.every(e => e.isOwn)).toBe(true)
@@ -159,7 +160,7 @@ describe('useCalendar', () => {
 
     it('UC-010-03: isOwn is false for another user approved event visible to Eddy', async () => {
       fromResult.data = [EMMA_APPROVED]
-      mockUser.value = { id: 'user-eddy' }
+      mockUser.value = { sub: 'user-eddy' }
       const { events, fetchEvents } = useCalendar()
       await fetchEvents()
       expect(events.value[0]?.isOwn).toBe(false)
@@ -197,7 +198,7 @@ describe('useCalendar', () => {
     })
 
     it('UC-010-06: all events have isOwn false for admin with no personal leave', async () => {
-      mockUser.value = { id: 'user-alice' }
+      mockUser.value = { sub: 'user-alice' }
       fromResult.data = [EMMA_APPROVED]
       const { events, fetchEvents } = useCalendar()
       await fetchEvents()

@@ -64,7 +64,7 @@ mockNuxtImport('useSupabaseClient', () => () => ({
   storage: { from: mockStorageFrom },
 }))
 
-mockNuxtImport('useSupabaseUser', () => () => ref({ id: 'admin-uuid' }))
+mockNuxtImport('useSupabaseUser', () => () => ref({ sub: 'admin-uuid' }))
 
 // ── Sample fixture ───────────────────────────────────────────────────────────
 

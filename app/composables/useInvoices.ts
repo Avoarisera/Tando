@@ -29,7 +29,7 @@ export function useInvoices() {
   ): Promise<void> {
     const { error: sbError } = await supabase
       .from('invoices')
-      .insert({ ...payload, created_by: user.value?.id ?? null })
+      .insert({ ...payload, created_by: (user.value?.sub as string | undefined) ?? null })
     if (sbError) throw sbError
     await fetchInvoices()
   }

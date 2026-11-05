@@ -7,7 +7,7 @@ export function useCurrentUser() {
 
   async function loadProfile() {
     if (profile.value) return
-    let userId = user.value?.id
+    let userId = user.value?.sub as string | undefined
     if (!userId) {
       const { data } = await supabase.auth.getUser()
       userId = data.user?.id

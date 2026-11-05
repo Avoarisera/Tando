@@ -40,7 +40,12 @@ export function useCalendar() {
       if (sbError) throw sbError
 
       const rows = (data ?? []) as unknown as RawCalendarRow[]
-      const currentUserId = user.value?.id
+      // useSupabaseUser() holds the JWT claims: the user id is `sub`, not `id`
+      let currentUserId = user.value?.sub as string | undefined
+      if (!currentUserId) {
+        const { data: auth } = await supabase.auth.getUser()
+        currentUserId = auth.user?.id
+      }
 
       events.value = rows
         .filter(r =>
