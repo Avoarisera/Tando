@@ -162,7 +162,7 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
 
       <!-- Delivery: team throughput next to deliveries per person and month -->
       <div class="wb-vel-pair">
-        <WbCard :title="t('velocityB.throughput.title')">
+        <WbCard class="wb-vel-tp" :title="t('velocityB.throughput.title')">
         <p v-if="teamThroughput.every(m => m.total === 0)" class="wb-mut">{{ t('velocityB.empty.period') }}</p>
         <WbChartFrame v-else :title="t('velocityB.throughput.chart')" :legend="[{ label: t('velocityB.charts.delivered'), color: '--chart-1' }]">
           <WbLineChart
@@ -215,6 +215,9 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
 /* Two charts per row on wide screens */
 .wb-vel-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: stretch; }
 .wb-vel-pair > * { min-width: 0; }
+/* Throughput: the chart sits at the bottom of its card, level with the grid next to it */
+.wb-vel-tp { display: flex; flex-direction: column; }
+.wb-vel-tp :deep(> div:last-child) { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
 /* the heatmap and the distribution need room: one per row below 1440 px */
 @container wbapp (max-width: 1439px) { .wb-vel-pair { grid-template-columns: minmax(0, 1fr); } }
 /* The period switch never widens the page (TND-09): it scrolls inside on small screens */
