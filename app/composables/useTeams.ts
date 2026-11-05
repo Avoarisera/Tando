@@ -6,8 +6,9 @@ export function useTeams() {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchTeams() {
-    if (teams.value.length > 0) return
+  /** Cached after the first load; pass `force` after a create / rename / delete */
+  async function fetchTeams(force = false) {
+    if (!force && teams.value.length > 0) return
     isLoading.value = true
     error.value = null
     try {

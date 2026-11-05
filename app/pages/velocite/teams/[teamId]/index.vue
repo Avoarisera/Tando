@@ -1,5 +1,10 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'private', middleware: 'admin-only' })
+import { VELOCITE_RANGES, getAvailableYears, isValidRange, isValidYear, computeSelectionMonths } from '~/utils/velocite-periods'
+
+definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'admin-only' })
+
+const { t, locale } = useI18n()
+const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 
 const route = useRoute()
 const router = useRouter()
@@ -11,8 +16,6 @@ const { teams, fetchTeams } = useLinearTeams()
 const teamName = computed(() => teams.value.find(t => t.id === teamId)?.name ?? null)
 const { problematic, blocked, fetchInsights } = useTeamInsights()
 
-
-import { VELOCITE_RANGES, getAvailableYears, isValidRange, isValidYear, computeSelectionMonths, selectionLabel } from '~/utils/velocite-periods'
 
 const availableYears = getAvailableYears()
 const currentYear = new Date().getFullYear()
@@ -57,14 +60,12 @@ function handleCellClick(devId: string, month: string) {
   router.push(`/velocite/teams/${teamId}/devs/${devId}?workspaceId=${workspaceId}&year=${selectedYear.value}&range=${selectedRange.value}&month=${month}`)
 }
 
-function formatMonth(m: string): string {
-  if (!m) return ''
-  const [year, month] = m.split('-')
-  const labels = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
-  return `${labels[parseInt(month!) - 1]} ${year}`
-}
-
-const periodLabel = computed(() => selectionLabel(selectedYear.value, selectedRange.value))
+// Same wording rule as selectionLabel() (utils/velocite-periods), localised
+const periodLabel = computed(() => {
+  if (selectedYear.value === currentYear) return t('velocityB.period.lastN', { n: selectedRange.value })
+  if (selectedRange.value === 12) return t('velocityB.period.wholeYear', { y: selectedYear.value })
+  return t('velocityB.period.lastNOf', { n: selectedRange.value, y: selectedYear.value })
+})
 
 // Throughput équipe : total tickets livrés par mois (somme de tous les devs)
 const teamThroughput = computed<{ month: string; total: number }[]>(() => {
@@ -108,113 +109,73 @@ function aggregateTeamMetrics(months: string[]) {
 }
 
 const teamCurrent = computed(() => aggregateTeamMetrics(displayMonths.value))
+
+usePageHeader(() => ({
+  crumbs: [
+    { label: t('nav.velocity'), to: '/velocite' },
+    ...(workspaceId ? [{ label: t('velocityB.workspace'), to: `/velocite/workspaces/${workspaceId}` }] : []),
+    { label: teamName.value ?? t('velocityB.team') },
+  ],
+}))
+
+// Period selector: year (Select, values as strings) + range (Segmented)
+const yearOptions = computed(() => availableYears.map(y => ({ value: String(y), label: y === currentYear ? t('velocityB.period.current', { y }) : String(y) })))
+const yearModel = computed({ get: () => String(selectedYear.value), set: (v: string) => { selectedYear.value = Number(v) } })
+const rangeOptions = computed(() => VELOCITE_RANGES.map(r => ({ value: String(r.value), label: t('velocityB.period.months', { n: r.value }) })))
+const rangeModel = computed({ get: () => String(selectedRange.value), set: (v: string) => { selectedRange.value = Number(v) } })
+
+const kpis = computed(() => [
+  { label: t('velocityB.kpi.delivered'), value: teamCurrent.value.ticketsTotal, hint: periodLabel.value, info: t('velocityB.kpi.ticketsInfo') },
+  { label: t('velocityB.kpi.points'), value: teamCurrent.value.pointsTotal.toFixed(0), hint: t('velocityB.kpi.pointsHint'), info: t('velocityB.kpi.pointsInfo') },
+  { label: t('velocityB.kpi.cycleMedian'), value: velociteDuration(teamCurrent.value.cycleMedian, tag.value), hint: t('velocityB.kpi.cycleHint'), info: t('velocityB.kpi.cycleInfo') },
+  { label: t('velocityB.kpi.rework'), value: teamCurrent.value.reworkRate.toFixed(1), unit: '%', hint: t('velocityB.kpi.reworkHint'), info: t('velocityB.kpi.reworkInfo') },
+])
+const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMonth(m.month, tag.value)))
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto">
-    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+  <div class="wb-page wb-stack">
+    <div class="wb-row-b wb-wrap">
       <div>
-        <NuxtLink
-          :to="workspaceId ? `/velocite/workspaces/${workspaceId}` : '/velocite'"
-          class="text-sm text-brand-primary hover:underline"
-        >
-          ← Workspaces
-        </NuxtLink>
-        <h1 class="mt-2 text-2xl font-bold text-gray-900">{{ teamName ?? 'Équipe' }}</h1>
-        <p class="text-sm text-gray-500 mt-1">{{ periodLabel }} · cliquer un dev pour le détail</p>
+        <h2 class="h1">{{ teamName ?? t('velocityB.team') }}</h2>
+        <p class="small wb-mut">{{ periodLabel }} · {{ t('velocityB.teamHint') }}</p>
       </div>
-
-      <!-- Filtre période : année + range -->
-      <div class="flex flex-wrap items-center gap-2">
-        <div class="relative">
-          <select
-            v-model.number="selectedYear"
-            class="appearance-none rounded-lg border border-gray-200 bg-white py-2 pl-4 pr-9 text-sm font-medium text-gray-700 shadow-sm hover:border-gray-300 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
-          >
-            <option v-for="y in availableYears" :key="y" :value="y">
-              {{ y === currentYear ? `${y} (en cours)` : y }}
-            </option>
-          </select>
-          <span class="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-gray-400">
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M5.5 7.5L10 12l4.5-4.5h-9z" /></svg>
-          </span>
-        </div>
-        <div class="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1">
-          <button
-            v-for="r in VELOCITE_RANGES"
-            :key="r.value"
-            class="rounded-md px-3 py-1 text-sm font-medium transition-colors"
-            :class="selectedRange === r.value
-              ? 'bg-brand-primary text-white'
-              : 'text-gray-500 hover:bg-gray-100'"
-            @click="selectedRange = r.value"
-          >
-            {{ r.label }}
-          </button>
-        </div>
+      <div class="wb-row wb-wrap wb-period-row">
+        <WbSelect v-model="yearModel" :options="yearOptions" :aria-label="t('velocityB.period.year')" />
+        <div class="wb-period"><WbSegmented v-model="rangeModel" :options="rangeOptions" :label="t('velocityB.period.label')" /></div>
       </div>
     </div>
 
-    <template v-if="isLoading">
-      <AppSkeleton class="mb-4 h-10 w-48" />
-      <AppSkeleton class="mb-3 h-48" />
-    </template>
-
-    <AppErrorBanner v-else-if="error" :message="error" @retry="load" />
-
-    <AppEmptyState
-      v-else-if="!data || data.devs.length === 0"
-      title="Aucune donnée disponible"
-      description="Synchronisez votre workspace Linear pour importer les tickets."
-    />
+    <WbSkeleton v-if="isLoading" variant="metric" :count="4" />
+    <WbErrorState v-else-if="error" :message="readableApiError(error)" @retry="load" />
+    <div v-else-if="!data || data.devs.length === 0" class="wb-card">
+      <WbEmptyState art="link" :title="t('velocityB.empty.title')">{{ t('velocityB.empty.text') }}</WbEmptyState>
+    </div>
 
     <template v-else>
-      <!-- Synthèse équipe : KPIs agrégés sur la période sélectionnée -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div class="bg-gray-50 rounded-xl p-4">
-          <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Tickets livrés</span>
-          <p class="text-2xl font-semibold text-gray-900 mt-3">{{ teamCurrent.ticketsTotal }}</p>
-          <p class="text-xs mt-1.5 text-gray-300">{{ periodLabel }}</p>
-        </div>
-        <div class="bg-gray-50 rounded-xl p-4">
-          <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Points</span>
-          <p class="text-2xl font-semibold text-gray-900 mt-3">{{ teamCurrent.pointsTotal.toFixed(0) }}</p>
-          <p class="text-xs mt-1.5 text-gray-300">total estimations</p>
-        </div>
-        <div class="bg-gray-50 rounded-xl p-4">
-          <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Cycle médian</span>
-          <p class="text-2xl font-semibold text-gray-900 mt-3">{{ teamCurrent.cycleMedian > 0 ? `${teamCurrent.cycleMedian.toFixed(0)}h` : '—' }}</p>
-          <p class="text-xs mt-1.5 text-gray-300">In Progress → In Review</p>
-        </div>
-        <div class="bg-gray-50 rounded-xl p-4">
-          <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Rework</span>
-          <p class="text-2xl font-semibold text-gray-900 mt-3">{{ teamCurrent.reworkRate.toFixed(1) }}<span class="text-base font-normal text-gray-400">%</span></p>
-          <p class="text-xs mt-1.5 text-gray-300">tickets reworkés</p>
-        </div>
+      <div class="wb-grid wb-cols-4">
+        <WbMetricCard v-for="k in kpis" :key="k.label" :label="k.label" :value="k.value" :unit="k.unit" :hint="k.hint" :info="k.info" />
       </div>
 
-      <!-- Insights : tickets bloqués + tickets à analyser -->
-      <TeamInsights
-        :problematic="problematic"
-        :blocked="blocked"
-        :workspace-id="workspaceId"
-      />
+      <!-- Throughput and capacity side by side, then the heatmap full width -->
+      <div class="wb-vel-pair">
+        <WbCard :title="t('velocityB.throughput.title')">
+        <p v-if="teamThroughput.every(m => m.total === 0)" class="wb-mut">{{ t('velocityB.empty.period') }}</p>
+        <WbChartFrame v-else :title="t('velocityB.throughput.chart')" :legend="[{ label: t('velocityB.charts.delivered'), color: '--chart-1' }]">
+          <WbLineChart
+            :title="t('velocityB.throughput.chart')"
+            :labels="throughputLabels"
+            :series="[{ label: t('velocityB.charts.delivered'), data: teamThroughput.map(m => m.total) }]"
+            area
+            :legend="false"
+          />
+        </WbChartFrame>
+      </WbCard>
+        <CapacityCard v-if="workspaceId" :workspace-id="workspaceId" :team-id="teamId" />
+      </div>
 
-      <!-- Heatmap -->
-      <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-semibold text-gray-700">Tickets livrés — heatmap</h2>
-          <span v-if="activeDevs.length < data.devs.length" class="text-xs text-gray-400">
-            {{ data.devs.length - activeDevs.length }} dev(s) sans activité masqués
-          </span>
-        </div>
-
-        <AppEmptyState
-          v-if="activeDevs.length === 0"
-          title="Aucun ticket livré sur cette période"
-          description="Essayez d'élargir la fenêtre temporelle."
-        />
-
+      <WbCard :title="t('velocityB.heatmap.title')" :subtitle="activeDevs.length < data.devs.length ? t('velocityB.heatmap.hidden', { n: data.devs.length - activeDevs.length }) : t('velocityB.heatmap.hint')">
+        <p v-if="activeDevs.length === 0" class="wb-mut">{{ t('velocityB.empty.period') }}</p>
         <VelociteHeatmap
           v-else
           :months="displayMonths"
@@ -225,42 +186,15 @@ const teamCurrent = computed(() => aggregateTeamMetrics(displayMonths.value))
           @dev-click="goToDev"
           @cell-click="handleCellClick"
         />
-      </div>
+      </WbCard>
 
-      <!-- Throughput équipe -->
-      <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
-        <div class="mb-4">
-          <h2 class="text-sm font-semibold text-gray-700">Throughput équipe</h2>
-          <p class="text-xs text-gray-400 mt-0.5">Tickets livrés collectivement</p>
-        </div>
+      <TeamInsights :problematic="problematic" :blocked="blocked" :workspace-id="workspaceId" />
 
-        <AppEmptyState
-          v-if="teamThroughput.every(m => m.total === 0)"
-          title="Aucun ticket livré sur cette période"
-          description="Essayez d'élargir la fenêtre temporelle."
-        />
 
-        <ChartTickets
-          v-else
-          :months="teamThroughput.map(m => m.month)"
-          :values="teamThroughput.map(m => m.total)"
-        />
-      </div>
 
-      <!-- Distribution équipe -->
-      <div class="bg-white rounded-lg border border-gray-200 p-5">
-        <div class="mb-4">
-          <h2 class="text-sm font-semibold text-gray-700">Distribution de l'équipe</h2>
-          <p class="text-xs text-gray-400 mt-0.5">
-            Chaque dev positionné par rapport à la médiane de l'équipe sur la période — pas une compétition, une lecture rapide du contexte.
-          </p>
-        </div>
 
-        <AppEmptyState
-          v-if="activeDevs.length === 0"
-          title="Aucun dev actif sur cette période"
-        />
-
+      <WbCard :title="t('velocityB.dist.title')" :subtitle="t('velocityB.dist.hint')">
+        <p v-if="activeDevs.length === 0" class="wb-mut">{{ t('velocityB.empty.noDev') }}</p>
         <TeamDistribution
           v-else
           :devs="activeDevs"
@@ -271,7 +205,17 @@ const teamCurrent = computed(() => aggregateTeamMetrics(displayMonths.value))
           :year="selectedYear"
           :range="selectedRange"
         />
-      </div>
+      </WbCard>
     </template>
   </div>
 </template>
+
+<style scoped>
+.wb-page :deep(.wb-metric) { padding: var(--space-3) var(--space-4); }
+/* Two charts per row on wide screens */
+.wb-vel-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
+@container wbapp (max-width: 1023px) { .wb-vel-pair { grid-template-columns: minmax(0, 1fr); } }
+/* The period switch never widens the page (TND-09): it scrolls inside on small screens */
+.wb-period-row { min-width: 0; max-width: 100%; }
+.wb-period { min-width: 0; max-width: 100%; overflow-x: auto; }
+</style>

@@ -1,111 +1,235 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'private' })
+import type { CalBar } from '~/components/wb/WbMonthCalendar.vue'
+import type { PlanPerson } from '~/components/wb/WbPlanningGrid.vue'
 
-const { isManager, isAdmin, loadProfile } = useCurrentUser()
+definePageMeta({ titleKey: 'nav.calendar', layout: 'private' })
+
+const { t, locale } = useI18n()
+const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
+const { isAdmin, loadProfile } = useCurrentUser()
 const { events, isLoading, error, fetchEvents } = useCalendar()
+const { members, fetchMembers } = useTeamMembers()
 const { teams, fetchTeams } = useTeams()
+const { leaveTypes, fetchLeaveTypes } = useLeaveTypes()
+const { profile } = useCurrentUser()
+const { fetchCountry, holidaysOf } = useHolidays()
+const holidays = computed(() => holidaysOf(profile.value?.country ?? 'FR'))
 
-const currentMonth = ref(new Date())
-const selectedTeamId = ref<string | 'all'>('all')
+const today = todayIso()
+const mode = ref<'month' | 'plan' | 'list'>('month')
+const month = ref(today.slice(0, 7))
+const planStart = ref(addDays(today, -dayOfWeek(today)))
+const onlyMe = ref(false)
+const typeFilter = ref('all')
+const teamFilter = ref('all')
 
-const _now = new Date()
-const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`
-
-const absentToday = computed(() =>
-  events.value.filter(e =>
-    e.status === 'approved'
-    && e.startDate <= today
-    && e.endDate >= today,
-  ),
-)
-
-const filteredEvents = computed(() => {
-  if (!isAdmin.value || selectedTeamId.value === 'all') return events.value
-  return events.value.filter(e => e.teamId === selectedTeamId.value)
-})
-
-function prevMonth() {
-  currentMonth.value = new Date(
-    currentMonth.value.getFullYear(),
-    currentMonth.value.getMonth() - 1,
-    1,
-  )
-}
-
-function nextMonth() {
-  currentMonth.value = new Date(
-    currentMonth.value.getFullYear(),
-    currentMonth.value.getMonth() + 1,
-    1,
-  )
-}
-
-onMounted(async () => {
+async function load() {
   await loadProfile()
-  await fetchEvents()
-  if (isAdmin.value) {
-    await fetchTeams()
-  }
+  await Promise.all([fetchEvents(), fetchMembers(), fetchLeaveTypes(), isAdmin.value ? fetchTeams() : Promise.resolve(), fetchCountry(profile.value?.country ?? 'FR')])
+}
+onMounted(load)
+
+const modes = computed(() => [
+  { value: 'month', label: t('calendar.month'), icon: 'calendar-days' },
+  { value: 'plan', label: t('calendar.plan'), icon: 'table' },
+  { value: 'list', label: t('calendar.list'), icon: 'list' },
+])
+const typeOptions = computed(() => [{ value: 'all', label: t('calendar.allTypes') }, ...leaveTypes.value.map(lt => ({ value: lt.name, label: lt.name }))])
+const teamOptions = computed(() => [{ value: 'all', label: t('calendar.allTeams') }, ...teams.value.map(tm => ({ value: tm.id, label: tm.name }))])
+
+// Refused requests never show; own pending ones are hatched
+const visible = computed(() => events.value.filter(e =>
+  e.status !== 'rejected'
+  && (!onlyMe.value || e.isOwn)
+  && (typeFilter.value === 'all' || e.leaveTypeName === typeFilter.value)
+  && (teamFilter.value === 'all' || e.teamId === teamFilter.value)))
+
+const bars = computed<CalBar[]>(() => visible.value.map(e => ({
+  id: e.id, from: e.startDate, to: e.endDate, who: e.employeeName, type: e.leaveTypeName, color: e.leaveTypeColor, pending: e.status !== 'approved',
+})))
+
+// Legend: only the types shown in the current month or planning window
+const shownRange = computed(() => (mode.value === 'plan'
+  ? [planDays.value[0]!, planDays.value.at(-1)!]
+  : [addDays(`${month.value}-01`, -6), addDays(monthDays(month.value).at(-1)!, 6)]))
+const legend = computed(() => {
+  const [a, b] = shownRange.value
+  const seen = new Map<string, string>()
+  for (const e of visible.value) if (e.startDate <= b! && e.endDate >= a!) seen.set(e.leaveTypeName, e.leaveTypeColor)
+  return [...seen].map(([name, color]) => ({ name, color }))
 })
+
+const absentToday = computed(() => events.value.filter(e => e.status === 'approved' && e.startDate <= today && e.endDate >= today))
+
+// Planning: 14 days, one row per visible person
+const planDays = computed(() => Array.from({ length: 14 }, (_, i) => addDays(planStart.value, i)))
+const people = computed<PlanPerson[]>(() => members.value
+  .filter(m => m.role !== 'admin' || members.value.length === 1)
+  .filter(m => teamFilter.value === 'all' || m.team_id === teamFilter.value)
+  .map(m => ({
+    id: m.id,
+    name: fullName(m),
+    spans: visible.value.filter(e => e.userId === m.id).map(e => ({ id: e.id, from: e.startDate, to: e.endDate, label: e.leaveTypeName, color: e.leaveTypeColor, pending: e.status !== 'approved' })),
+  }))
+  .filter(p => !onlyMe.value || p.spans.length))
+
+// List: leave of the shown month, grouped by week
+const weeks = computed(() => {
+  const first = `${month.value}-01`
+  const last = monthDays(month.value).at(-1)!
+  const map = new Map<string, typeof visible.value>()
+  for (const e of [...visible.value].sort((a, b) => a.startDate.localeCompare(b.startDate))) {
+    if (e.endDate < first || e.startDate > last) continue
+    const s = e.startDate < first ? first : e.startDate
+    const wk = addDays(s, -dayOfWeek(s))
+    map.set(wk, [...(map.get(wk) ?? []), e])
+  }
+  return [...map].map(([wk, items]) => ({ wk, items }))
+})
+
+const monthTitle = computed(() => {
+  const s = fmtMonth(`${month.value}-01`, tag.value)
+  return s.charAt(0).toUpperCase() + s.slice(1)
+})
+const planTitle = computed(() => formatPeriod(planDays.value[0]!, planDays.value.at(-1)!, tag.value))
+
+// Jump to any month / year (no need to click month after month)
+const monthOptions = computed(() => Array.from({ length: 12 }, (_, i) => {
+  const m = `${String(i + 1).padStart(2, '0')}`
+  const l = new Date(2026, i, 1).toLocaleDateString(tag.value, { month: 'long' })
+  return { value: m, label: l.charAt(0).toUpperCase() + l.slice(1) }
+}))
+const yearOptions = computed(() => {
+  const y = Number(today.slice(0, 4))
+  const shown = Number(month.value.slice(0, 4))
+  const ys = new Set<number>([y - 2, y - 1, y, y + 1, y + 2, shown])
+  return [...ys].sort((a, b) => a - b).map(v => ({ value: String(v), label: String(v) }))
+})
+function jumpTo(ym: string) {
+  month.value = ym
+  const first = `${ym}-01`
+  planStart.value = addDays(first, -dayOfWeek(first))
+}
+const pickMonth = computed({
+  get: () => (mode.value === 'plan' ? addDays(planStart.value, 3) : month.value).slice(5, 7),
+  set: (m: string) => jumpTo(`${pickYear.value}-${m}`),
+})
+const pickYear = computed<string>({
+  get: () => (mode.value === 'plan' ? addDays(planStart.value, 3) : month.value).slice(0, 4),
+  set: (y: string) => jumpTo(`${y}-${pickMonth.value}`),
+})
+
+function prev() {
+  if (mode.value === 'plan') planStart.value = addDays(planStart.value, -7)
+  else month.value = shiftMonth(month.value, -1)
+}
+function next() {
+  if (mode.value === 'plan') planStart.value = addDays(planStart.value, 7)
+  else month.value = shiftMonth(month.value, 1)
+}
+function goToday() {
+  month.value = today.slice(0, 7)
+  planStart.value = addDays(today, -dayOfWeek(today))
+}
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto space-y-6">
-    <!-- Page header -->
-    <h1 class="text-xl font-semibold text-gray-900">Calendrier</h1>
+  <div class="wb-page">
+    <section class="wb-card wb-cal-card">
+      <!-- One toolbar: period navigation on the left, view and filters on the right -->
+      <header class="wb-card-h wb-cal-tb">
+        <div class="wb-row wb-cal-nav">
+          <WbButton variant="ghost" size="sm" icon="chevron-left" icon-only @click="prev">{{ t('picker.prev') }}</WbButton>
+          <WbButton variant="secondary" size="sm" @click="goToday">{{ t('calendar.today') }}</WbButton>
+          <WbButton variant="ghost" size="sm" icon="chevron-right" icon-only @click="next">{{ t('picker.next') }}</WbButton>
+          <h2 :class="['h2', { 'wb-sr': mode !== 'plan' }]">{{ mode === 'plan' ? planTitle : monthTitle }}</h2>
+          <div class="wb-row wb-cal-jump">
+            <WbSelect v-model="pickMonth" :options="monthOptions" :aria-label="t('calendar.pickMonth')" />
+            <WbSelect v-model="pickYear" :options="yearOptions" :aria-label="t('calendar.pickYear')" />
+          </div>
+        </div>
+        <div class="wb-row wb-wrap wb-cal-filters">
+          <WbSegmented v-model="mode" :options="modes" :label="t('calendar.view')" />
+          <WbFilterChip v-model="onlyMe">{{ t('calendar.onlyMe') }}</WbFilterChip>
+          <WbSelect v-if="isAdmin" v-model="teamFilter" :options="teamOptions" :aria-label="t('calendar.team')" />
+          <WbSelect v-model="typeFilter" :options="typeOptions" :aria-label="t('calendar.type')" />
+        </div>
+      </header>
 
-    <!-- Loading -->
-    <template v-if="isLoading">
-      <AppSkeleton class="h-8 w-48 mb-4" />
-      <AppSkeleton class="h-96" />
-    </template>
-
-    <!-- Error -->
-    <AppErrorBanner
-      v-else-if="error"
-      :message="error"
-      @retry="fetchEvents"
-    />
-
-    <!-- Content -->
-    <template v-else>
-      <!-- Manager: Absents aujourd'hui -->
-      <div v-if="isManager" class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-        <h3 class="font-medium text-amber-900 mb-2">Absents aujourd'hui</h3>
-        <p v-if="absentToday.length === 0" class="text-sm text-amber-700">
-          Aucune absence aujourd'hui.
-        </p>
-        <ul v-else class="text-sm text-amber-800 space-y-1">
-          <li v-for="e in absentToday" :key="e.id">
-            {{ e.employeeName }} — {{ e.leaveTypeName }}
-          </li>
-        </ul>
+      <div class="wb-cal-away small">
+        <b>{{ t('calendar.awayToday') }}</b>
+        <template v-if="absentToday.length">
+          <span v-for="e in absentToday" :key="e.id" class="wb-cal-away-p">
+            <WbAvatar :name="e.employeeName" :size="22" />{{ e.employeeName.split(' ')[0] }} · {{ e.leaveTypeName }}
+          </span>
+        </template>
+        <span v-else class="wb-mut">{{ t('calendar.nobodyAway') }}</span>
       </div>
 
-      <!-- Admin: team filter -->
-      <div v-if="isAdmin && teams.length > 0" class="flex items-center gap-3">
-        <label for="team-filter" class="text-sm font-medium text-gray-700">
-          Filtrer par équipe
-        </label>
-        <select
-          id="team-filter"
-          v-model="selectedTeamId"
-          class="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
-        >
-          <option value="all">Toutes les équipes</option>
-          <option v-for="team in teams" :key="team.id" :value="team.id">
-            {{ team.name }}
-          </option>
-        </select>
-      </div>
+      <div class="wb-card-b">
+        <WbErrorState v-if="error" :message="error" @retry="load" />
+        <WbSkeleton v-else-if="isLoading && !events.length" variant="table" />
+        <template v-else>
+          <WbMonthCalendar v-if="mode === 'month'" :month="month" :events="bars" :today="today" :holidays="holidays" />
+          <WbPlanningGrid v-else-if="mode === 'plan'" :style="{ '--rows': Math.max(people.length, 1) }" :days="planDays" :people="people" :today="today" :holidays="holidays" :presence-label="t('calendar.present')" />
+          <div v-else class="wb-stack-s">
+            <p v-if="!weeks.length" class="wb-mut">{{ t('calendar.emptyMonth') }}</p>
+            <div v-for="w in weeks" :key="w.wk" class="wb-stack-s">
+              <h3 class="caption wb-mut wb-cal-wk">{{ t('calendar.weekOf', { date: fmtDate(w.wk, tag, { day: 'numeric', month: 'long' }) }) }}</h3>
+              <div v-for="e in w.items" :key="e.id" class="wb-row wb-cal-li">
+                <WbAvatar :name="e.employeeName" :size="28" />
+                <div class="wb-grow small">
+                  <b>{{ e.employeeName }}</b>
+                  <span class="wb-mut2"> · {{ formatPeriod(e.startDate, e.endDate, tag) }}<template v-if="e.status !== 'approved'"> · {{ t('leave.status.pending') }}</template></span>
+                </div>
+                <WbTypeBadge :name="e.leaveTypeName" :color="e.leaveTypeColor" />
+              </div>
+            </div>
+          </div>
 
-      <!-- Calendar grid (handles empty months internally) -->
-      <CalendarGrid
-        :events="filteredEvents"
-        :current-month="currentMonth"
-        @prev-month="prevMonth"
-        @next-month="nextMonth"
-      />
-    </template>
+          <ul v-if="legend.length" class="wb-leg caption wb-cal-leg">
+            <li v-for="l in legend" :key="l.name"><WbTypeBadge :name="l.name" :color="l.color" /></li>
+            <li>{{ t('calendar.hatched') }}</li>
+          </ul>
+        </template>
+      </div>
+    </section>
   </div>
 </template>
+
+<style scoped>
+.wb-cal-tb { align-items: center; flex-wrap: wrap; padding-bottom: var(--space-3); border-bottom: 1px solid var(--border); }
+.wb-cal-nav { gap: 4px; }
+.wb-cal-nav .h2 { margin-left: var(--space-2); white-space: nowrap; }
+.wb-cal-filters { gap: var(--space-2); margin-left: auto; }
+.wb-cal-filters :deep(.wb-field) { flex: 0 0 auto; }
+/* A long type name must not stretch the filter */
+.wb-cal-filters :deep(.wb-input), .wb-cal-jump :deep(.wb-input) { max-width: 220px; }
+.wb-cal-filters :deep(select), .wb-cal-jump :deep(select) { text-overflow: ellipsis; min-width: 0; }
+.wb-cal-jump { gap: var(--space-2); margin-left: var(--space-2); }
+.wb-cal-jump :deep(.wb-field) { flex: 0 0 auto; }
+.wb-cal-away { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); padding: var(--space-2) var(--space-5); background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.wb-cal-away-p { display: inline-flex; align-items: center; gap: 6px; }
+.wb-cal-wk { text-transform: none; margin-top: var(--space-2); }
+.wb-cal-li { gap: var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.wb-cal-leg { margin-top: var(--space-3); }
+/* Denser month grid: shorter weeks, bars on 22 px lanes */
+.wb-cal-card :deep(.wb-cal-w) { grid-template-rows: calc(28px + var(--lanes) * 22px); }
+.wb-cal-card :deep(.wb-cal .wb-bar) { top: calc(27px + var(--l) * 22px); height: 20px; }
+/* Desktop: the month grid fills the screen height (6 weeks under the toolbar) */
+@container wbapp (min-width: 1024px) {
+  .wb-cal-card { flex: 1 0 auto; }
+  /* Planning: taller rows and readable day headers */
+  .wb-cal-card :deep(.wb-plan-cells) { min-height: clamp(56px, calc((100dvh - 420px) / var(--rows, 6)), 88px); }
+  .wb-cal-card :deep(.wb-plan .wb-bar) { height: 28px; margin-top: -14px; font-size: 13px; }
+  .wb-cal-card :deep(.wb-plan-hd) { font-size: 13px; }
+  .wb-cal-card :deep(.wb-cal-w) { grid-template-rows: max(calc(28px + var(--lanes) * 22px), calc((100dvh - 330px) / 6)); }
+}
+@container wbapp (max-width: 767px) {
+  .wb-cal-nav { flex-wrap: wrap; min-width: 0; }
+  .wb-cal-nav .h2 { white-space: normal; margin-left: 0; flex-basis: 100%; }
+  .wb-cal-filters { margin-left: 0; }
+  .wb-cal-filters :deep(.wb-seg) { flex-basis: 100%; }
+  .wb-cal-away { padding-inline: var(--space-4); }
+}
+</style>

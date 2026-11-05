@@ -62,12 +62,10 @@ describe('AppToastContainer', () => {
     expect(document.querySelectorAll('[role="alert"]')).toHaveLength(0)
   })
 
-  it('container has fixed bottom-right positioning classes in document.body', async () => {
+  it('container is teleported to document.body', async () => {
     wrapper = await mountSuspended(AppToastContainer)
-    const container = document.querySelector('.fixed.bottom-4.right-4')
+    const container = document.body.querySelector(':scope > .wb-toasts')
     expect(container).not.toBeNull()
-    expect(container?.classList.contains('bottom-4')).toBe(true)
-    expect(container?.classList.contains('right-4')).toBe(true)
   })
 
   // NOTE: TransitionGroup CSS animation tests (opacity/transform states) are intentionally

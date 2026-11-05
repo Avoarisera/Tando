@@ -1,157 +1,116 @@
 <script setup lang="ts">
 import type { Invoice, InvoiceStatus } from '~/types/index'
 
-const props = defineProps<{
-  invoices: ReadonlyArray<Invoice>
-  uploadingId: string | null
-}>()
-
+const props = defineProps<{ invoices: ReadonlyArray<Invoice>, uploadingId: string | null }>()
+const pager = usePagination(toRef(props, 'invoices'))
 const emit = defineEmits<{
   'status-change': [id: string, status: InvoiceStatus]
   'upload': [id: string, file: File]
   'view-pdf': [path: string]
 }>()
+const { t, locale } = useI18n()
+const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 
-const STATUS_OPTIONS: { value: InvoiceStatus; label: string }[] = [
-  { value: 'en_attente', label: 'En attente' },
-  { value: 'envoyee',    label: 'Envoyée' },
-  { value: 'payee',      label: 'Payée' },
-]
+const STATUSES: InvoiceStatus[] = ['en_attente', 'envoyee', 'payee']
+const statusOptions = computed(() => STATUSES.map(s => ({ value: s, label: t(`invoices.status.${s}`) })))
 
-const fileInputRefs = ref<Record<string, HTMLInputElement | null>>({})
+const money = (inv: Invoice) => new Intl.NumberFormat(tag.value, { style: 'currency', currency: inv.currency }).format(inv.amount)
+const date = (s: string | null) => (s ? fmtDate(s, tag.value, { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')
 
-function setFileRef(id: string, el: HTMLInputElement | null) {
-  fileInputRefs.value[id] = el
+const inputs = ref<Record<string, HTMLInputElement | null>>({})
+function pick(id: string) {
+  inputs.value[id]?.click()
 }
-
-function triggerUpload(id: string) {
-  fileInputRefs.value[id]?.click()
-}
-
-function handleFileChange(id: string, event: Event) {
-  const input = event.target as HTMLInputElement
+function onFile(id: string, e: Event) {
+  const input = e.target as HTMLInputElement
   const file = input.files?.[0]
-  if (!file) return
-  emit('upload', id, file)
+  if (file) emit('upload', id, file)
   input.value = ''
-}
-
-function handleStatusChange(id: string, status: string) {
-  emit('status-change', id, status as InvoiceStatus)
-}
-
-function formatAmount(amount: number, currency: string): string {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount)
 }
 </script>
 
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
+  <div>
+    <!-- Desktop table -->
+    <div class="wb-scroll wb-dt wb-hide-m">
+      <table>
+        <caption class="wb-sr">{{ t('nav.invoices') }}</caption>
         <thead>
-          <tr class="border-b border-gray-100 text-left text-gray-500">
-            <th class="px-4 py-3 font-medium">Référence</th>
-            <th class="px-4 py-3 font-medium">Client</th>
-            <th class="px-4 py-3 font-medium text-right">Montant</th>
-            <th class="px-4 py-3 font-medium">Date</th>
-            <th class="px-4 py-3 font-medium">Échéance</th>
-            <th class="px-4 py-3 font-medium">Statut</th>
-            <th class="px-4 py-3 font-medium text-right">PDF</th>
+          <tr>
+            <th scope="col">{{ t('invoices.form.reference') }}</th>
+            <th scope="col">{{ t('invoices.form.client') }}</th>
+            <th scope="col">{{ t('invoices.form.date') }}</th>
+            <th scope="col">{{ t('invoices.form.due') }}</th>
+            <th scope="col" class="is-r">{{ t('invoices.form.amount') }}</th>
+            <th scope="col">{{ t('rules.status') }}</th>
+            <th scope="col" class="is-r">PDF</th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="invoice in invoices"
-            :key="invoice.id"
-            class="border-b border-gray-100 last:border-0"
-          >
-            <!-- Référence -->
-            <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">
-              {{ invoice.reference }}
-            </td>
-
-            <!-- Client -->
-            <td class="px-4 py-3 text-gray-700 whitespace-nowrap">
-              {{ invoice.client }}
-            </td>
-
-            <!-- Montant -->
-            <td class="px-4 py-3 text-right text-gray-900 whitespace-nowrap tabular-nums">
-              {{ formatAmount(invoice.amount, invoice.currency) }}
-            </td>
-
-            <!-- Date facture -->
-            <td class="px-4 py-3 text-gray-600 whitespace-nowrap">
-              {{ formatDate(invoice.invoice_date) }}
-            </td>
-
-            <!-- Date échéance -->
-            <td class="px-4 py-3 text-gray-600 whitespace-nowrap">
-              {{ invoice.due_date ? formatDate(invoice.due_date) : '—' }}
-            </td>
-
-            <!-- Statut -->
-            <td class="px-4 py-3">
-              <AppSelect
-                :value="invoice.status"
-                :aria-label="`Changer le statut de la facture ${invoice.reference}`"
-                class="w-36"
-                @change="handleStatusChange(invoice.id, $event)"
-              >
-                <template #trigger="{ value }">
-                  <InvoiceStatusBadge :status="(value as InvoiceStatus)" />
-                </template>
-                <AppSelectOption
-                  v-for="opt in STATUS_OPTIONS"
-                  :key="opt.value"
-                  :value="opt.value"
-                >
-                  <InvoiceStatusBadge :status="opt.value" />
-                </AppSelectOption>
-              </AppSelect>
-            </td>
-
-            <!-- PDF -->
-            <td class="px-4 py-3 text-right whitespace-nowrap">
-              <input
-                :ref="(el) => setFileRef(invoice.id, el as HTMLInputElement | null)"
-                type="file"
-                accept="application/pdf"
-                class="sr-only"
-                :aria-label="`Choisir un PDF pour la facture ${invoice.reference}`"
-                @change="handleFileChange(invoice.id, $event)"
+          <tr v-for="inv in pager.items.value" :key="inv.id" :data-ref="inv.reference">
+            <td><span class="wb-mono">{{ inv.reference }}</span></td>
+            <td>{{ inv.client }}</td>
+            <td class="wb-num">{{ date(inv.invoice_date) }}</td>
+            <td class="wb-num">{{ date(inv.due_date) }}</td>
+            <td class="is-r"><b class="wb-num">{{ money(inv) }}</b></td>
+            <td class="wb-inv-st">
+              <WbSelect
+                :model-value="inv.status"
+                :options="statusOptions"
+                :class="`is-${inv.status}`"
+                :aria-label="t('invoices.statusOf', { ref: inv.reference })"
+                @update:model-value="emit('status-change', inv.id, $event as InvoiceStatus)"
               />
-
-              <template v-if="props.uploadingId === invoice.id">
-                <span class="flex items-center justify-end gap-1.5 text-xs text-gray-500">
-                  <AppSpinner color="gray" />
-                  Envoi…
-                </span>
-              </template>
-
-              <template v-else>
-                <AppButton
-                  v-if="invoice.pdf_path"
-                  variant="ghost"
-                  class="mr-1 text-xs"
-                  @click="emit('view-pdf', invoice.pdf_path!)"
-                >
-                  Voir PDF
-                </AppButton>
-
-                <AppButton
-                  variant="secondary"
-                  class="text-xs"
-                  @click="triggerUpload(invoice.id)"
-                >
-                  {{ invoice.pdf_path ? 'Remplacer' : 'Attacher PDF' }}
-                </AppButton>
-              </template>
+            </td>
+            <td class="is-r">
+              <div class="wb-inv-act">
+                <WbButton v-if="inv.pdf_path" variant="ghost" size="sm" icon="file-text" icon-only :title="t('invoices.view')" @click="emit('view-pdf', inv.pdf_path)">{{ t('invoices.view') }}</WbButton>
+                <WbButton variant="ghost" size="sm" icon="upload" icon-only :title="inv.pdf_path ? t('invoices.replace') : t('invoices.upload')" :loading="uploadingId === inv.id" @click="pick(inv.id)">
+                  {{ inv.pdf_path ? t('invoices.replace') : t('invoices.upload') }}
+                </WbButton>
+                <input :ref="el => (inputs[inv.id] = el as HTMLInputElement | null)" type="file" accept="application/pdf" class="wb-sr" tabindex="-1" :aria-label="t('invoices.pdfOf', { ref: inv.reference })" @change="onFile(inv.id, $event)">
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
+
+    <!-- Mobile cards -->
+    <ul class="wb-inv-cards wb-hide-d">
+      <li v-for="inv in pager.items.value" :key="inv.id" class="wb-card wb-card-b wb-stack-s" :data-ref="inv.reference">
+        <div class="wb-row-b">
+          <span class="wb-mono">{{ inv.reference }}</span>
+          <InvoiceStatusBadge :status="inv.status" />
+        </div>
+        <p class="h3">{{ inv.client }}</p>
+        <p class="small wb-mut2">{{ date(inv.invoice_date) }} · <b class="wb-num">{{ money(inv) }}</b></p>
+        <div class="wb-row wb-wrap" style="gap: 4px">
+          <WbButton v-if="inv.pdf_path" variant="secondary" size="sm" icon="file-text" @click="emit('view-pdf', inv.pdf_path)">{{ t('invoices.view') }}</WbButton>
+          <WbSelect
+            :model-value="inv.status"
+            :options="statusOptions"
+            :aria-label="t('invoices.statusOf', { ref: inv.reference })"
+            @update:model-value="emit('status-change', inv.id, $event as InvoiceStatus)"
+          />
+        </div>
+      </li>
+    </ul>
+    <WbTableFooter v-model:page="pager.page.value" :total="pager.total.value" :page-size="pager.pageSize.value" />
   </div>
 </template>
+
+<style scoped>
+/* Dense rows: compact status select and icon actions */
+.wb-dt td { vertical-align: middle; }
+.wb-inv-st { width: 150px; }
+.wb-inv-st :deep(.wb-field) { gap: 0; }
+.wb-inv-st :deep(.wb-input) { min-height: 32px !important; padding: 0 var(--space-2); border-color: var(--border); }
+.wb-inv-st :deep(select) { font-size: 13px; font-weight: 600; min-height: 0; height: 30px; line-height: 30px; padding-block: 0; }
+.wb-inv-st :deep(.is-en_attente) { color: var(--ink-2); }
+.wb-inv-st :deep(.is-envoyee) { color: var(--info-text); }
+.wb-inv-st :deep(.is-payee) { color: var(--success-text); }
+.wb-inv-act { display: inline-flex; gap: 2px; justify-content: flex-end; }
+.wb-inv-act :deep(.wb-btn-sm) { min-height: 32px; min-width: 32px; }
+.wb-inv-cards { list-style: none; margin: 0; padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3); }
+</style>

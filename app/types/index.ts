@@ -1,5 +1,5 @@
 export type UserRole = 'admin' | 'manager' | 'employee'
-export type LeaveStatus = 'pending' | 'manager_approved' | 'approved' | 'rejected'
+export type LeaveStatus = 'pending' | 'manager_approved' | 'approved' | 'rejected' | 'cancel_requested' | 'cancelled'
 
 export interface Profile {
   id: string
@@ -8,10 +8,11 @@ export interface Profile {
   role: UserRole
   team_id: string | null
   joined_at: string
-  birth_date: string | null
-  trial_ends_at: string | null
   created_at: string
+  country?: string
 }
+// birth_date / trial_ends_at exist in the database but are not readable from the
+// browser (column-level grants, TND-15): only server-side jobs use them.
 
 export interface LeaveRequest {
   id: string
@@ -27,6 +28,11 @@ export interface LeaveRequest {
   admin_reviewed_by: string | null
   admin_reviewed_at: string | null
   created_at: string
+  start_half: boolean
+  end_half: boolean
+  review_comment: string | null
+  cancel_requested_at: string | null
+  cancelled_at: string | null
 }
 
 export interface LeaveType {

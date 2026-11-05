@@ -3,20 +3,25 @@
  * then upserts the invoice rows so pdf_path is always consistent.
  *
  * Run: node --env-file=.env scripts/seed-invoices.mjs
- * Requires: NUXT_PUBLIC_SUPABASE_URL + NUXT_SUPABASE_SECRET_KEY in .env
+ * Requires the project URL and the service key in .env, under either naming:
+ *   SUPABASE_URL / SUPABASE_SECRET_KEY (what @nuxtjs/supabase reads) or
+ *   NUXT_PUBLIC_SUPABASE_URL / NUXT_SUPABASE_SECRET_KEY.
  * Idempotent: safe to run multiple times.
  */
 
 import { createClient } from '@supabase/supabase-js'
 
-const { NUXT_PUBLIC_SUPABASE_URL, NUXT_SUPABASE_SECRET_KEY } = process.env
+// The app's .env uses SUPABASE_URL / SUPABASE_SECRET_KEY; the script used to
+// require only the NUXT_* names, so it never ran and the demo PDFs were missing (TND-16).
+const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.NUXT_PUBLIC_SUPABASE_URL
+const SECRET_KEY = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_KEY ?? process.env.NUXT_SUPABASE_SECRET_KEY
 
-if (!NUXT_PUBLIC_SUPABASE_URL || !NUXT_SUPABASE_SECRET_KEY) {
-  console.error('Missing env vars: NUXT_PUBLIC_SUPABASE_URL and NUXT_SUPABASE_SECRET_KEY are required.')
+if (!SUPABASE_URL || !SECRET_KEY) {
+  console.error('Missing env vars: SUPABASE_URL and SUPABASE_SECRET_KEY (or their NUXT_* equivalents) are required.')
   process.exit(1)
 }
 
-const supabase = createClient(NUXT_PUBLIC_SUPABASE_URL, NUXT_SUPABASE_SECRET_KEY)
+const supabase = createClient(SUPABASE_URL, SECRET_KEY)
 
 // Minimal valid single-blank-page PDF (190 bytes, PDF 1.0 spec).
 // Byte offsets in the xref table are exact — this file opens without errors in all viewers.

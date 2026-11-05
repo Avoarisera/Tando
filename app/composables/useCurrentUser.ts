@@ -7,7 +7,7 @@ export function useCurrentUser() {
 
   async function loadProfile() {
     if (profile.value) return
-    let userId = user.value?.id
+    let userId = user.value?.sub as string | undefined
     if (!userId) {
       const { data } = await supabase.auth.getUser()
       userId = data.user?.id
@@ -15,7 +15,7 @@ export function useCurrentUser() {
     if (!userId) return
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, first_name, last_name, role, team_id, joined_at, created_at, country')
       .eq('id', userId)
       .single()
     if (error) throw error

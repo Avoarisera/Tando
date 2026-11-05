@@ -125,7 +125,7 @@ describe('InvoiceForm', () => {
       await fillRequired(wrapper, { invoiceDate: '2026-05-18' })
       await wrapper.find('#inv-due').setValue('2026-05-10')
       await wrapper.find('form').trigger('submit')
-      expect(wrapper.html()).toContain("La date d'échéance ne peut pas être avant la date de facture")
+      expect(wrapper.html()).toContain("La date d’échéance ne peut pas être avant la date de facture")
     })
 
     it('does not emit submit when due_date is before invoice_date', async () => {
@@ -141,7 +141,7 @@ describe('InvoiceForm', () => {
       await fillRequired(wrapper, { invoiceDate: '2026-05-18' })
       await wrapper.find('#inv-due').setValue('2026-05-18')
       await wrapper.find('form').trigger('submit')
-      expect(wrapper.html()).not.toContain("La date d'échéance ne peut pas être avant la date de facture")
+      expect(wrapper.html()).not.toContain("La date d’échéance ne peut pas être avant la date de facture")
       expect(wrapper.emitted('submit')).toBeDefined()
     })
 
@@ -150,7 +150,7 @@ describe('InvoiceForm', () => {
       await fillRequired(wrapper, { invoiceDate: '2026-05-18' })
       await wrapper.find('#inv-due').setValue('2026-06-18')
       await wrapper.find('form').trigger('submit')
-      expect(wrapper.html()).not.toContain("La date d'échéance ne peut pas être avant la date de facture")
+      expect(wrapper.html()).not.toContain("La date d’échéance ne peut pas être avant la date de facture")
       expect(wrapper.emitted('submit')).toBeDefined()
     })
 
@@ -159,7 +159,7 @@ describe('InvoiceForm', () => {
       await fillRequired(wrapper)
       // due_date left empty
       await wrapper.find('form').trigger('submit')
-      expect(wrapper.html()).not.toContain("La date d'échéance")
+      expect(wrapper.html()).not.toContain("La date d’échéance")
       expect(wrapper.emitted('submit')).toBeDefined()
     })
   })

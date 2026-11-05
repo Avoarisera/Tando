@@ -130,9 +130,10 @@ for (const [role, { email, password }] of Object.entries(accounts)) {
     .from('leave_requests')
     .select('id')
     .eq('user_id', emp1Id)
+    .neq('status', 'approved')
   assert(
     'INT-002',
-    'employee2 cannot see employee1\'s leave_requests',
+    'employee2 cannot see employee1\'s non-approved leave_requests',
     !error && data?.length === 0,
     error?.message ?? `Expected 0 rows, got ${data?.length}`
   )
@@ -176,10 +177,11 @@ for (const [role, { email, password }] of Object.entries(accounts)) {
 {
   const { client, userId } = sessions.employee1
   const { data, error } = await client.from('profiles').select('id')
-  const ownOnly = data?.length === 1 && data[0].id === userId
+  const { userId: adminId } = sessions.admin
+  const ownOnly = data?.some(p => p.id === userId) && !data?.some(p => p.id === adminId)
   assert(
     'INT-005',
-    'employee1 sees only own profile',
+    'employee1 sees own + team profiles, not the admin\'s',
     !error && ownOnly,
     error?.message ?? `Expected 1 profile (own), got ${data?.length}: ${JSON.stringify(data)}`
   )
@@ -296,8 +298,8 @@ for (const [role, { email, password }] of Object.entries(accounts)) {
   const { data, error } = await anonClient.from('leave_requests').select('id').limit(5)
   assert(
     'INT-012',
-    'Unauthenticated client receives no leave_requests (RLS or empty)',
-    !error && (data?.length ?? 0) === 0,
+    'Unauthenticated client receives no leave_requests (permission error or empty)',
+    !!error || (data?.length ?? 0) === 0,
     error?.message ?? `Unauthenticated query returned ${data?.length} rows`
   )
 }
@@ -308,6 +310,8 @@ for (const [role, { email, password }] of Object.entries(accounts)) {
 
 // IDs of requests created by INT-013/014 — tracked for teardown
 const rpcTestIds = []
+const RPC_YEAR = new Date().getFullYear()
+const rd = (md) => `${RPC_YEAR}-${md}`
 
 // Pre-cleanup: remove any requests left over from a previous test run
 if (serviceClient) {
@@ -315,7 +319,7 @@ if (serviceClient) {
     .from('leave_requests')
     .delete()
     .eq('user_id', sessions.employee1.userId)
-    .in('start_date', ['2026-07-01', '2026-08-01'])
+    .in('start_date', [rd('12-01'), rd('12-07')])
 }
 
 // INT-013: employee1 can create a leave request via RPC (own user_id, SECURITY DEFINER)
@@ -323,8 +327,8 @@ if (serviceClient) {
   const { client } = sessions.employee1
   const { data, error } = await client.rpc('create_leave_request', {
     p_leave_type_id: '00000000-0000-0000-0000-000000000020', // Congé payé
-    p_start_date:    '2026-07-01',
-    p_end_date:      '2026-07-03',
+    p_start_date:    rd('12-01'),
+    p_end_date:      rd('12-03'),
     p_comment:       null,
   })
   if (data) rpcTestIds.push(data)
@@ -341,8 +345,8 @@ if (serviceClient) {
   const { client: emp1Client, userId: emp1Id } = sessions.employee1
   const { data: newId, error } = await emp1Client.rpc('create_leave_request', {
     p_leave_type_id: '00000000-0000-0000-0000-000000000020',
-    p_start_date:    '2026-08-01',
-    p_end_date:      '2026-08-02',
+    p_start_date:    rd('12-07'),
+    p_end_date:      rd('12-08'),
     p_comment:       null,
   })
 
@@ -368,11 +372,11 @@ if (serviceClient) {
 // INT-015: RPC raises French error for overlap with own pending request
 {
   const { client } = sessions.employee1
-  // Emma (employee1) has a seeded pending request: 2026-05-12 → 2026-05-16
+  // Overlaps the request created by INT-013 (Dec 1 → Dec 3)
   const { error } = await client.rpc('create_leave_request', {
     p_leave_type_id: '00000000-0000-0000-0000-000000000020',
-    p_start_date:    '2026-05-14',
-    p_end_date:      '2026-05-20',
+    p_start_date:    rd('12-02'),
+    p_end_date:      rd('12-04'),
     p_comment:       null,
   })
   assert(
@@ -386,11 +390,11 @@ if (serviceClient) {
 // INT-016: RPC raises French error for insufficient balance
 {
   const { client } = sessions.employee1
-  // Emma has 20 remaining Congé payé — request 21 days
+  // Emma has at most 20 Congé payé left — request 21 days
   const { error } = await client.rpc('create_leave_request', {
     p_leave_type_id: '00000000-0000-0000-0000-000000000020',
-    p_start_date:    '2026-10-01',
-    p_end_date:      '2026-10-21', // 21 days
+    p_start_date:    rd('12-10'),
+    p_end_date:      rd('12-30'), // 21 days
     p_comment:       null,
   })
   assert(
@@ -496,14 +500,10 @@ const adminTestRestores = []
 // Verifies: status → approved, manager_reviewed_by stays NULL, used_days increments
 {
   const { client, userId: adminId } = sessions.admin
-  const { error } = await client
-    .from('leave_requests')
-    .update({
-      status: 'approved',
-      admin_reviewed_by: adminId,
-      admin_reviewed_at: new Date().toISOString(),
-    })
-    .eq('id', '00000000-0000-0000-0000-000000000041')
+  const { error } = await client.rpc('review_leave_request', {
+    p_request_id: '00000000-0000-0000-0000-000000000041',
+    p_decision: 'approve',
+  })
 
   if (!error) adminTestRestores.push('00000000-0000-0000-0000-000000000041')
 
@@ -553,19 +553,15 @@ const adminTestRestores = []
 // Row is left untouched (transaction rolls back) — no teardown needed
 {
   const { client, userId: adminId } = sessions.admin
-  const { error } = await client
-    .from('leave_requests')
-    .update({
-      status: 'approved',
-      admin_reviewed_by: adminId,
-      admin_reviewed_at: new Date().toISOString(),
-    })
-    .eq('id', '00000000-0000-0000-0000-000000000042')
+  const { error } = await client.rpc('review_leave_request', {
+    p_request_id: '00000000-0000-0000-0000-000000000042',
+    p_decision: 'approve',
+  })
 
   assert(
     'INT-023',
-    'admin approve RTT with no balance → trigger raises French "Aucun solde trouvé" error',
-    error !== null && error.message?.includes('Aucun solde trouvé'),
+    'admin approve RTT with no balance → trigger raises a French balance error',
+    error !== null && /Aucun solde trouvé|Solde insuffisant/.test(error.message ?? ''),
     error ? `Error message was: "${error.message}"` : 'No error raised — trigger did not fire'
   )
 
@@ -586,14 +582,10 @@ const adminTestRestores = []
 // INT-022: admin rejects Eddy manager_approved (042) — status → rejected, used_days unchanged
 {
   const { client, userId: adminId } = sessions.admin
-  const { error } = await client
-    .from('leave_requests')
-    .update({
-      status: 'rejected',
-      admin_reviewed_by: adminId,
-      admin_reviewed_at: new Date().toISOString(),
-    })
-    .eq('id', '00000000-0000-0000-0000-000000000042')
+  const { error } = await client.rpc('review_leave_request', {
+    p_request_id: '00000000-0000-0000-0000-000000000042',
+    p_decision: 'reject', p_comment: 'Test : motif obligatoire depuis le lot R8',
+  })
 
   if (!error) adminTestRestores.push('00000000-0000-0000-0000-000000000042')
 

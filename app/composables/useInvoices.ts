@@ -1,4 +1,14 @@
 import type { Invoice, InvoiceStatus } from '~/types/index'
+import type { InvoiceLineInput } from '~/utils/invoice-totals'
+
+export interface CompanyInfo {
+  legal_name: string
+  address: string
+  vat_number: string
+  iban: string
+  bic: string
+  invoice_footer: string
+}
 
 export function useInvoices() {
   const supabase = useSupabaseClient()
@@ -16,7 +26,7 @@ export function useInvoices() {
         .select('*')
         .order('created_at', { ascending: false })
       if (sbError) throw sbError
-      invoices.value = data ?? []
+      invoices.value = (data ?? []) as Invoice[]
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur lors du chargement des factures'
     } finally {
@@ -29,9 +39,54 @@ export function useInvoices() {
   ): Promise<void> {
     const { error: sbError } = await supabase
       .from('invoices')
-      .insert({ ...payload, created_by: user.value?.id ?? null })
+      .insert({ ...payload, created_by: (user.value?.sub as string | undefined) ?? null })
     if (sbError) throw sbError
     await fetchInvoices()
+  }
+
+  /**
+   * Editor flow (R8-G): reserve the next reference unless one is typed, then
+   * save the invoice and its lines. Returns the saved invoice.
+   */
+  async function createInvoiceWithLines(
+    payload: Omit<Invoice, 'id' | 'created_at' | 'created_by' | 'pdf_path' | 'reference'> & { reference: string | null },
+    lines: readonly InvoiceLineInput[],
+  ): Promise<Invoice> {
+    const manual = payload.reference?.trim() || null
+    // Automatic numbering may meet references typed by hand earlier: on a
+    // duplicate (23505), take the next number, up to 50 times.
+    let inv: Invoice | null = null
+    for (let attempt = 0; attempt < (manual ? 1 : 50) && !inv; attempt++) {
+      let reference = manual
+      if (!reference) {
+        const { data, error: refError } = await supabase.rpc('claim_invoice_reference')
+        if (refError) throw refError
+        reference = data as string
+      }
+      const { data, error: insError } = await supabase
+        .from('invoices')
+        .insert({ ...payload, reference, created_by: (user.value?.sub as string | undefined) ?? null })
+        .select('*')
+        .single()
+      if (insError && !(insError.code === '23505' && !manual)) throw insError
+      if (data) inv = data as Invoice
+    }
+    if (!inv) throw new Error('Impossible d’attribuer un numéro de facture libre')
+    const { error: linesError } = await supabase.from('invoice_lines').insert(
+      lines.map((l, i) => ({ invoice_id: inv.id, position: i, description: l.description.trim(), quantity: l.quantity, unit_price: l.unit_price, vat_rate: l.vat_rate })),
+    )
+    if (linesError) throw linesError
+    invoices.value = [inv, ...invoices.value]
+    return inv
+  }
+
+  async function fetchCompany(): Promise<CompanyInfo> {
+    const { data, error: sbError } = await supabase
+      .from('company_settings')
+      .select('legal_name, address, vat_number, iban, bic, invoice_footer')
+      .maybeSingle()
+    if (sbError) throw sbError
+    return data ?? { legal_name: '', address: '', vat_number: '', iban: '', bic: '', invoice_footer: '' }
   }
 
   async function updateStatus(id: string, status: InvoiceStatus): Promise<void> {
@@ -72,7 +127,13 @@ export function useInvoices() {
     const { data, error: signError } = await supabase.storage
       .from('invoices')
       .createSignedUrl(path, 60)
-    if (signError) throw signError
+    if (signError) {
+      // The row points to a file that is not in the bucket (TND-16)
+      if (/not found/i.test(signError.message)) {
+        throw new Error('Fichier PDF introuvable — utilisez « Remplacer » pour le joindre à nouveau')
+      }
+      throw signError
+    }
     return data.signedUrl
   }
 
@@ -82,6 +143,8 @@ export function useInvoices() {
     error: readonly(error),
     fetchInvoices,
     createInvoice,
+    createInvoiceWithLines,
+    fetchCompany,
     updateStatus,
     uploadPdf,
     getSignedUrl,

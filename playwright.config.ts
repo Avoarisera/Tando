@@ -7,13 +7,15 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
+    locale: 'fr-FR',
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
   },
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+    locale: 'fr-FR', ...devices['Desktop Chrome'] },
     },
   ],
   webServer: {

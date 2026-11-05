@@ -1,4 +1,4 @@
-import { serverSupabaseServiceRole } from '#supabase/server'
+import { requireAdmin } from '../utils/require-admin'
 import { syncWorkspace } from '../utils/linear-sync'
 
 // A running job older than this is treated as stale (crashed process) and may be restarted.
@@ -15,16 +15,8 @@ export default defineEventHandler(async (event) => {
   }
 
   // UI : JWT Bearer token — kicks a background job and returns immediately.
-  const token = getHeader(event, 'authorization')?.replace('Bearer ', '')
-  if (!token) {
-    throw createError({ statusCode: 401, statusMessage: 'Non autorisé' })
-  }
-
-  const supabase = serverSupabaseServiceRole(event)
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user?.id) {
-    throw createError({ statusCode: 401, statusMessage: 'Session invalide' })
-  }
+  // Any admin may sync any workspace (shared between admins); others get 403 (TND-17)
+  const { supabase } = await requireAdmin(event)
 
   const { workspaceId, fullResync } = await readBody<{ workspaceId: string; fullResync?: boolean }>(event)
   if (!workspaceId) {
@@ -37,6 +29,10 @@ export default defineEventHandler(async (event) => {
     .select('sync_status, sync_started_at')
     .eq('id', workspaceId)
     .single()
+
+  if (!current) {
+    throw createError({ statusCode: 404, statusMessage: 'Workspace introuvable' })
+  }
 
   const runningFresh = current?.sync_status === 'running'
     && current.sync_started_at

@@ -4,15 +4,14 @@ const { toasts, remove } = useToast()
 
 <template>
   <Teleport to="body">
-    <div class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+    <div class="wb-toasts">
       <TransitionGroup name="toast">
         <AppToast
           v-for="toast in toasts"
-          :key="toast.id"
           :id="toast.id"
+          :key="toast.id"
           :message="toast.message"
           :type="toast.type"
-          class="pointer-events-auto"
           @dismiss="remove"
         />
       </TransitionGroup>
@@ -21,7 +20,15 @@ const { toasts, remove } = useToast()
 </template>
 
 <style>
-.toast-enter-active, .toast-leave-active { transition: all 0.2s ease; }
-.toast-enter-from { opacity: 0; transform: translateY(8px); }
-.toast-leave-to   { opacity: 0; transform: translateY(8px); }
+/* Bottom right on desktop; centred above the tab bar on phones */
+.wb-toasts { position: fixed; right: var(--space-6); bottom: var(--space-6); z-index: 100; display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2); pointer-events: none; }
+.wb-toasts > * { pointer-events: auto; }
+@media (max-width: 767px) {
+  .wb-toasts { left: var(--space-4); right: var(--space-4); bottom: calc(72px + env(safe-area-inset-bottom, 0px)); align-items: center; }
+}
+.toast-enter-active, .toast-leave-active { transition: opacity 120ms ease, transform 120ms ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(8px); }
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter-active, .toast-leave-active { transition: none; }
+}
 </style>

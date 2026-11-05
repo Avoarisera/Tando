@@ -1,18 +1,9 @@
 <script setup lang="ts">
 import type { TicketRow } from '~/components/velocite/TicketsTable.vue'
-import { Bar } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Tooltip,
-  Legend,
-} from 'chart.js'
+definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'admin-only' })
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
-
-definePageMeta({ layout: 'private', middleware: 'admin-only' })
+const { t, locale } = useI18n()
+const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 
 const route = useRoute()
 const router = useRouter()
@@ -151,51 +142,8 @@ const hasCycleQaData = computed(() =>
   cycleP50Values.value.some(v => v > 0) || qaTimeValues.value.some(v => v > 0) || reviewTimeValues.value.some(v => v > 0)
 )
 
-function monthLabel(m: string): string {
-  const [year, month] = m.split('-')
-  const labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
-  return `${labels[parseInt(month!) - 1]} ${year?.slice(2)}`
-}
-
-const cycleQaChartData = computed(() => ({
-  labels: months.value.map(monthLabel),
-  datasets: [
-    {
-      label: 'Cycle dev (h)',
-      data: [...cycleP50Values.value],
-      backgroundColor: '#2563EB',
-      borderRadius: 4,
-      stack: 'time',
-    },
-    {
-      label: 'Temps review (h)',
-      data: [...reviewTimeValues.value],
-      backgroundColor: '#D97706',
-      borderRadius: 4,
-      stack: 'time',
-    },
-    {
-      label: 'Temps QA (h)',
-      data: [...qaTimeValues.value],
-      backgroundColor: '#16A34A',
-      borderRadius: 4,
-      stack: 'time',
-    },
-  ],
-}))
-
-const cycleQaChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: true, position: 'top' as const, labels: { boxWidth: 12, font: { size: 11 } } },
-    tooltip: { mode: 'index' as const, intersect: false },
-  },
-  scales: {
-    x: { stacked: true },
-    y: { beginAtZero: true, stacked: true },
-  },
-}
+const monthLabel = (m: string) => velociteMonth(m, tag.value)
+const chartLabels = computed(() => months.value.map(monthLabel))
 
 // Rework rate: reworked tickets / total tickets for the selected month.
 // Derived from the tickets data — consistent with the ↩ badge shown in the table.
@@ -203,14 +151,6 @@ const periodReworkRate = computed(() => {
   if (!tickets.value.length) return 0
   const reworked = tickets.value.filter(t => t.hasRework).length
   return (reworked / tickets.value.length) * 100
-})
-
-const reworkRateClass = computed(() => {
-  const r = periodReworkRate.value
-  if (r === 0) return 'text-gray-400'
-  if (r < 10) return 'text-green-600'
-  if (r <= 25) return 'text-amber-600'
-  return 'text-red-600'
 })
 
 async function fetchCurrentMonthTickets() {
@@ -246,7 +186,7 @@ function variationLabel(metric: 'ticketsCount' | 'pointsSum' | 'bugsCount' | 'me
   const v = momVariation(devId, metric, selectedMonth.value)
   if (v === null) return ''
   const sign = v > 0 ? '+' : ''
-  return `${sign}${v}% vs mois précédent`
+  return t('velocityB.dev.vsPrev', { v: `${sign}${v}` })
 }
 
 function variationTrend(metric: 'ticketsCount' | 'pointsSum'): 'up' | 'down' | 'neutral' {
@@ -259,276 +199,179 @@ function ticketInsight(): string {
   const avg = ticketValues.value.length
     ? (ticketValues.value.reduce((s, v) => s + v, 0) / ticketValues.value.length).toFixed(1)
     : '0'
-  return `Moyenne sur la période : ${avg} tickets/mois`
+  return t('velocityB.dev.avgTickets', { n: avg })
 }
 
 function pointInsight(): string {
   const avg = pointValues.value.length
     ? (pointValues.value.reduce((s, v) => s + v, 0) / pointValues.value.length).toFixed(1)
     : '0'
-  return `Moyenne sur la période : ${avg} pts/mois`
+  return t('velocityB.dev.avgPoints', { n: avg })
 }
 
 function compositionInsight(): string {
   const totalBugs = bugValues.value.reduce((s, v) => s + v, 0)
   const totalTickets = ticketValues.value.reduce((s, v) => s + v, 0)
-  if (totalTickets === 0) return 'Pas de données'
+  if (totalTickets === 0) return t('velocityB.dev.noData')
   const ratio = Math.round((totalBugs / totalTickets) * 100)
-  return `${ratio}% de tickets sans estimation (proxy bugs) sur la période`
+  return t('velocityB.dev.bugRatio', { n: ratio })
 }
-
-function formatMonth(m: string): string {
-  if (!m) return ''
-  const [year, month] = m.split('-')
-  const labels = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
-  return `${labels[parseInt(month!) - 1]} ${year}`
-}
-
 
 function handleTicketClick(ticketId: string) {
   router.push(`/velocite/issues/${ticketId}?workspaceId=${workspaceId}&returnUrl=${encodeURIComponent(route.fullPath)}`)
 }
+
+usePageHeader(() => ({
+  crumbs: [
+    { label: t('nav.velocity'), to: '/velocite' },
+    { label: t('velocityB.team'), to: `/velocite/teams/${teamId}?workspaceId=${workspaceId}&year=${selectedYear.value}&range=${selectedRange.value}` },
+    { label: devInfo.value?.display_name ?? t('velocityB.dev.title') },
+  ],
+}))
+
+const yearOptions = computed(() => availableYears.map(y => ({ value: String(y), label: y === currentYear ? t('velocityB.period.current', { y }) : String(y) })))
+const yearModel = computed({ get: () => String(selectedYear.value), set: (v: string) => { selectedYear.value = Number(v) } })
+const rangeOptions = computed(() => VELOCITE_RANGES.map(r => ({ value: String(r.value), label: t('velocityB.period.months', { n: r.value }) })))
+const rangeModel = computed({ get: () => String(selectedRange.value), set: (v: string) => { selectedRange.value = Number(v) } })
+
+const reworkedCount = computed(() => tickets.value.filter(tk => tk.hasRework).length)
+const wipWord = computed(() => {
+  const w = aggregatedMetrics.value.wipCount
+  return w <= 2 ? t('velocityB.dev.wipGood') : w <= 3 ? t('velocityB.dev.wipLimit') : t('velocityB.dev.wipHigh')
+})
+const wipTone = computed(() => {
+  const w = aggregatedMetrics.value.wipCount
+  return w <= 2 ? 'wb-c-success' : w <= 3 ? 'wb-c-warning' : 'wb-c-danger'
+})
+function mom(metric: 'ticketsCount' | 'pointsSum'): string {
+  return isSingleMonth.value && momVariation(devId, metric, selectedMonth.value) !== null ? variationLabel(metric) : ''
+}
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto">
-    <!-- Header -->
-    <div class="mb-6">
-      <button class="text-sm text-brand-primary hover:underline" @click="goBack">← Équipe</button>
-      <div class="mt-2 flex flex-wrap items-start justify-between gap-3">
-        <h1 class="text-2xl font-bold text-gray-900">
-          {{ devInfo?.display_name ?? devId }}
-        </h1>
-        <!-- Period selector : year + range -->
-        <div class="flex flex-wrap items-center gap-2 shrink-0">
-          <div class="relative">
-            <select
-              v-model.number="selectedYear"
-              class="appearance-none rounded-lg border border-gray-200 bg-white py-2 pl-4 pr-9 text-sm font-medium text-gray-700 shadow-sm hover:border-gray-300 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
-            >
-              <option v-for="y in availableYears" :key="y" :value="y">
-                {{ y === currentYear ? `${y} (en cours)` : y }}
-              </option>
-            </select>
-            <span class="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-gray-400">
-              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M5.5 7.5L10 12l4.5-4.5h-9z" /></svg>
-            </span>
-          </div>
-          <div class="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1">
-            <button
-              v-for="r in VELOCITE_RANGES"
-              :key="r.value"
-              class="rounded-md px-3 py-1 text-sm font-medium transition-colors"
-              :class="selectedRange === r.value
-                ? 'bg-brand-primary text-white'
-                : 'text-gray-600 hover:bg-gray-100'"
-              @click="selectedRange = r.value"
-            >
-              {{ r.label }}
-            </button>
-          </div>
+  <div class="wb-page wb-stack">
+    <div class="wb-row-b wb-wrap">
+      <div class="wb-row" style="gap: 12px">
+        <WbAvatar :name="devInfo?.display_name ?? devId" :size="48" />
+        <div>
+          <h2 class="h1">{{ devInfo?.display_name ?? devId }}</h2>
+          <p class="small wb-mut">{{ t('velocityB.dev.visibility') }}</p>
         </div>
+      </div>
+      <div class="wb-row wb-wrap wb-period-row">
+        <WbButton variant="ghost" size="sm" icon="arrow-left" @click="goBack">{{ t('velocityB.team') }}</WbButton>
+        <WbSelect v-model="yearModel" :options="yearOptions" :aria-label="t('velocityB.period.year')" />
+        <div class="wb-period"><WbSegmented v-model="rangeModel" :options="rangeOptions" :label="t('velocityB.period.label')" /></div>
       </div>
     </div>
 
-    <template v-if="isLoading">
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <AppSkeleton v-for="i in 5" :key="i" class="h-24" />
-      </div>
-      <AppSkeleton class="h-56 mb-4" />
-    </template>
-
-    <AppErrorBanner v-else-if="error" :message="error" @retry="handleRetry" />
+    <WbSkeleton v-if="isLoading" variant="metric" :count="4" />
+    <WbErrorState v-else-if="error" :message="readableApiError(error)" @retry="handleRetry" />
 
     <template v-else>
-      <!-- KPI Cards -->
-      <div class="grid grid-cols-3 md:grid-cols-6 gap-3 mb-8">
-        <!-- Tickets -->
-        <div class="bg-gray-50 rounded-xl p-4">
-          <div class="flex items-center gap-1 mb-3">
-            <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Tickets</span>
-            <div class="group relative">
-              <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                Tickets livrés (passés en In Review, Done ou Deployed) sur la période sélectionnée.
-              </div>
-            </div>
-          </div>
-          <p class="text-2xl font-semibold text-gray-900">{{ aggregatedMetrics.ticketsCount }}</p>
-          <p v-if="isSingleMonth && momVariation(devId, 'ticketsCount', selectedMonth) !== null" class="text-xs mt-1.5 text-gray-400">
-            <span :class="(momVariation(devId, 'ticketsCount', selectedMonth) ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-500'">{{ variationLabel('ticketsCount') }}</span>
-            vs mois préc.
-          </p>
-          <p v-else class="text-xs mt-1.5 text-gray-300">—</p>
-        </div>
-        <!-- Points -->
-        <div class="bg-gray-50 rounded-xl p-4">
-          <div class="flex items-center gap-1 mb-3">
-            <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Points</span>
-            <div class="group relative">
-              <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                Somme des story points des tickets livrés. Reflète la complexité plus que le volume.
-              </div>
-            </div>
-          </div>
-          <p class="text-2xl font-semibold text-gray-900">{{ aggregatedMetrics.pointsSum.toFixed(0) }}</p>
-          <p v-if="isSingleMonth && momVariation(devId, 'pointsSum', selectedMonth) !== null" class="text-xs mt-1.5 text-gray-400">
-            <span :class="(momVariation(devId, 'pointsSum', selectedMonth) ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-500'">{{ variationLabel('pointsSum') }}</span>
-            vs mois préc.
-          </p>
-          <p v-else class="text-xs mt-1.5 text-gray-300">—</p>
-        </div>
-        <!-- Bugs -->
-        <div class="bg-gray-50 rounded-xl p-4">
-          <div class="flex items-center gap-1 mb-3">
-            <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Bugs</span>
-            <div class="group relative">
-              <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                Tickets sans estimation (proxy bugs). À croiser avec la Composition.
-              </div>
-            </div>
-          </div>
-          <p class="text-2xl font-semibold text-gray-900">{{ aggregatedMetrics.bugsCount }}</p>
-          <p class="text-xs mt-1.5 text-gray-300">sans estimation</p>
-        </div>
-        <!-- Cycle P50 -->
-        <div class="bg-gray-50 rounded-xl p-4">
-          <div class="flex items-center gap-1 mb-3">
-            <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Cycle P50</span>
-            <div class="group relative">
-              <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                Temps médian In Progress → In Review. 50% des tickets livrés plus vite que cette valeur.
-              </div>
-            </div>
-          </div>
-          <p class="text-2xl font-semibold text-gray-900">
-            {{ aggregatedMetrics.medianDevCycleHours > 0 ? `${aggregatedMetrics.medianDevCycleHours.toFixed(0)}h` : '—' }}
-          </p>
-          <p v-if="aggregatedMetrics.p90DevCycleHours > 0" class="text-xs mt-1.5 text-gray-400">P90 · {{ aggregatedMetrics.p90DevCycleHours.toFixed(0) }}h</p>
-          <p v-else class="text-xs mt-1.5 text-gray-300">—</p>
-        </div>
-        <!-- Rework -->
-        <div class="bg-gray-50 rounded-xl p-4">
-          <div class="flex items-center gap-1 mb-3">
-            <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Rework</span>
-            <div class="group relative">
-              <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                % de tickets ayant eu un retour arrière (Review/Q/A → état antérieur) sur la période.
-              </div>
-            </div>
-          </div>
-          <p class="text-2xl font-semibold text-gray-900">{{ periodReworkRate.toFixed(1) }}<span class="text-base font-normal text-gray-400">%</span></p>
-          <p class="text-xs mt-1.5 text-gray-400">{{ tickets.filter(t => t.hasRework).length }} / {{ tickets.length }} tickets</p>
-        </div>
-        <!-- WIP -->
-        <div class="bg-gray-50 rounded-xl p-4">
-          <div class="flex items-center gap-1 mb-3">
-            <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">WIP moy</span>
-            <div class="group relative">
-              <span class="cursor-help text-gray-300 hover:text-gray-400 text-xs">ⓘ</span>
-              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 text-left leading-relaxed">
-                Nombre moyen de tickets ouverts simultanément par mois. Au-delà de 3, le switch de contexte devient coûteux.
-              </div>
-            </div>
-          </div>
-          <p class="text-2xl font-semibold text-gray-900">{{ aggregatedMetrics.wipCount.toFixed(1) }}</p>
-          <p class="text-xs mt-1.5" :class="aggregatedMetrics.wipCount <= 2 ? 'text-emerald-600' : aggregatedMetrics.wipCount <= 3 ? 'text-amber-500' : 'text-rose-500'">
-            {{ aggregatedMetrics.wipCount <= 2 ? 'bon niveau' : aggregatedMetrics.wipCount <= 3 ? 'limite' : 'trop élevé' }}
-          </p>
-        </div>
+      <div class="wb-grid wb-cols-3 wb-vel-kpis">
+        <WbMetricCard :label="t('velocityB.kpi.tickets')" :value="aggregatedMetrics.ticketsCount" :hint="mom('ticketsCount') || undefined" :info="t('velocityB.kpi.ticketsInfo')" />
+        <WbMetricCard :label="t('velocityB.kpi.points')" :value="aggregatedMetrics.pointsSum.toFixed(0)" :hint="mom('pointsSum') || undefined" :info="t('velocityB.kpi.pointsInfo')" />
+        <WbMetricCard :label="t('velocityB.kpi.bugs')" :value="aggregatedMetrics.bugsCount" :hint="t('velocityB.kpi.bugsHint')" :info="t('velocityB.kpi.bugsInfo')" />
+        <WbMetricCard
+          :label="t('velocityB.kpi.cycle')"
+          :value="velociteDuration(aggregatedMetrics.medianDevCycleHours, tag)"
+          :hint="aggregatedMetrics.p90DevCycleHours > 0 ? t('velocityB.kpi.p90', { v: velociteDuration(aggregatedMetrics.p90DevCycleHours, tag) }) : undefined"
+          :info="t('velocityB.kpi.cycleInfo')"
+        />
+        <WbMetricCard
+          :label="t('velocityB.kpi.rework')"
+          :value="periodReworkRate.toFixed(1)"
+          unit="%"
+          :hint="t('velocityB.kpi.reworkCount', { n: reworkedCount, of: tickets.length })"
+          :info="t('velocityB.kpi.reworkInfo')"
+        />
+        <WbMetricCard :label="t('velocityB.kpi.wip')" :value="aggregatedMetrics.wipCount.toFixed(1)" :info="t('velocityB.kpi.wipInfo')">
+          <p class="caption" :class="wipTone">{{ wipWord }}</p>
+        </WbMetricCard>
       </div>
 
-      <!-- Sections verticales -->
-      <div class="space-y-4 mb-8">
-        <!-- Tickets livrés -->
-        <div class="bg-white rounded-xl border border-gray-100 p-5">
-          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 class="text-sm font-semibold text-gray-700">Tickets livrés</h2>
-            <!-- Rework filter -->
-            <button
-              class="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors"
-              :class="showReworkOnly
-                ? 'bg-orange-100 text-orange-700'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
-              @click="showReworkOnly = !showReworkOnly"
-            >
-              <span class="w-1.5 h-1.5 rounded-full" :class="showReworkOnly ? 'bg-orange-500' : 'bg-gray-300'" />
-              Rework uniquement
-            </button>
-          </div>
-          <!-- Multi-select month filter -->
-          <div class="flex flex-wrap gap-1 mb-4">
-            <button
-              v-for="m in months"
-              :key="m"
-              class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-              :class="selectedMonths.includes(m)
-                ? 'bg-brand-primary text-white'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
-              @click="toggleMonth(m)"
-            >
-              {{ monthLabel(m) }}
-            </button>
-          </div>
-          <TicketsTable
-            :tickets="displayedTickets"
-            :is-loading="ticketsLoading"
-            @ticket-click="handleTicketClick"
-          />
+      <WbCard :title="t('velocityB.tickets.caption')" :pad="false">
+        <div class="wb-card-b wb-row wb-wrap" style="padding-bottom: 0">
+          <WbFilterChip
+            v-for="m in months"
+            :key="m"
+            :model-value="selectedMonths.includes(m)"
+            @update:model-value="toggleMonth(m)"
+          >
+            {{ monthLabel(m) }}
+          </WbFilterChip>
+          <WbFilterChip v-model="showReworkOnly">{{ t('velocityB.dev.reworkOnly') }}</WbFilterChip>
         </div>
+        <TicketsTable :tickets="displayedTickets" :is-loading="ticketsLoading" @ticket-click="handleTicketClick" />
+      </WbCard>
 
-        <!-- Cycle dev vs Temps QA -->
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 class="text-sm font-semibold text-gray-700 mb-1">Cycle dev vs Temps QA</h3>
-          <p class="text-xs text-gray-400 mb-3">
-            Bleu = Cycle dev (In Progress → In Review). Vert = Temps QA (In Review → Done). La hauteur totale = temps de livraison complet. Un bar entièrement vert signale un goulot en review/QA.
-          </p>
-          <template v-if="hasCycleQaData">
-            <div class="h-48">
-              <Bar :data="cycleQaChartData" :options="cycleQaChartOptions" />
-            </div>
-            <p class="mt-3 text-xs text-gray-500">
-              Cycle dev P50 : {{ aggregatedMetrics.medianDevCycleHours > 0 ? `${aggregatedMetrics.medianDevCycleHours.toFixed(0)}h` : '—' }}
-              <template v-if="aggregatedMetrics.p90DevCycleHours > 0">
-                · P90 : {{ aggregatedMetrics.p90DevCycleHours.toFixed(0) }}h
-              </template>
+      <div class="wb-grid wb-cols-2">
+        <WbCard :title="t('velocityB.dev.cycleTitle')">
+          <WbChartFrame
+            v-if="hasCycleQaData"
+            :title="t('velocityB.dev.cycleChart')"
+            :info="t('velocityB.dev.cycleInfo')"
+            :legend="[
+              { label: t('velocityB.dev.cycleDev'), color: '--chart-1' },
+              { label: t('velocityB.dev.cycleReview'), color: '--chart-2' },
+              { label: t('velocityB.dev.cycleQa'), color: '--chart-3' },
+            ]"
+          >
+            <WbBarChart
+              :title="t('velocityB.dev.cycleChart')"
+              :labels="chartLabels"
+              :series="[
+                { label: t('velocityB.dev.cycleDev'), data: cycleP50Values, color: '--chart-1' },
+                { label: t('velocityB.dev.cycleReview'), data: reviewTimeValues, color: '--chart-2' },
+                { label: t('velocityB.dev.cycleQa'), data: qaTimeValues, color: '--chart-3' },
+              ]"
+              stacked
+              :height="200"
+              :legend="false"
+            />
+            <p class="small wb-mut2 wb-num">
+              {{ t('velocityB.kpi.cycle') }} : {{ velociteDuration(aggregatedMetrics.medianDevCycleHours, tag) }}
+              <template v-if="aggregatedMetrics.p90DevCycleHours > 0"> · {{ t('velocityB.kpi.p90', { v: velociteDuration(aggregatedMetrics.p90DevCycleHours, tag) }) }}</template>
             </p>
-          </template>
-          <AppEmptyState
-            v-else
-            title="Pas de données de cycle"
-            description="Les métriques apparaîtront une fois les tickets synchronisés avec started_at et completed_at."
-          />
-        </div>
+          </WbChartFrame>
+          <p v-else class="wb-mut">{{ t('velocityB.dev.noCycle') }}</p>
+        </WbCard>
 
-        <!-- Tickets / mois -->
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 class="text-sm font-semibold text-gray-700 mb-1">Tickets / mois</h3>
-          <p class="text-xs text-gray-400 mb-3">Nombre de tickets livrés par mois. Mesure le volume de livraison, pas la qualité.</p>
-          <ChartTickets :months="months" :values="ticketValues" />
-          <InsightBadge :text="ticketInsight()" :trend="variationTrend('ticketsCount')" />
-        </div>
+        <WbCard :title="t('velocityB.charts.composition')">
+          <WbChartFrame
+            :title="t('velocityB.dev.compositionChart')"
+            :info="t('velocityB.dev.compositionInfo')"
+            :legend="[{ label: t('velocityB.charts.features'), color: '--chart-1' }, { label: t('velocityB.charts.bugs'), color: '--chart-2' }]"
+          >
+            <ChartComposition :months="months" :features="featureValues" :bugs="bugValues" />
+            <InsightBadge :text="compositionInsight()" trend="neutral" />
+          </WbChartFrame>
+        </WbCard>
 
-        <!-- Points / mois -->
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 class="text-sm font-semibold text-gray-700 mb-1">Points / mois</h3>
-          <p class="text-xs text-gray-400 mb-3">Points d'estimation livrés par mois. Reflète la complexité plutôt que le volume — un gros ticket vaut plus qu'un fix rapide.</p>
-          <ChartPoints :months="months" :values="pointValues" />
-          <InsightBadge :text="pointInsight()" :trend="variationTrend('pointsSum')" />
-        </div>
+        <WbCard :title="t('velocityB.charts.tickets')">
+          <WbChartFrame :title="t('velocityB.charts.tickets')" :info="t('velocityB.dev.ticketsInfo')" :legend="[{ label: t('velocityB.charts.delivered'), color: '--chart-1' }]">
+            <ChartTickets :months="months" :values="ticketValues" />
+            <InsightBadge :text="ticketInsight()" :trend="variationTrend('ticketsCount')" />
+          </WbChartFrame>
+        </WbCard>
 
-        <!-- Composition -->
-        <div class="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 class="text-sm font-semibold text-gray-700 mb-1">Composition</h3>
-          <p class="text-xs text-gray-400 mb-3">Tickets avec estimation (bleu = features) vs tickets sans estimation (rouge = bugs proxy). Un ratio bugs élevé peut indiquer de la dette technique non planifiée.</p>
-          <ChartComposition :months="months" :features="featureValues" :bugs="bugValues" />
-          <InsightBadge :text="compositionInsight()" trend="neutral" />
-        </div>
+        <WbCard :title="t('velocityB.charts.points')">
+          <WbChartFrame :title="t('velocityB.charts.points')" :info="t('velocityB.dev.pointsInfo')" :legend="[{ label: t('velocityB.charts.pointsDelivered'), color: '--chart-1' }]">
+            <ChartPoints :months="months" :values="pointValues" />
+            <InsightBadge :text="pointInsight()" :trend="variationTrend('pointsSum')" />
+          </WbChartFrame>
+        </WbCard>
       </div>
     </template>
   </div>
 </template>
+
+<style scoped>
+/* Six indicators on one row on wide screens */
+@container wbapp (min-width: 1280px) { .wb-vel-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.wb-vel-kpis :deep(.wb-metric) { padding: var(--space-3) var(--space-4); }
+/* The period switch never widens the page (TND-09): it scrolls inside on small screens */
+.wb-period-row { min-width: 0; max-width: 100%; }
+.wb-period { min-width: 0; max-width: 100%; overflow-x: auto; }
+</style>

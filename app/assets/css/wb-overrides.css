@@ -1,0 +1,111 @@
+/*
+ * WakaBods — visual pass after user feedback (05/11/2026):
+ * crisper light palette, single focus ring on fields, denser layout.
+ * Loaded after tokens.css and bundle.css; the dark theme keeps the handoff values.
+ */
+
+/* ── Light palette: white surfaces, clear borders, saturated brand and statuses ── */
+:root:not([data-theme="dark"]) {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-2: #f1f4f9;
+  --surface-nav: #ffffff;
+  --border: #e2e7ef;
+  --border-strong: #8a96a8;   /* field outline: 3:1 on white */
+  --ink: #0f172a;
+  --ink-2: #334155;
+  --ink-3: #5b6779;
+  --brand: #2563eb;
+  --brand-hover: #1d4ed8;
+  --brand-tint: #eef3ff;
+  --brand-text: #1d4ed8;
+  --focus: #2563eb;
+  --success-tint: #dcfce7; --success-border: #a7e3bd; --success-text: #166534;
+  --warning-tint: #fef3c7; --warning-border: #f3d58b; --warning-text: #8a3b06;
+  --danger-tint: #fee2e2;  --danger-border: #f8b4b4;  --danger-text: #991b1b;
+  --info-tint: #e0f2fe;    --info-border: #a5d3f5;    --info-text: #075985;
+  --shadow-1: 0 1px 2px rgba(15, 23, 42, .05), 0 1px 3px rgba(15, 23, 42, .06);
+  --shadow-2: 0 6px 18px rgba(15, 23, 42, .10);
+  --shadow-3: 0 18px 44px rgba(15, 23, 42, .18);
+}
+
+/* ── One focus ring per field: on the wrapper, never also on the inner control ── */
+.wb-input :is(input, select, textarea):focus,
+.wb-input :is(input, select, textarea):focus-visible { outline: none; box-shadow: none; }
+.wb-input input, .wb-input select, .wb-input textarea { border: 0; background: transparent; }
+.wb-input:focus-within { outline: none; border-color: var(--focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 22%, transparent); }
+.wb-field.is-err .wb-input:focus-within { box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger-solid) 20%, transparent); }
+
+/* ── Shell: white sidebar with a border, compact header ── */
+.wb-side { padding: var(--space-4) var(--space-3); gap: var(--space-4); border-right: 1px solid var(--border); }
+@container wbapp (min-width: 1024px) { .wb-side:not(.is-col):not(.is-drawer) { width: 232px; } }
+.wb-side a { min-height: 38px; }
+.wb-side a[aria-current] { background: var(--brand-tint); box-shadow: none; }
+.wb-side-col { border-right: 0; }
+.wb-head { min-height: 56px; padding: var(--space-2) var(--space-6); }
+.wb-main { padding: var(--space-5) var(--space-6) var(--space-8); }
+
+/* ── Density: tighter rhythm, wider pages (less empty space on large screens) ── */
+/* Full width: content starts right after the sidebar, no centred column (feedback 05/11) */
+.wb-page { max-width: none; margin-inline: 0; }
+.wb-stack { gap: var(--space-4); }
+.wb-grid, .wb-split { gap: var(--space-4); }
+.wb-card { border: 1px solid var(--border); box-shadow: var(--shadow-1); }
+.wb-card-h { padding: var(--space-4) var(--space-5) 0; }
+.wb-card-b { padding: var(--space-4) var(--space-5); }
+.wb-metric { padding: var(--space-4); }
+.wb-metric .display { font-size: 26px; line-height: 30px; }
+.display { font-size: 26px; line-height: 32px; }
+.h1 { font-size: 22px; line-height: 28px; }
+.wb-dt th { padding: var(--space-2) var(--space-4); background: var(--surface-2); }
+.wb-dt td { padding: var(--space-2) var(--space-4); }
+.wb-btn-md { min-height: 40px; padding: 8px var(--space-4); }
+.wb-input { min-height: 40px; }
+
+/* Touch targets stay at 44 px on phones */
+@container wbapp (max-width: 767px) {
+  .wb-btn-md, .wb-input { min-height: 44px; }
+  .wb-main { padding: var(--space-3) var(--space-3) var(--space-6); }
+  .wb-card-h { padding: var(--space-3) var(--space-4) 0; }
+  .wb-card-b { padding: var(--space-3) var(--space-4); }
+}
+
+/* Suggestions from the V1 pass */
+.wb-list { gap: var(--space-2); }
+.wb-row > .wb-field, .wb-fb-c > .wb-field, .wb-row-b > .wb-field { flex: 0 0 auto; }
+
+/* Shared toolbar (V2 pass): filters left, main action right */
+.wb-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); }
+.wb-toolbar > * { min-width: 0; }
+@container wbapp (max-width: 767px) {
+  /* bundle.css stretches and spaces every button under 768 px: keep that for forms only */
+  .wb-toolbar .wb-btn, .wb-row .wb-btn, .wb-row-b .wb-btn, .wb-ph-a .wb-btn, .wb-card-h .wb-btn { margin-top: 0; flex: 0 0 auto; }
+}
+
+/* ── Fill the screen (feedback 05/11: "beaucoup d'espace gâché") ──
+ * Desktop only. The page takes the full height under the header; two-column
+ * layouts get columns of equal height; an empty state fills the remaining space. */
+@container wbapp (min-width: 1024px) {
+  .wb-main { flex: 1 0 auto; display: flex; flex-direction: column; }
+  .wb-main > .wb-page { flex: 1 0 auto; display: flex; flex-direction: column; }
+  .wb-split { align-items: stretch; }
+  .wb-split > .wb-stack > :last-child { flex: 1 0 auto; }
+  .wb-main > .wb-page > :last-child:has(.wb-empty),
+  .wb-main > .wb-page > .wb-fill { flex: 1 0 auto; }
+  .wb-main > .wb-page > .wb-card:last-child:has(.wb-empty) { display: flex; flex-direction: column; justify-content: center; }
+}
+
+/* ── Tabs: no scrollbar (the -1px underline made the strip overflow vertically) ── */
+.wb-tabs { border-bottom: 0; box-shadow: inset 0 -1px 0 var(--border); overflow-y: hidden; scrollbar-width: none; }
+.wb-tabs::-webkit-scrollbar { display: none; }
+.wb-tabs button { margin-bottom: 0; }
+
+/* ── Filters in harmony: chips, selects, search and buttons share height and radius ── */
+.wb-chip { min-height: 40px; border-radius: var(--radius-md); font-size: 14px; padding: 0 var(--space-3); }
+.wb-chip-n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--surface-2); font-size: 12px; font-weight: 600; }
+.wb-chip.is-on .wb-chip-n { background: color-mix(in srgb, var(--brand) 16%, transparent); }
+.wb-select select, .wb-input input { font-size: 14px; }
+@container wbapp (max-width: 767px) { .wb-chip { min-height: 44px; } }
+
+/* ── Count badges: digits optically centred (sidebar, chips) ── */
+.wb-nav-n, .wb-chip-n { line-height: 1; font-variant-numeric: tabular-nums; }

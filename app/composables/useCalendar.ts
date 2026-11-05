@@ -40,11 +40,17 @@ export function useCalendar() {
       if (sbError) throw sbError
 
       const rows = (data ?? []) as unknown as RawCalendarRow[]
-      const currentUserId = user.value?.id
+      // useSupabaseUser() holds the JWT claims: the user id is `sub`, not `id`
+      let currentUserId = user.value?.sub as string | undefined
+      if (!currentUserId) {
+        const { data: auth } = await supabase.auth.getUser()
+        currentUserId = auth.user?.id
+      }
 
       events.value = rows
         .filter(r =>
-          r.user_id === currentUserId || r.status === 'approved',
+          // Approved leave awaiting a cancellation is still taken (lot R8)
+          r.status !== 'cancelled' && (r.user_id === currentUserId || r.status === 'approved' || r.status === 'cancel_requested'),
         )
         .map(r => ({
           id: r.id,
@@ -56,7 +62,8 @@ export function useCalendar() {
           leaveTypeColor: r.leave_types?.color ?? '#9E9E9E',
           startDate: r.start_date,
           endDate: r.end_date,
-          status: r.status as LeaveStatus,
+          // cancel_requested is still leave: shown like approved
+          status: (r.status === 'cancel_requested' ? 'approved' : r.status) as LeaveStatus,
           isOwn: r.user_id === currentUserId,
           teamId: r.profiles?.teams?.id,
           teamName: r.profiles?.teams?.name,

@@ -1,23 +1,11 @@
 /**
- * E2E tests for RFC-010 — Calendar (F18 employee, F19 manager, F20 admin)
+ * E2E tests — Calendrier (refonte, lot R3): month, planning and list views.
  *
- * REQUIRES:
- *   - supabase start && supabase db reset  (seed applied, clean state)
- *   - yarn dev  (or playwright.config.ts webServer starts it)
- *
- * Seed state assumed:
- *   - Emma (employee1): approved Congé payé 2026-04-14 → 2026-04-18
- *   - Emma (employee1): pending Congé payé 2026-05-12 → 2026-05-16
- *   - Eddy (employee2): manager_approved RTT 2026-05-05 → 2026-05-07
- *   - Eddy (employee2): rejected Congé maladie 2026-03-10 → 2026-03-12
- *   - All employees are in Équipe A; Marc Manager manages Équipe A
- *
- * Today assumed: 2026-04-27 (outside Emma's approved range → absentToday empty)
+ * REQUIRES: supabase start && supabase db reset (seed included), app running.
+ * Seed: Emma approved 14–18 April 2026 (Congé payé), Emma pending 12–16 May 2026.
  */
 
 import { test, expect, type Page } from '@playwright/test'
-
-// ── Accounts ──────────────────────────────────────────────────────────────────
 
 const ACCOUNTS = {
   admin:     { email: 'admin@waka.com',     password: 'Waka2026!' },
@@ -26,186 +14,124 @@ const ACCOUNTS = {
   employee2: { email: 'employee2@waka.com', password: 'Waka2026!' },
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const CARD_TITLE = '.wb-card-h h2'
+const BAR = '.wb-cal .wb-bar'
 
 async function waitForHydration(page: Page) {
-  await page.waitForSelector('html[data-hydrated]', { timeout: 10_000 })
+  await page.waitForSelector('html[data-hydrated]')
 }
 
 async function signIn(page: Page, account: { email: string; password: string }) {
+  await page.context().clearCookies()
   await page.goto('/login')
   await waitForHydration(page)
   await page.fill('#email', account.email)
   await page.fill('#password', account.password)
   await page.click('button[type="submit"]')
-  await page.waitForURL(/\/(profile|dashboard)/)
-  await waitForHydration(page)
-}
-
-async function clearSession(page: Page) {
-  await page.context().clearCookies()
-}
-
-async function goToCalendar(page: Page) {
+  await page.waitForURL(/\/(dashboard|profile)?$/)
   await page.goto('/calendar')
   await waitForHydration(page)
-  await page.waitForLoadState('networkidle')
+  await expect(page.locator('.wb-cal')).toBeVisible()
 }
 
-// French month names ordered by index (0 = January)
-const MONTHS_FR = [
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-]
-
-async function goToMonth(page: Page, year: number, monthIndex: number) {
-  const target = `${MONTHS_FR[monthIndex]} ${year}`
-  const heading = page.locator('h2').filter({ hasText: /\d{4}/ }).first()
-
-  for (let i = 0; i < 24; i++) {
-    const current = ((await heading.textContent()) ?? '').trim().toLowerCase()
-    if (current === target) return
-
-    const parts = current.split(' ')
-    const curMonthIdx = MONTHS_FR.indexOf(parts[0] ?? '')
-    const curYear = parseInt(parts[1] ?? '0')
-    const isBefore = curYear * 12 + curMonthIdx < year * 12 + monthIndex
-
-    if (isBefore) {
-      await page.click('button[aria-label="Mois suivant"]')
-    } else {
-      await page.click('button[aria-label="Mois précédent"]')
-    }
-    await page.waitForTimeout(150)
+/** Click "Mois précédent / suivant" until the card shows the target month */
+async function goToMonth(page: Page, year: number, month: number) {
+  const now = new Date()
+  const diff = (year * 12 + month) - (now.getFullYear() * 12 + now.getMonth() + 1)
+  const name = diff < 0 ? 'Mois précédent' : 'Mois suivant'
+  for (let i = 0; i < Math.abs(diff); i++) {
+    await page.locator('.wb-card-h').getByRole('button', { name }).click()
   }
-
-  throw new Error(`Could not navigate to ${target}`)
 }
 
-// ── F18 — Employee view ───────────────────────────────────────────────────────
-
-test.describe('F18 — Employee view', () => {
-  test.beforeEach(async ({ page }) => { await clearSession(page) })
-
-  test('T-010-001: happy path — approved event and legend visible in April', async ({ page }) => {
+test.describe('R3 — Calendrier, vue mois', () => {
+  test('T-R3-040: employee sees her approved leave in April 2026, with the legend', async ({ page }) => {
     await signIn(page, ACCOUNTS.employee1)
-    await goToCalendar(page)
-    await goToMonth(page, 2026, 3) // April
-
-    const heading = page.locator('h2').filter({ hasText: /\d{4}/ }).first()
-    await expect(heading).toContainText('avril 2026')
-
-    // CalendarEvent.vue sets a title attribute on the desktop grid chip — unique to desktop
-    await expect(page.locator('[title*="Emma Employée"]').first()).toBeVisible()
-
-    // Legend spans use text-gray-700; mobile list uses text-gray-500 — select the legend one
-    await expect(page.locator('.text-gray-700:has-text("Congé payé")')).toBeVisible()
+    await goToMonth(page, 2026, 4)
+    await expect(page.locator(CARD_TITLE)).toHaveText('Avril 2026')
+    await expect(page.locator(BAR, { hasText: 'Emma' }).first()).toBeVisible()
+    await expect(page.locator('.wb-leg')).toContainText('Congé payé')
   })
 
-  test('T-010-003: Emma pending (May 12–16) not visible to Eddy', async ({ page }) => {
-    await signIn(page, ACCOUNTS.employee2) // Eddy
-    await goToCalendar(page)
-    await goToMonth(page, 2026, 4) // May
-
-    // Emma is not Eddy and her pending status ≠ approved → filtered out
-    await expect(page.locator('text=Emma')).toHaveCount(0)
+  test('T-R3-041: a colleague sees approved leave but not pending requests', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee2)
+    await goToMonth(page, 2026, 4)
+    await expect(page.locator(BAR, { hasText: 'Emma' }).first()).toBeVisible()
+    await page.locator('.wb-card-h').getByRole('button', { name: 'Mois suivant' }).click()
+    await expect(page.locator(CARD_TITLE)).toHaveText('Mai 2026')
+    await expect(page.locator(BAR, { hasText: 'Emma' })).toHaveCount(0)
   })
 
-  test('T-010-004: prev / next month navigation changes heading', async ({ page }) => {
+  test('T-R3-042: own pending request is hatched', async ({ page }) => {
     await signIn(page, ACCOUNTS.employee1)
-    await goToCalendar(page)
+    await goToMonth(page, 2026, 5)
+    await expect(page.locator(`${BAR}.is-pend`, { hasText: 'Emma' }).first()).toBeVisible()
+  })
 
-    // Start at current month (April 2026)
-    await goToMonth(page, 2026, 3)
+  test('T-R3-043: previous, next and today change the month', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee1)
+    const title = page.locator(CARD_TITLE)
+    const start = await title.textContent()
+    await page.locator('.wb-card-h').getByRole('button', { name: 'Mois suivant' }).click()
+    await expect(title).not.toHaveText(start ?? '')
+    await page.locator('.wb-card-h').getByRole('button', { name: 'Aujourd’hui' }).click()
+    await expect(title).toHaveText(start ?? '')
+  })
 
-    // Navigate to next month
-    await page.click('button[aria-label="Mois suivant"]')
-    await expect(page.locator('h2').filter({ hasText: /\d{4}/ }).first())
-      .toContainText('mai 2026')
+  test('T-R3-044: "Moi uniquement" hides colleagues', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee2)
+    await goToMonth(page, 2026, 4)
+    await expect(page.locator(BAR, { hasText: 'Emma' }).first()).toBeVisible()
+    await page.getByRole('button', { name: 'Moi uniquement' }).click()
+    await expect(page.locator(BAR, { hasText: 'Emma' })).toHaveCount(0)
+  })
 
-    // Navigate back twice → March 2026
-    await page.click('button[aria-label="Mois précédent"]')
-    await page.click('button[aria-label="Mois précédent"]')
-    await expect(page.locator('h2').filter({ hasText: /\d{4}/ }).first())
-      .toContainText('mars 2026')
+  test('T-R3-045: "Absents aujourd’hui" card is shown', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee1)
+    await expect(page.getByText('Absents aujourd’hui')).toBeVisible()
   })
 })
 
-// ── F19 — Manager view ────────────────────────────────────────────────────────
-
-test.describe('F19 — Manager view', () => {
-  test.beforeEach(async ({ page }) => { await clearSession(page) })
-
-  test('T-010-008: "Absents aujourd\'hui" panel visible; empty outside seed range', async ({ page }) => {
+test.describe('R3 — Calendrier, planning et liste', () => {
+  test('T-R3-050: planning shows one row per teammate and a presence row', async ({ page }) => {
     await signIn(page, ACCOUNTS.manager)
-    await goToCalendar(page)
-
-    // Panel always visible for manager
-    await expect(page.locator('h3:has-text("Absents aujourd\'hui")')).toBeVisible()
-
-    // Today (2026-04-27) is after Emma's approved range (14–18 April)
-    await expect(page.locator('text=Aucune absence aujourd\'hui.')).toBeVisible()
+    await page.getByRole('button', { name: 'Planning' }).click()
+    await expect(page.locator('.wb-plan [role="rowheader"]')).not.toHaveCount(0)
+    await expect(page.locator('.wb-plan-ft')).toContainText('Présents')
+    await expect(page.locator('.wb-plan-dh')).toHaveCount(14)
   })
 
-  test('T-010-010: manager sees Emma\'s approved event in April', async ({ page }) => {
+  test('T-R3-051: list view groups April leave by week', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee1)
+    await goToMonth(page, 2026, 4)
+    await page.getByRole('button', { name: 'Liste' }).click()
+    await expect(page.getByText(/Semaine du 13 avril/)).toBeVisible()
+    await expect(page.locator('.wb-cal-li', { hasText: 'Emma' }).first()).toBeVisible()
+  })
+
+  test('T-R3-052: admin gets a team filter', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin)
+    const team = page.getByLabel('Équipe')
+    await expect(team).toBeVisible()
+    await expect(team.locator('option').first()).toHaveText('Toutes les équipes')
+  })
+
+  test('T-R3-053: employee has no team filter', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee1)
+    await expect(page.getByLabel('Équipe')).toHaveCount(0)
+  })
+})
+
+test.describe('R3 — Calendrier, mobile et sécurité', () => {
+  test('R-R3-001: no horizontal page scroll at 390 px, planning scrolls inside', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
     await signIn(page, ACCOUNTS.manager)
-    await goToCalendar(page)
-    await goToMonth(page, 2026, 3) // April
-
-    await expect(page.locator('[title*="Emma Employée"]').first()).toBeVisible()
-  })
-})
-
-// ── F20 — Admin view ──────────────────────────────────────────────────────────
-
-test.describe('F20 — Admin view', () => {
-  test.beforeEach(async ({ page }) => { await clearSession(page) })
-
-  test('T-010-012: admin sees Emma\'s approved event in April', async ({ page }) => {
-    await signIn(page, ACCOUNTS.admin)
-    await goToCalendar(page)
-    await goToMonth(page, 2026, 3) // April
-
-    await expect(page.locator('[title*="Emma Employée"]').first()).toBeVisible()
+    await page.getByRole('button', { name: 'Planning' }).click()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   })
 
-  test('T-010-013: team filter selector visible with correct options', async ({ page }) => {
-    await signIn(page, ACCOUNTS.admin)
-    await goToCalendar(page)
-
-    await expect(page.locator('label:has-text("Filtrer par équipe")')).toBeVisible()
-    await expect(page.locator('#team-filter')).toBeVisible()
-    await expect(page.locator('#team-filter')).toContainText('Toutes les équipes')
-    await expect(page.locator('#team-filter')).toContainText('Équipe A')
-  })
-
-  test('T-010-014: selecting a team filters events client-side', async ({ page }) => {
-    await signIn(page, ACCOUNTS.admin)
-    await goToCalendar(page)
-    await goToMonth(page, 2026, 3) // April
-
-    // Filter to Équipe A — Emma's event should remain visible
-    await page.selectOption('#team-filter', { label: 'Équipe A' })
-    await expect(page.locator('[title*="Emma Employée"]').first()).toBeVisible()
-
-    // Reset to all teams — still visible
-    await page.selectOption('#team-filter', { label: 'Toutes les équipes' })
-    await expect(page.locator('[title*="Emma Employée"]').first()).toBeVisible()
-  })
-
-  test('T-010-015: "Absents aujourd\'hui" panel absent for admin', async ({ page }) => {
-    await signIn(page, ACCOUNTS.admin)
-    await goToCalendar(page)
-
-    await expect(page.locator('text=Absents aujourd\'hui')).toHaveCount(0)
-  })
-})
-
-// ── Security ──────────────────────────────────────────────────────────────────
-
-test.describe('Security', () => {
-  test('S-010-001: unauthenticated access to /calendar redirects to /login', async ({ page }) => {
-    await clearSession(page)
+  test('S-R3-010: unauthenticated access to /calendar redirects to /login', async ({ page }) => {
+    await page.context().clearCookies()
     await page.goto('/calendar')
     await expect(page).toHaveURL('/login')
   })

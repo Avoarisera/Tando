@@ -44,36 +44,20 @@ describe('AppToast', () => {
 
   // --- Styling by type ---
 
-  it('success toast has green background and border classes', async () => {
+  it('success toast uses the design-system toast with the success icon', async () => {
     const wrapper = await mountSuspended(AppToast, {
       props: { id: 'id-1', message: 'OK', type: 'success' },
     })
     const root = wrapper.find('[role="alert"]')
-    expect(root.classes()).toContain('bg-green-50')
-    expect(root.classes()).toContain('border-green-200')
+    expect(root.classes()).toEqual(expect.arrayContaining(['wb-toast', 'is-success']))
+    expect(root.find('svg.wb-ic').exists()).toBe(true)
   })
 
-  it('error toast has red background and border classes', async () => {
+  it('error toast uses the danger tone', async () => {
     const wrapper = await mountSuspended(AppToast, {
       props: { id: 'id-2', message: 'Erreur', type: 'error' },
     })
-    const root = wrapper.find('[role="alert"]')
-    expect(root.classes()).toContain('bg-red-50')
-    expect(root.classes()).toContain('border-red-200')
-  })
-
-  it('success dismiss button has green text class', async () => {
-    const wrapper = await mountSuspended(AppToast, {
-      props: { id: 'id-1', message: 'OK', type: 'success' },
-    })
-    expect(wrapper.find('button[aria-label="Fermer la notification"]').classes()).toContain('text-green-400')
-  })
-
-  it('error dismiss button has red text class', async () => {
-    const wrapper = await mountSuspended(AppToast, {
-      props: { id: 'id-2', message: 'Erreur', type: 'error' },
-    })
-    expect(wrapper.find('button[aria-label="Fermer la notification"]').classes()).toContain('text-red-400')
+    expect(wrapper.find('[role="alert"]').classes()).toEqual(expect.arrayContaining(['wb-toast', 'is-danger']))
   })
 
   // --- Dismiss emit ---

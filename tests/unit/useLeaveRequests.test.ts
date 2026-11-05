@@ -176,6 +176,8 @@ describe('useLeaveRequests', () => {
         p_start_date:    '2026-07-01',
         p_end_date:      '2026-07-05',
         p_comment:       'Test',
+        p_start_half:    false,
+        p_end_half:      false,
       })
     })
 
@@ -229,61 +231,46 @@ describe('useLeaveRequests', () => {
     })
   })
 
-  // ── updateRequestStatus ─────────────────────────────────────────────────────
+  // ── reviewRequest ───────────────────────────────────────────────────────────
 
-  describe('updateRequestStatus()', () => {
-    it('calls .update() on leave_requests with the supplied fields', async () => {
-      fromResult.data  = {}
-      fromResult.error = null
+  describe('reviewRequest()', () => {
+    it('calls the review_leave_request RPC with the request id and decision', async () => {
+      rpcResult.data  = 'manager_approved'
+      rpcResult.error = null
 
-      const { updateRequestStatus } = useLeaveRequests()
-      await updateRequestStatus('req-42', {
-        status:              'manager_approved',
-        manager_reviewed_by: 'user-2',
-        manager_reviewed_at: '2026-05-01T10:00:00Z',
+      const { reviewRequest } = useLeaveRequests()
+      const status = await reviewRequest('req-42', 'approve')
+
+      expect(mockRpc).toHaveBeenCalledWith('review_leave_request', {
+        p_request_id: 'req-42',
+        p_decision:   'approve',
       })
-
-      expect(mockFrom).toHaveBeenCalledWith('leave_requests')
-      expect(sharedBuilder.update).toHaveBeenCalledWith({
-        status:              'manager_approved',
-        manager_reviewed_by: 'user-2',
-        manager_reviewed_at: '2026-05-01T10:00:00Z',
-      })
+      expect(status).toBe('manager_approved')
     })
 
-    it('filters by the supplied requestId', async () => {
-      fromResult.data  = {}
-      fromResult.error = null
+    it('never writes to leave_requests directly (TND-14)', async () => {
+      rpcResult.data  = 'rejected'
+      rpcResult.error = null
+      sharedBuilder.update.mockClear()
 
-      const { updateRequestStatus } = useLeaveRequests()
-      await updateRequestStatus('req-99', { status: 'rejected' })
+      const { reviewRequest } = useLeaveRequests()
+      await reviewRequest('req-99', 'reject')
 
-      expect(sharedBuilder.eq).toHaveBeenCalledWith('id', 'req-99')
+      expect(sharedBuilder.update).not.toHaveBeenCalled()
     })
 
-    it('throws when the update fails', async () => {
-      fromResult.data  = null
-      fromResult.error = { message: 'Mise à jour refusée' }
+    it('throws an Error instance carrying the database message', async () => {
+      rpcResult.data  = null
+      rpcResult.error = { message: 'Vous ne pouvez pas valider votre propre demande' }
 
-      const { updateRequestStatus } = useLeaveRequests()
-
-      await expect(
-        updateRequestStatus('req-1', { status: 'approved' })
-      ).rejects.toThrow('Mise à jour refusée')
-    })
-
-    it('throws an Error instance (not a plain PostgrestError) so catch blocks can use instanceof Error', async () => {
-      fromResult.data  = null
-      fromResult.error = { message: 'Aucun solde trouvé pour cet utilisateur, ce type de congé et cette année' }
-
-      const { updateRequestStatus } = useLeaveRequests()
+      const { reviewRequest } = useLeaveRequests()
 
       try {
-        await updateRequestStatus('req-1', { status: 'approved' })
+        await reviewRequest('req-1', 'approve')
         expect.fail('should have thrown')
       } catch (e) {
         expect(e).toBeInstanceOf(Error)
-        expect((e as Error).message).toBe('Aucun solde trouvé pour cet utilisateur, ce type de congé et cette année')
+        expect((e as Error).message).toBe('Vous ne pouvez pas valider votre propre demande')
       }
     })
   })

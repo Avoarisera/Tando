@@ -1,173 +1,165 @@
 <script setup lang="ts">
-import type { UserRole } from '~/types/index'
+definePageMeta({ titleKey: 'nav.profile', layout: 'private' })
 
-definePageMeta({ layout: 'private' })
-
+const { t, locale } = useI18n()
+const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const supabase = useSupabaseClient()
 const supabaseUser = useSupabaseUser()
 const { profile, loadProfile, isAdmin } = useCurrentUser()
 const { balances, isLoading: balancesLoading, error: balancesError, fetchBalances } = useLeaveBalances()
+const { requests: mine, fetchMine } = useMyLeave()
+const toast = useToast()
+const { choice: theme } = useTheme()
+const themeOptions = computed(() => [
+  { value: 'light', label: t('profile.themeLight'), icon: 'sun' },
+  { value: 'dark', label: t('profile.themeDark'), icon: 'moon' },
+  { value: 'system', label: t('profile.themeSystem'), icon: 'monitor' },
+])
 
-const isProfileLoading = ref(!profile.value)
-const profileError = ref<string | null>(null)
 const teamName = ref<string | null>(null)
-const currentYear = new Date().getFullYear()
-
-const roleBadge: Record<UserRole, { label: string; variant: 'red' | 'blue' | 'green' }> = {
-  admin:    { label: 'Administrateur', variant: 'red' },
-  manager:  { label: 'Manager',        variant: 'blue' },
-  employee: { label: 'Employé',        variant: 'green' },
-}
-
-const formattedJoinedAt = computed(() => formatDate(profile.value?.joined_at))
+const year = new Date().getFullYear()
 
 async function loadTeamName() {
-  if (!profile.value?.team_id) {
-    teamName.value = null
-    return
-  }
-  const { data } = await supabase
-    .from('teams')
-    .select('name')
-    .eq('id', profile.value.team_id)
-    .single()
+  if (!profile.value?.team_id) return
+  const { data } = await supabase.from('teams').select('name').eq('id', profile.value.team_id).single()
   teamName.value = data?.name ?? null
 }
 
-async function retryProfile() {
-  isProfileLoading.value = true
-  profileError.value = null
-  try {
-    // force reload by resetting cache
-    useState('current-profile').value = null
-    await loadProfile()
-    await loadTeamName()
-  } catch (e) {
-    profileError.value = e instanceof Error ? e.message : 'Erreur lors du chargement du profil'
-  } finally {
-    isProfileLoading.value = false
-  }
+async function loadBalances() {
+  await Promise.all([fetchBalances(), fetchMine()])
 }
 
 onMounted(async () => {
-  try {
-    await loadProfile()
-    await loadTeamName()
-    if (!isAdmin.value) {
-      await fetchBalances()
-    }
-  } catch (e) {
-    profileError.value = e instanceof Error ? e.message : 'Erreur lors du chargement du profil'
-  } finally {
-    isProfileLoading.value = false
-  }
+  await loadProfile()
+  await Promise.all([loadTeamName(), isAdmin.value ? Promise.resolve() : loadBalances()])
 })
+
+const name = computed(() => (profile.value ? fullName(profile.value) : ''))
+const email = computed(() => supabaseUser.value?.email ?? '')
+const subtitle = computed(() => [profile.value ? t(`roles.${profile.value.role}`) : '', teamName.value ?? t('profile.allCompany'), profile.value?.country ? t(`countries.${profile.value.country}`) : ''].filter(Boolean).join(' · '))
+const joined = computed(() => (profile.value?.joined_at ? fmtDate(profile.value.joined_at, tag.value, { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''))
+
+const rows = computed(() => balances.value.map((b) => {
+  const reserved = reservedDays(mine.value, b.leave_type_id, year)
+  return { id: b.id, name: b.leave_types.name, color: b.leave_types.color, allocated: b.allocated_days, used: b.used_days, reserved, left: b.allocated_days - b.used_days - reserved }
+}))
+
+// Password change: the current password is checked by signing in again first
+const currentPw = ref('')
+const newPw = ref('')
+const pwSubmitted = ref(false)
+const pwSaving = ref(false)
+const pwError = ref<string | null>(null)
+const newPwError = computed(() => (pwSubmitted.value && !isPasswordValid(newPw.value) ? t('auth.reset.tooWeak') : null))
+
+async function changePassword() {
+  pwSubmitted.value = true
+  pwError.value = null
+  if (newPwError.value || !currentPw.value || !email.value) return
+  pwSaving.value = true
+  try {
+    const { error: authError } = await supabase.auth.signInWithPassword({ email: email.value, password: currentPw.value })
+    if (authError) {
+      pwError.value = t('profile.wrongCurrent')
+      return
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPw.value })
+    if (error) {
+      pwError.value = t('auth.reset.error')
+      return
+    }
+    currentPw.value = ''
+    newPw.value = ''
+    pwSubmitted.value = false
+    toast.add(t('profile.passwordChanged'))
+  }
+  finally {
+    pwSaving.value = false
+  }
+}
 </script>
 
 <template>
-  <div class="max-w-2xl mx-auto space-y-6">
-    <h1 class="text-xl font-semibold text-gray-900">Mon profil</h1>
-
-    <!-- Carte profil -->
-    <section class="bg-white rounded-lg border border-gray-200 p-6">
-      <h2 class="text-base font-medium text-gray-700 mb-4">Informations personnelles</h2>
-
-      <!-- Loading -->
-      <template v-if="isProfileLoading">
-        <div class="space-y-3">
-          <AppSkeleton class="h-5 w-1/2" />
-          <AppSkeleton class="h-5 w-2/3" />
-          <AppSkeleton class="h-5 w-1/3" />
-          <AppSkeleton class="h-5 w-1/2" />
-        </div>
-      </template>
-
-      <!-- Erreur -->
-      <AppErrorBanner
-        v-else-if="profileError"
-        :message="profileError"
-        @retry="retryProfile"
-      />
-
-      <!-- Vide (cas théorique : session active mais profil absent) -->
-      <AppEmptyState
-        v-else-if="!profile"
-        title="Profil introuvable"
-        description="Votre profil n'a pas pu être chargé. Contactez votre administrateur."
-      />
-
-      <!-- Contenu -->
-      <dl v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <dt class="text-xs text-gray-500 uppercase tracking-wide">Prénom</dt>
-          <dd class="mt-1 text-sm font-medium text-gray-900">{{ profile.first_name }}</dd>
-        </div>
-        <div>
-          <dt class="text-xs text-gray-500 uppercase tracking-wide">Nom</dt>
-          <dd class="mt-1 text-sm font-medium text-gray-900">{{ profile.last_name }}</dd>
-        </div>
-        <div>
-          <dt class="text-xs text-gray-500 uppercase tracking-wide">Adresse e-mail</dt>
-          <dd class="mt-1 text-sm font-medium text-gray-900">{{ supabaseUser?.email ?? '—' }}</dd>
-        </div>
-        <div>
-          <dt class="text-xs text-gray-500 uppercase tracking-wide">Rôle</dt>
-          <dd class="mt-1">
-            <AppBadge
-              :label="roleBadge[profile.role].label"
-              :variant="roleBadge[profile.role].variant"
-            />
-          </dd>
-        </div>
-        <div>
-          <dt class="text-xs text-gray-500 uppercase tracking-wide">Équipe</dt>
-          <dd class="mt-1 text-sm font-medium text-gray-900">
-            {{ profile.team_id ? (teamName ?? '—') : 'Toute l\'entreprise' }}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-xs text-gray-500 uppercase tracking-wide">Date d'entrée</dt>
-          <dd class="mt-1 text-sm font-medium text-gray-900">{{ formattedJoinedAt }}</dd>
-        </div>
+  <div class="wb-page wb-stack">
+    <section class="wb-card wb-card-b wb-prof-id">
+      <WbAvatar :name="name || '?'" :size="56" />
+      <div class="wb-grow">
+        <h2 class="h2">{{ name }}</h2>
+        <p class="small wb-mut2">{{ subtitle }}</p>
+      </div>
+      <dl class="wb-prof-kv small">
+        <div><dt class="wb-mut">{{ t('v1.email') }}</dt><dd>{{ email }}</dd></div>
+        <div v-if="joined"><dt class="wb-mut">{{ t('v1.joined') }}</dt><dd class="wb-num">{{ joined }}</dd></div>
       </dl>
+      <p class="caption wb-mut wb-prof-hint">{{ t('profile.identityHint') }}{{ isAdmin ? ` ${t('v1.adminNoBalance')}` : '' }}</p>
     </section>
 
-    <!-- Soldes de congés (employee + manager uniquement) -->
-    <section v-if="!isAdmin" class="bg-white rounded-lg border border-gray-200 p-6">
-      <h2 class="text-base font-medium text-gray-700 mb-4">Soldes de congés {{ currentYear }}</h2>
+    <div :class="['wb-split wb-prof-grid', { 'is-admin': isAdmin }]">
 
-      <!-- Loading -->
-      <template v-if="balancesLoading">
-        <div class="space-y-3">
-          <AppSkeleton v-for="i in 3" :key="i" class="h-14" />
+    <div v-if="!isAdmin" class="wb-stack">
+    <WbCard :title="t('profile.balances', { year })" :pad="false">
+      <div v-if="balancesError" class="wb-card-b"><WbErrorState :message="balancesError" @retry="loadBalances" /></div>
+      <div v-else-if="balancesLoading && !rows.length" class="wb-card-b"><WbSkeleton variant="table" :count="3" /></div>
+      <p v-else-if="!rows.length" class="wb-card-b wb-mut">{{ t('home.welcomeText') }}</p>
+      <div v-else class="wb-scroll wb-dt">
+        <table>
+          <caption class="wb-sr">{{ t('profile.balances', { year }) }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ t('balance.type') }}</th>
+              <th scope="col" class="is-r">{{ t('balance.allocated') }}</th>
+              <th scope="col" class="is-r">{{ t('balance.used') }}</th>
+              <th scope="col" class="is-r">{{ t('balance.reserved') }}</th>
+              <th scope="col" class="is-r">{{ t('balance.left') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in rows" :key="r.id">
+              <td><WbTypeBadge :name="r.name" :color="r.color" /></td>
+              <td class="is-r wb-num">{{ r.allocated }}</td>
+              <td class="is-r wb-num">{{ r.used }}</td>
+              <td class="is-r wb-num">{{ r.reserved }}</td>
+              <td class="is-r wb-num" :class="{ 'wb-c-danger': r.left <= 0 }"><b>{{ r.left }}</b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </WbCard>
+    </div>
+
+    <div class="wb-stack">
+      <WbCard :title="t('profile.preferences')">
+        <div class="wb-stack-s">
+          <WbLangSelect with-label />
+          <div class="wb-field">
+            <span class="wb-label">{{ t('profile.theme') }}</span>
+            <WbSegmented v-model="theme" :options="themeOptions" :label="t('profile.theme')" />
+          </div>
+          <WbInput :label="t('profile.dateFormat')" :model-value="t('profile.dateFormatAuto')" readonly />
         </div>
-      </template>
+      </WbCard>
 
-      <!-- Erreur -->
-      <AppErrorBanner
-        v-else-if="balancesError"
-        :message="balancesError"
-        @retry="fetchBalances"
-      />
-
-      <!-- Vide -->
-      <AppEmptyState
-        v-else-if="balances.length === 0"
-        title="Aucun solde configuré pour cette année"
-        description="Contactez votre administrateur pour configurer vos soldes de congés."
-      />
-
-      <!-- Contenu -->
-      <ul v-else class="space-y-3">
-        <li v-for="balance in balances" :key="balance.id">
-          <LeaveBalanceCard
-            :type-name="balance.leave_types.name"
-            :type-color="balance.leave_types.color"
-            :allocated-days="balance.allocated_days"
-            :used-days="balance.used_days"
-          />
-        </li>
-      </ul>
-    </section>
+      <WbCard :title="t('profile.security')">
+        <form class="wb-stack-s" novalidate @submit.prevent="changePassword">
+          <WbBanner v-if="pwError" tone="danger">{{ pwError }}</WbBanner>
+          <WbPasswordInput id="current-password" v-model="currentPw" :label="t('profile.currentPassword')" autocomplete="current-password" />
+          <WbPasswordInput id="new-password" v-model="newPw" :label="t('auth.reset.password')" autocomplete="new-password" :hint="t('auth.reset.hint')" :error="newPwError" />
+          <div><WbButton type="submit" variant="secondary" :loading="pwSaving" :disabled="!currentPw || !newPw">{{ t('profile.changePassword') }}</WbButton></div>
+        </form>
+      </WbCard>
+    </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.wb-prof-id { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.wb-prof-kv { display: flex; gap: var(--space-6); margin: 0; flex-wrap: wrap; }
+.wb-prof-kv dd { margin: 2px 0 0; color: var(--ink); }
+.wb-prof-hint { flex-basis: 100%; margin-top: calc(-1 * var(--space-2)); }
+/* Admin: no balance column, preferences and security side by side */
+.wb-prof-grid.is-admin { grid-template-columns: minmax(0, 1fr); }
+@container wbapp (min-width: 1024px) {
+  .wb-prof-grid.is-admin > .wb-stack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+}
+</style>

@@ -7,6 +7,9 @@ export interface HistoryEvent {
   actor_id: string | null
 }
 
+const { t, locale } = useI18n()
+const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
+
 const props = defineProps<{
   history: HistoryEvent[]
   startedAt: string | null
@@ -70,10 +73,10 @@ const entries = computed<TimelineEntry[]>(() => {
 })
 
 function formatDuration(hours: number | null): string {
-  if (hours === null) return 'en cours'
-  if (hours < 1) return `${Math.round(hours * 60)}min`
-  if (hours < 24) return `${hours.toFixed(0)}h`
-  return `${(hours / 24).toFixed(1)}j`
+  if (hours === null) return t('velocityA.timeline.inProgress')
+  if (hours < 1) return `${Math.round(hours * 60)} min`
+  if (hours < 24) return `${hours.toFixed(0)} h`
+  return `${(hours / 24).toFixed(1)} ${locale.value === 'en' ? 'd' : 'j'}`
 }
 
 function showDuration(entry: TimelineEntry): boolean {
@@ -82,16 +85,16 @@ function showDuration(entry: TimelineEntry): boolean {
 }
 
 function formatDate(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return new Intl.DateTimeFormat(tag.value, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
 }
 
-function statusColor(status: string): string {
-  if (DEV_STATES.some(s => status.includes(s))) return 'bg-blue-100 text-blue-700'
-  if (QA_STATES.some(s => status.includes(s))) return 'bg-amber-100 text-amber-700'
-  if (status === 'Done' || status === 'Deployed') return 'bg-green-100 text-green-700'
-  if (status === 'Cancelled') return 'bg-red-100 text-red-700'
-  return 'bg-gray-100 text-gray-600'
+/** Design tones: dev info, QA warning, done success, cancelled danger */
+function statusTone(status: string): 'info' | 'warning' | 'success' | 'danger' | 'neutral' {
+  if (DEV_STATES.some(s => status.includes(s))) return 'info'
+  if (QA_STATES.some(s => status.includes(s))) return 'warning'
+  if (status === 'Done' || status === 'Deployed') return 'success'
+  if (status === 'Cancelled') return 'danger'
+  return 'neutral'
 }
 
 const cycleHours = computed<number | null>(() => {
@@ -106,78 +109,27 @@ const hasQaAnomaly = computed(() => entries.value.some(e => e.isQaAnomaly))
 </script>
 
 <template>
-  <div>
-    <!-- Résumé flags -->
-    <div v-if="hasRework || hasQaAnomaly" class="mb-4 flex gap-2 flex-wrap">
-      <span
-        v-if="hasRework"
-        class="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-3 py-1 text-xs font-medium text-red-700"
-        title="Aller-retour détecté entre les états dev et QA/Review"
-      >
-        ⚠ Rework détecté
-      </span>
-      <span
-        v-if="hasQaAnomaly"
-        class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-medium text-amber-700"
-        title="Ticket bloqué plus de 48h en QA/Review"
-      >
-        ⏳ Blocage QA &gt; 48h
-      </span>
-      <span
-        v-if="cycleHours !== null"
-        class="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-3 py-1 text-xs font-medium text-blue-700"
-      >
-        Cycle dev : {{ formatDuration(cycleHours) }}
-      </span>
-    </div>
+  <div class="wb-stack">
+    <WbBanner v-if="hasRework" tone="warning" :title="t('velocityA.timeline.rework')">{{ t('velocityA.timeline.reworkText') }}</WbBanner>
+    <WbBanner v-if="hasQaAnomaly" tone="warning" :title="t('velocityA.timeline.qaBlocked')" />
+    <div v-if="cycleHours !== null"><WbBadge tone="info" icon="clock">{{ t('velocityA.timeline.cycle', { d: formatDuration(cycleHours) }) }}</WbBadge></div>
 
-    <!-- Timeline vide -->
-    <AppEmptyState
-      v-if="entries.length === 0"
-      title="Aucun historique disponible"
-      description="L'historique des transitions n'a pas été synchronisé pour ce ticket."
-    />
+    <WbEmptyState v-if="entries.length === 0" art="search" :title="t('velocityA.timeline.emptyTitle')">
+      {{ t('velocityA.timeline.emptyText') }}
+    </WbEmptyState>
 
-    <!-- Timeline -->
-    <ol v-else class="relative border-l border-gray-200 ml-3">
-      <li
-        v-for="(entry, i) in entries"
-        :key="i"
-        class="mb-6 ml-6"
-      >
-        <!-- dot -->
-        <span
-          class="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-white text-xs"
-          :class="entry.isRework ? 'bg-red-100 text-red-600' : entry.isQaAnomaly ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'"
-        >
-          {{ entry.isRework ? '↩' : entry.isQaAnomaly ? '⏳' : '●' }}
-        </span>
-
-        <div class="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <span
-              class="inline-block rounded-full px-2 py-0.5 text-xs font-medium"
-              :class="statusColor(entry.status)"
-            >
-              {{ entry.status }}
-            </span>
-            <time class="ml-2 text-xs text-gray-400">{{ formatDate(entry.enteredAt) }}</time>
+    <ol v-else class="wb-tl">
+      <li v-for="(entry, i) in entries" :key="i" :data-status="entry.status">
+        <span :class="['wb-tl-m', `wb-t-${entry.isRework ? 'danger' : entry.isQaAnomaly ? 'warning' : statusTone(entry.status)}`]" />
+        <div>
+          <div class="wb-row wb-wrap">
+            <WbBadge :tone="statusTone(entry.status)">{{ entry.status }}</WbBadge>
+            <span v-if="showDuration(entry)" class="caption wb-mut wb-num">{{ t('velocityA.timeline.duration', { d: formatDuration(entry.durationHours) }) }}</span>
           </div>
-          <span
-            v-if="showDuration(entry)"
-            class="text-xs text-gray-400 whitespace-nowrap"
-            :title="`Temps passé dans cet état : ${formatDuration(entry.durationHours)}`"
-          >
-            Durée : <span class="font-mono text-gray-600 font-medium">{{ formatDuration(entry.durationHours) }}</span>
-          </span>
+          <time class="caption wb-mut wb-num" :datetime="entry.enteredAt">{{ formatDate(entry.enteredAt) }}</time>
+          <p v-if="entry.isRework" class="small wb-c-danger">{{ t('velocityA.timeline.reworkStep') }}</p>
+          <p v-if="entry.isQaAnomaly" class="small wb-c-warning">{{ t('velocityA.timeline.qaStep') }}</p>
         </div>
-
-        <p v-if="entry.isRework" class="mt-1 text-xs text-red-600">
-          Aller-retour — retour en développement après QA/Review
-        </p>
-        <p v-if="entry.isQaAnomaly" class="mt-1 text-xs text-amber-600">
-          Blocage anormal en QA (&gt; 48h)
-        </p>
       </li>
     </ol>
   </div>

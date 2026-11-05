@@ -14,7 +14,7 @@ export function useLeaveBalances() {
   const teamError = ref<string | null>(null)
 
   async function fetchBalances() {
-    let userId = user.value?.id
+    let userId = user.value?.sub as string | undefined
     if (!userId) {
       const { data } = await supabase.auth.getUser()
       userId = data.user?.id

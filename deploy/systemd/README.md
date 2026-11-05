@@ -5,7 +5,7 @@ Remplace le cron Vercel (`vercel.json`, ignoré hors Vercel). Un timer systemd a
 
 ## 1. Sécuriser l'endpoint (obligatoire)
 
-Sans `CRON_SECRET`, l'endpoint est **ouvert**. Générer un secret et l'ajouter à
+Sans `CRON_SECRET`, l'endpoint est **désactivé** (il répond 503) : la sync planifiée ne tourne pas. Générer un secret et l'ajouter à
 l'environnement de l'app Nuxt (Docker `-e CRON_SECRET=…`, compose, ou son propre unit) :
 
 ```bash

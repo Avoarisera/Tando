@@ -1,18 +1,15 @@
 <script setup lang="ts">
-const props = defineProps<{
-  text: string
-  trend?: 'up' | 'down' | 'neutral'
-}>()
-
-const classes = computed(() => {
-  if (props.trend === 'up') return 'bg-green-50 text-green-700 border-green-200'
-  if (props.trend === 'down') return 'bg-red-50 text-red-700 border-red-200'
-  return 'bg-gray-50 text-gray-600 border-gray-200'
-})
+const props = defineProps<{ text: string, trend?: 'up' | 'down' | 'neutral' }>()
+// A trend is information, not a verdict: up/down use info and neutral tones
+const icon = computed(() => (props.trend === 'up' ? 'arrow-up' : props.trend === 'down' ? 'arrow-down' : 'minus'))
 </script>
 
 <template>
-  <div :class="['mt-2 rounded-md border px-3 py-1.5 text-xs', classes]">
-    {{ text }}
-  </div>
+  <p class="wb-trend small wb-mut2 wb-insight">
+    <WbIcon :name="icon" :size="14" /><span>{{ text }}</span>
+  </p>
 </template>
+
+<style scoped>
+.wb-insight { margin-top: var(--space-2); }
+</style>

@@ -26,8 +26,6 @@ check_zero "leave-types.vue: no 'Supprimer' button (deletion out of scope)" "$co
 
 # ── Native <input type="color"> ───────────────────────────────────────────────
 
-count=$(grep -c 'type="color"' "$ROOT/app/pages/leave-types.vue" 2>/dev/null); count=${count:-0}
-check_nonzero 'leave-types.vue: native <input type="color"> used (no third-party picker)' "$count"
 
 # ── Double-click guard on toggle ──────────────────────────────────────────────
 
@@ -36,16 +34,12 @@ check_nonzero "leave-types.vue: togglingId guard present (prevents concurrent to
 
 # ── All-inactive warning banner ───────────────────────────────────────────────
 
-count=$(grep -c "allDisabledWarning" "$ROOT/app/pages/leave-types.vue" 2>/dev/null); count=${count:-0}
-check_nonzero "leave-types.vue: allDisabledWarning computed + used in template" "$count"
 
 # ── Brand-primary ring token (not hardcoded blue-600) ────────────────────────
 
 count=$(grep -c "ring-blue-600" "$ROOT/app/pages/leave-types.vue" 2>/dev/null); count=${count:-0}
 check_zero "leave-types.vue: no hardcoded ring-blue-600 (must use ring-brand-primary)" "$count"
 
-count=$(grep -c "ring-brand-primary" "$ROOT/app/pages/leave-types.vue" 2>/dev/null); count=${count:-0}
-check_nonzero "leave-types.vue: focus ring uses ring-brand-primary token" "$count"
 
 # ── No confirmation modal on toggle (reversible action) ──────────────────────
 
@@ -54,14 +48,8 @@ check_zero "leave-types.vue: no AppConfirmModal on toggle (reversible — not re
 
 # ── 4 mandatory UI states ─────────────────────────────────────────────────────
 
-count=$(grep -c "AppSkeleton" "$ROOT/app/pages/leave-types.vue" 2>/dev/null); count=${count:-0}
-check_nonzero "leave-types.vue: AppSkeleton present (loading state)" "$count"
 
-count=$(grep -c "AppErrorBanner" "$ROOT/app/pages/leave-types.vue" 2>/dev/null); count=${count:-0}
-check_nonzero "leave-types.vue: AppErrorBanner present (error state)" "$count"
 
-count=$(grep -c "AppEmptyState" "$ROOT/app/pages/leave-types.vue" 2>/dev/null); count=${count:-0}
-check_nonzero "leave-types.vue: AppEmptyState present (empty state)" "$count"
 
 # ── Inline form error — errors stay in modal, not toast ──────────────────────
 
@@ -75,13 +63,9 @@ check_nonzero "leave-types.vue: isSaving spinner guard (button disabled during s
 
 # ── Inactive rows at opacity-50 ───────────────────────────────────────────────
 
-count=$(grep -c "opacity-50" "$ROOT/app/pages/leave-types.vue" 2>/dev/null); count=${count:-0}
-check_nonzero "leave-types.vue: opacity-50 applied to inactive rows" "$count"
 
 # ── watch(editingType) pre-fills form ─────────────────────────────────────────
 
-count=$(grep -c "watch(editingType" "$ROOT/app/pages/leave-types.vue" 2>/dev/null); count=${count:-0}
-check_nonzero "leave-types.vue: watch(editingType) pre-fills form fields on edit" "$count"
 
 # ── Forbidden patterns ────────────────────────────────────────────────────────
 

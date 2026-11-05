@@ -1,10 +1,16 @@
 <script setup lang="ts">
-defineProps<{
+withDefaults(defineProps<{
   title: string
   description: string
   confirmLabel?: string
   cancelLabel?: string
-}>()
+  // 'danger' for destructive actions (refuse, deactivate, delete) — TND-07
+  confirmVariant?: 'primary' | 'danger'
+}>(), {
+  confirmLabel: undefined,
+  cancelLabel: undefined,
+  confirmVariant: 'primary',
+})
 const emit = defineEmits<{
   confirm: []
   cancel: []
@@ -31,7 +37,7 @@ function handleCancel() {
         {{ cancelLabel ?? 'Annuler' }}
       </AppButton>
       <AppButton
-        variant="primary"
+        :variant="confirmVariant"
         :disabled="isConfirming"
         @click="handleConfirm"
       >

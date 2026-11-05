@@ -23,7 +23,7 @@ async function signIn(page: Page, account: { email: string; password: string }) 
   await page.fill('#email', account.email)
   await page.fill('#password', account.password)
   await page.click('button[type="submit"]')
-  await page.waitForURL(/\/(profile|dashboard)/)
+  await page.waitForURL(/\/(dashboard|profile)?$/)
   await waitForHydration(page)
 }
 
@@ -39,7 +39,7 @@ test.describe('T-006-001 — AppToastContainer in layout', () => {
   test('toast container is attached to body on any private page', async ({ page }) => {
     await clearSession(page)
     await signIn(page, ACCOUNTS.employee1)
-    const container = page.locator('body > div.fixed.bottom-4.right-4')
+    const container = page.locator('body > div.wb-toasts')
     await expect(container).toBeAttached()
   })
 })

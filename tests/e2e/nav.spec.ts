@@ -1,11 +1,10 @@
 /**
- * E2E tests for RFC-004 — Private Layout & Navigation
+ * E2E tests — App shell and navigation (refonte, lot R2)
  *
- * REQUIRES:
- *   - supabase start && supabase db reset (seed included)
- *   - yarn dev (or webServer in playwright.config.ts starts it)
+ * Sidebar per role, header title, account menu, collapsed sidebar,
+ * mobile tab bar (employee, manager) and drawer (admin).
  *
- * Run: yarn test:e2e
+ * REQUIRES: supabase start && supabase db reset (seed included), app running.
  */
 
 import { test, expect, type Page } from '@playwright/test'
@@ -16,15 +15,14 @@ const ACCOUNTS = {
   employee1: { email: 'employee1@waka.com', password: 'Waka2026!' },
 }
 
-// Stable selectors derived from ARIA roles and labels — resilient to class renames
-const SIDEBAR       = 'aside'
-const NAV           = 'nav[aria-label="Navigation principale"]'
-const NAV_LINKS     = `${NAV} a`
-const HAMBURGER     = 'button[aria-label="Ouvrir le menu"]'
-const DRAWER        = '[role="dialog"]'
-const DRAWER_NAV    = `${DRAWER} ${NAV}`
-const DRAWER_CLOSE  = 'button[aria-label="Fermer le menu"]'
-const SIGNOUT_BTN   = 'button:has-text("Déconnexion")'
+const SIDEBAR   = '.wb-side-col > nav.wb-side'
+// Link labels only: the approval count badge is a sibling span
+const SIDE_LINKS = `${SIDEBAR} .wb-side-g a > span:not(.wb-nav-n)`
+const HEADER    = 'header.wb-head'
+const TABBAR    = 'nav.wb-tabbar'
+const DRAWER    = '[role="dialog"].wb-drawer'
+const MENU_BTN  = 'button.wb-only-m-admin'
+const USER_BTN  = 'button[aria-haspopup="menu"]'
 
 async function waitForHydration(page: Page) {
   await page.waitForSelector('html[data-hydrated]')
@@ -36,7 +34,7 @@ async function signIn(page: Page, account: { email: string; password: string }) 
   await page.fill('#email', account.email)
   await page.fill('#password', account.password)
   await page.click('button[type="submit"]')
-  await page.waitForURL(/\/(profile|dashboard)/)
+  await page.waitForURL(/\/(dashboard|profile)?$/)
   await waitForHydration(page)
 }
 
@@ -45,281 +43,167 @@ async function clearSession(page: Page) {
 }
 
 // ============================================================
-// T-004-001 — Layout renders on all private routes
+// Desktop — sidebar per role
 // ============================================================
-test.describe('F08 — Layout renders (desktop)', () => {
-  test.beforeEach(async ({ page }) => {
-    await clearSession(page)
-    await signIn(page, ACCOUNTS.employee1)
-  })
-
-  test('T-004-001: private layout present on all 4 private routes', async ({ page }) => {
-    for (const route of ['/profile', '/leave-requests', '/calendar']) {
-      await page.goto(route)
-      await waitForHydration(page)
-      // Sidebar confirms private layout rendered
-      await expect(page.locator(SIDEBAR)).toBeVisible()
-      // Stub page heading confirms <slot> content rendered
-      await expect(page.locator('main h1')).toBeVisible()
-      // No unexpected redirect
-      await expect(page).toHaveURL(route)
-    }
-  })
-})
-
-// ============================================================
-// T-004-002/003/015/004/014/017/018 — Nav content & desktop behaviour
-// ============================================================
-test.describe('F08 — Nav content (desktop 1280px)', () => {
+test.describe('R2 — Sidebar (desktop)', () => {
   test.beforeEach(async ({ page }) => {
     await clearSession(page)
   })
 
-  test('T-004-002: employee nav has 3 links — no "Types de congé"', async ({ page }) => {
+  test('T-R2-001: employee menu is Accueil, Mes congés, Calendrier', async ({ page }) => {
     await signIn(page, ACCOUNTS.employee1)
-    const links = page.locator(`${SIDEBAR} ${NAV_LINKS}`)
-    await expect(links).toHaveCount(3)
-    await expect(page.locator(`${SIDEBAR} a[href="/leave-types"]`)).not.toBeVisible()
+    await expect(page.locator(SIDE_LINKS)).toHaveText(['Accueil', 'Mes congés', 'Calendrier'])
+    await expect(page.locator(`${SIDEBAR} h2`)).toHaveText(['Moi', 'Équipe'])
   })
 
-  test('T-004-003: admin nav has 5 links — "Tableau de bord" first, includes "Types de congé"', async ({ page }) => {
-    await signIn(page, ACCOUNTS.admin)
-    const links = page.locator(`${SIDEBAR} ${NAV_LINKS}`)
-    await expect(links).toHaveCount(5)
-    await expect(links.first()).toHaveAttribute('href', '/dashboard')
-    await expect(links.first()).toContainText('Tableau de bord')
-    const typesLink = page.locator(`${SIDEBAR} a[href="/leave-types"]`)
-    await expect(typesLink).toBeVisible()
-    await expect(typesLink).toContainText('Types de congé')
-  })
-
-  test('T-004-015: manager nav has 3 links — no "Types de congé"', async ({ page }) => {
+  test('T-R2-002: manager menu has no admin entries', async ({ page }) => {
     await signIn(page, ACCOUNTS.manager)
-    const links = page.locator(`${SIDEBAR} ${NAV_LINKS}`)
-    await expect(links).toHaveCount(3)
-    await expect(page.locator(`${SIDEBAR} a[href="/leave-types"]`)).not.toBeVisible()
+    await expect(page.locator(SIDE_LINKS)).toHaveText(['Accueil', 'Mes congés', 'Calendrier', 'À valider'])
+    await expect(page.locator(`${SIDEBAR} a[href="/leave-types"]`)).toHaveCount(0)
   })
 
-  test('T-004-004: active route link has aria-current="page" and shifts on navigation', async ({ page }) => {
+  test('T-R2-003: admin menu groups Équipe, Pilotage, Administration', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin)
+    await expect(page.locator(`${SIDEBAR} h2`)).toHaveText(['Équipe', 'Pilotage', 'Administration'])
+    await expect(page.locator(SIDE_LINKS)).toHaveText(['Calendrier', 'À valider', 'Tableau de bord', 'Vélocité', 'Personnes et équipes', 'Congés et règles', 'Factures', 'Paramètres'])
+  })
+
+  test('T-R2-004: active link has aria-current and the header shows the page title', async ({ page }) => {
     await signIn(page, ACCOUNTS.employee1)
-
-    // On /profile — only the /profile link is marked active
-    await expect(page.locator(`${SIDEBAR} a[href="/profile"][aria-current="page"]`)).toBeVisible()
-    await expect(page.locator(`${SIDEBAR} a[href="/leave-requests"][aria-current="page"]`)).not.toBeAttached()
-
-    // Navigate to /leave-requests via the nav link
-    await page.click(`${SIDEBAR} a[href="/leave-requests"]`)
-    await page.waitForURL('/leave-requests')
-
-    await expect(page.locator(`${SIDEBAR} a[href="/leave-requests"][aria-current="page"]`)).toBeVisible()
-    await expect(page.locator(`${SIDEBAR} a[href="/profile"][aria-current="page"]`)).not.toBeAttached()
+    await page.locator(`${SIDEBAR} a[href="/calendar"]`).click()
+    await expect(page).toHaveURL('/calendar')
+    await expect(page.locator(`${SIDEBAR} a[href="/calendar"]`)).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator(`${SIDEBAR} a[href="/leave-requests"]`)).not.toHaveAttribute('aria-current', 'page')
+    await expect(page.locator(`${HEADER} h1`)).toHaveText('Calendrier')
+    await expect(page).toHaveTitle('Calendrier · WakaBods')
   })
 
-  test('T-004-014: authenticated user full name visible in sidebar footer', async ({ page }) => {
+  test('T-R2-005: "Poser un congé" is in the header for employees, not for admins', async ({ page }) => {
     await signIn(page, ACCOUNTS.employee1)
-    // The profile name div is rendered v-if="profile" — present after loadProfile()
-    const nameEl = page.locator(`${SIDEBAR} .text-sm.text-gray-500.truncate`)
-    await expect(nameEl).toBeVisible()
-    const text = await nameEl.textContent()
-    expect(text?.trim().length).toBeGreaterThan(0)
+    await expect(page.locator(HEADER).getByRole('button', { name: 'Poser un congé' })).toBeVisible()
+    await clearSession(page)
+    await signIn(page, ACCOUNTS.admin)
+    await expect(page.locator(HEADER).getByRole('button', { name: 'Poser un congé' })).toHaveCount(0)
   })
 
-  test('T-004-017: Déconnexion button (ghost variant) has gray text class', async ({ page }) => {
+  test('T-R2-006: the collapsed sidebar is remembered after a reload', async ({ page }) => {
     await signIn(page, ACCOUNTS.employee1)
-    const btn = page.locator(`${SIDEBAR} ${SIGNOUT_BTN}`)
-    await expect(btn).toBeVisible()
-    const classes = await btn.getAttribute('class')
-    expect(classes).toContain('text-gray-600')
+    await page.getByRole('button', { name: 'Replier le menu' }).click()
+    await expect(page.locator(SIDEBAR)).toHaveClass(/is-col/)
+    await page.reload()
+    await waitForHydration(page)
+    await expect(page.locator(SIDEBAR)).toHaveClass(/is-col/)
+    await page.getByRole('button', { name: 'Déplier le menu' }).click()
+    await expect(page.locator(SIDEBAR)).not.toHaveClass(/is-col/)
   })
 
-  test('T-004-018: employee sees 403 on /leave-types, "Types de congé" absent from nav', async ({ page }) => {
+  test('T-R2-007: account menu opens, closes with Escape, and signs out', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee1)
+    const userBtn = page.locator(USER_BTN)
+    await expect(userBtn).toHaveAttribute('aria-label', /Emma/)
+    await userBtn.click()
+    await expect(page.getByRole('menuitem', { name: 'Mon profil' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    await expect(userBtn).toBeFocused()
+
+    await userBtn.click()
+    await page.getByRole('menuitem', { name: 'Déconnexion' }).click()
+    await expect(page).toHaveURL('/login')
+    await page.goto('/profile')
+    await expect(page).toHaveURL('/login')
+  })
+
+  test('T-R2-008: employee sees 403 on /leave-types', async ({ page }) => {
     await signIn(page, ACCOUNTS.employee1)
     await page.goto('/leave-types')
     await expect(page.locator('body')).toContainText('403')
-
-    // Nav still shows employee links on return to a valid private page
-    await page.goto('/profile')
-    await waitForHydration(page)
-    await expect(page.locator(`${SIDEBAR} a[href="/leave-types"]`)).not.toBeVisible()
   })
 })
 
 // ============================================================
-// T-004-011 — Logout via desktop sidebar
+// Mobile — tab bar (employee) and drawer (admin)
 // ============================================================
-test.describe('F04 — Logout via sidebar (desktop)', () => {
-  test('T-004-011: Déconnexion redirects to /login and blocks private routes', async ({ page }) => {
-    await clearSession(page)
-    await signIn(page, ACCOUNTS.employee1)
-
-    await page.locator(`${SIDEBAR} ${SIGNOUT_BTN}`).click()
-    await page.waitForURL('/login')
-
-    // Auth middleware blocks all private routes after logout
-    await page.goto('/profile')
-    await expect(page).toHaveURL('/login')
-
-    await page.goto('/leave-requests')
-    await expect(page).toHaveURL('/login')
-  })
-})
-
-// ============================================================
-// Mobile drawer tests (375px viewport)
-// ============================================================
-test.describe('F08 — Mobile drawer (375px)', () => {
-  test.use({ viewport: { width: 375, height: 812 } })
+test.describe('R2 — Mobile (390 px)', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
 
   test.beforeEach(async ({ page }) => {
     await clearSession(page)
+  })
+
+  test('T-R2-010: employee gets the tab bar, no sidebar, no horizontal scroll', async ({ page }) => {
     await signIn(page, ACCOUNTS.employee1)
+    await expect(page.locator(SIDEBAR)).toBeHidden()
+    const tabs = page.locator(`${TABBAR} a`)
+    await expect(tabs).toHaveCount(4)
+    await expect(page.locator(`${TABBAR} button[aria-label="Poser un congé"]`)).toBeVisible()
+    await expect(page.locator(`${TABBAR} a[href="/"]`)).toHaveAttribute("aria-current", "page")
+    const scrollW = await page.evaluate(() => document.documentElement.scrollWidth)
+    expect(scrollW).toBeLessThanOrEqual(390)
   })
 
-  test('T-004-005: sidebar hidden, hamburger bar visible, no horizontal scroll', async ({ page }) => {
-    // aside has hidden lg:flex — display:none on mobile
-    await expect(page.locator(SIDEBAR)).not.toBeVisible()
-    // Hamburger top bar is visible
-    await expect(page.locator(HAMBURGER)).toBeVisible()
-    // No horizontal overflow
-    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
-    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth)
-    expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
-  })
-
-  test('T-004-006: hamburger opens drawer with nav links and backdrop', async ({ page }) => {
-    await page.click(HAMBURGER)
+  test('T-R2-011: admin has no tab bar; the menu button opens the drawer', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin)
+    await expect(page.locator(TABBAR)).toHaveCount(0)
+    await page.locator(MENU_BTN).click()
     const drawer = page.locator(DRAWER)
     await expect(drawer).toBeVisible()
-    // Overlay backdrop is present
-    await expect(page.locator('[aria-hidden="true"].fixed.inset-0')).toBeVisible()
-    // Drawer contains nav links (employee: 3)
-    await expect(page.locator(`${DRAWER_NAV} a`)).toHaveCount(3)
+    await expect(drawer.locator('.wb-side-g a')).toHaveCount(8)
+    await expect(drawer.locator('.wb-side-g a').first()).toBeFocused()
   })
 
-  test('T-004-007: clicking nav link closes drawer and navigates', async ({ page }) => {
-    await page.click(HAMBURGER)
+  test('T-R2-012: Escape closes the drawer and returns focus to the menu button', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin)
+    await page.locator(MENU_BTN).click()
     await expect(page.locator(DRAWER)).toBeVisible()
-
-    await page.click(`${DRAWER} a[href="/leave-requests"]`)
-    await page.waitForURL('/leave-requests')
-    await expect(page.locator(DRAWER)).not.toBeVisible()
-  })
-
-  test('T-004-008: clicking backdrop closes drawer without navigating', async ({ page }) => {
-    await page.goto('/profile')
-    await waitForHydration(page)
-    await page.click(HAMBURGER)
-    await expect(page.locator(DRAWER)).toBeVisible()
-
-    // Click at x=350 (outside the 288px drawer) on the backdrop
-    await page.locator('[aria-hidden="true"].fixed.inset-0').click({ position: { x: 350, y: 400 } })
-    await expect(page.locator(DRAWER)).not.toBeVisible()
-    await expect(page).toHaveURL('/profile')
-  })
-
-  test('T-004-009: Escape key closes drawer and returns focus to hamburger', async ({ page }) => {
-    await page.click(HAMBURGER)
-    await expect(page.locator(DRAWER)).toBeVisible()
-
     await page.keyboard.press('Escape')
-    await expect(page.locator(DRAWER)).not.toBeVisible()
-
-    const focusedLabel = await page.evaluate(() =>
-      document.activeElement?.getAttribute('aria-label')
-    )
-    expect(focusedLabel).toBe('Ouvrir le menu')
+    await expect(page.locator(DRAWER)).toHaveCount(0)
+    await expect(page.locator(MENU_BTN)).toBeFocused()
   })
 
-  test('T-004-010: Tab key is trapped inside open drawer', async ({ page }) => {
-    await page.click(HAMBURGER)
-    await expect(page.locator(DRAWER)).toBeVisible()
-
-    // Tab 10 times — focus must always remain inside the drawer
-    for (let i = 0; i < 10; i++) {
-      await page.keyboard.press('Tab')
-      const isInsideDrawer = await page.evaluate(() => {
-        const dialog = document.querySelector('[role="dialog"]')
-        return dialog?.contains(document.activeElement) ?? false
-      })
-      expect(isInsideDrawer).toBe(true)
-    }
+  test('T-R2-013: clicking a link closes the drawer and navigates', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin)
+    await page.locator(MENU_BTN).click()
+    await page.locator(`${DRAWER} a[href="/invoices"]`).click()
+    await expect(page).toHaveURL('/invoices')
+    await expect(page.locator(DRAWER)).toHaveCount(0)
   })
 
-  test('T-004-013: X close button closes drawer and returns focus to hamburger', async ({ page }) => {
-    await page.click(HAMBURGER)
-    await expect(page.locator(DRAWER)).toBeVisible()
-
-    await page.click(DRAWER_CLOSE)
-    await expect(page.locator(DRAWER)).not.toBeVisible()
-
-    const focusedLabel = await page.evaluate(() =>
-      document.activeElement?.getAttribute('aria-label')
-    )
-    expect(focusedLabel).toBe('Ouvrir le menu')
+  test('T-R2-014: the scrim and the close button close the drawer', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin)
+    await page.locator(MENU_BTN).click()
+    await page.locator(`${DRAWER} .wb-scrim`).click({ position: { x: 360, y: 600 } })
+    await expect(page.locator(DRAWER)).toHaveCount(0)
+    await page.locator(MENU_BTN).click()
+    await page.getByRole('button', { name: 'Fermer le menu' }).click()
+    await expect(page.locator(DRAWER)).toHaveCount(0)
   })
 
-  test('T-004-012: Déconnexion from drawer redirects to /login and clears session', async ({ page }) => {
-    await page.click(HAMBURGER)
-    await expect(page.locator(DRAWER)).toBeVisible()
-
-    await page.locator(`${DRAWER} ${SIGNOUT_BTN}`).click()
-    await page.waitForURL('/login')
-
-    await page.goto('/profile')
-    await expect(page).toHaveURL('/login')
+  test('T-R2-015: Tab stays trapped inside the open drawer', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin)
+    await page.locator(MENU_BTN).click()
+    for (let i = 0; i < 12; i++) await page.keyboard.press('Tab')
+    const inside = await page.evaluate(() => !!document.activeElement?.closest('.wb-drawer'))
+    expect(inside).toBe(true)
   })
 })
 
 // ============================================================
-// T-004-016 — Responsive resize (desktop → mobile, no reload)
+// Security
 // ============================================================
-test.describe('T-004-016 — Responsive resize', () => {
-  test('sidebar hides and hamburger appears on resize to 375px without page reload', async ({ page }) => {
-    await clearSession(page)
-    await signIn(page, ACCOUNTS.employee1)
-
-    // Desktop: sidebar visible, hamburger hidden
-    await page.setViewportSize({ width: 1280, height: 800 })
-    await expect(page.locator(SIDEBAR)).toBeVisible()
-    await expect(page.locator(HAMBURGER)).not.toBeVisible()
-
-    // Mobile: sidebar hidden, hamburger visible
-    await page.setViewportSize({ width: 375, height: 812 })
-    await expect(page.locator(SIDEBAR)).not.toBeVisible()
-    await expect(page.locator(HAMBURGER)).toBeVisible()
-
-    // No horizontal scroll at 375px
-    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
-    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth)
-    expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
-  })
-})
-
-// ============================================================
-// Security — RFC-004
-// ============================================================
-test.describe('Security — RFC-004', () => {
+test.describe('Security — navigation', () => {
   test.beforeEach(async ({ page }) => {
     await clearSession(page)
   })
 
-  test('S-004-001: unauthenticated access to all private routes redirects to /login', async ({ page }) => {
+  test('S-R2-001: unauthenticated access to private routes redirects to /login', async ({ page }) => {
     for (const route of ['/profile', '/leave-requests', '/calendar', '/leave-types']) {
       await page.goto(route)
       await expect(page).toHaveURL('/login')
     }
   })
 
-  test('S-004-002: /leave-types returns 403 for employee and manager', async ({ page }) => {
-    for (const account of [ACCOUNTS.employee1, ACCOUNTS.manager]) {
-      await clearSession(page)
-      await signIn(page, account)
-      await page.goto('/leave-types')
-      await expect(page.locator('body')).toContainText('403')
-    }
-  })
-
-  test('S-004-004: SUPABASE_SERVICE_KEY absent from rendered page source', async ({ page }) => {
+  test('S-R2-002: service key absent from rendered page source', async ({ page }) => {
     await signIn(page, ACCOUNTS.employee1)
     const source = await page.content()
     expect(source).not.toContain('SERVICE_KEY')

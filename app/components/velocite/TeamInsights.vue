@@ -1,99 +1,70 @@
 <script setup lang="ts">
 import type { ProblematicTicket, BlockedTicket } from '~/composables/useTeamInsights'
+import type { WbBadgeTone } from '~/components/wb/WbBadge.vue'
 
-const props = defineProps<{
-  problematic: ProblematicTicket[]
-  blocked: BlockedTicket[]
-  workspaceId: string
-}>()
+const props = defineProps<{ problematic: ProblematicTicket[], blocked: BlockedTicket[], workspaceId: string }>()
+const { t } = useI18n()
 
 function ticketLink(id: string): string {
   return `/velocite/issues/${id}?workspaceId=${props.workspaceId}`
 }
-
-function stuckClass(days: number): string {
-  if (days >= 14) return 'bg-rose-50 text-rose-600'
-  if (days >= 7) return 'bg-amber-50 text-amber-700'
-  return 'bg-gray-50 text-gray-600'
+function stuckTone(days: number): WbBadgeTone {
+  if (days >= 14) return 'danger'
+  if (days >= 7) return 'warning'
+  return 'neutral'
 }
-
-function overrunClass(stuck: number, expected: number): string {
+function overrunTone(stuck: number, expected: number): WbBadgeTone {
   const ratio = stuck / Math.max(expected, 1)
-  if (ratio >= 3) return 'bg-rose-50 text-rose-600'
-  if (ratio >= 2) return 'bg-amber-50 text-amber-700'
-  return 'bg-gray-50 text-gray-600'
+  if (ratio >= 3) return 'danger'
+  if (ratio >= 2) return 'warning'
+  return 'neutral'
 }
 </script>
 
 <template>
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-    <!-- Tickets bloqués -->
-    <div class="bg-white rounded-xl border border-gray-100 p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold text-gray-700">Tickets bloqués</h3>
-        <span class="text-xs text-gray-400">en Review/QA depuis &gt; 5j</span>
-      </div>
-      <p v-if="blocked.length === 0" class="text-sm text-gray-400 py-6 text-center">
-        Aucun ticket bloqué — bravo l'équipe.
-      </p>
-      <ul v-else class="divide-y divide-gray-100">
-        <li v-for="t in blocked.slice(0, 8)" :key="t.id" class="py-2.5 flex items-start gap-3">
-          <span
-            class="inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums"
-            :class="stuckClass(t.stuck_days)"
-          >
-            {{ t.stuck_days }}j
-          </span>
-          <div class="flex-1 min-w-0">
-            <NuxtLink :to="ticketLink(t.id)" class="text-sm text-gray-800 hover:text-brand-primary hover:underline block truncate">
-              <span class="text-gray-400 mr-1">{{ t.identifier ?? '?' }}</span>
-              {{ t.title ?? 'Sans titre' }}
-            </NuxtLink>
-            <p class="text-xs text-gray-500 mt-0.5 truncate">
-              {{ t.assignee_name ?? 'Non assigné' }} · {{ t.status }}
-            </p>
-          </div>
-        </li>
-      </ul>
-      <p v-if="blocked.length > 8" class="text-xs text-gray-400 mt-2">
-        + {{ blocked.length - 8 }} autres tickets bloqués
-      </p>
-    </div>
+  <div class="wb-grid wb-cols-2">
+    <WbCard :title="t('velocityB.insights.blockedTitle')" :subtitle="t('velocityB.insights.blockedHint')">
+      <WbEmptyState v-if="blocked.length === 0" art="sun" :title="t('velocityB.insights.noBlocked')" />
+      <template v-else>
+        <ul class="wb-list">
+          <li v-for="tk in blocked.slice(0, 8)" :key="tk.id" class="small">
+            <WbBadge :tone="stuckTone(tk.stuck_days)" size="sm"><span class="wb-num">{{ t('velocityB.insights.days', { n: tk.stuck_days }) }}</span></WbBadge>
+            <span class="wb-grow wb-ins-t">
+              <NuxtLink :to="ticketLink(tk.id)"><span class="wb-mono">{{ tk.identifier ?? '?' }}</span> {{ tk.title ?? t('velocityB.insights.untitled') }}</NuxtLink>
+              <span class="caption wb-mut">{{ tk.assignee_name ?? t('velocityB.insights.unassigned') }} · {{ tk.status }}</span>
+            </span>
+          </li>
+        </ul>
+        <p v-if="blocked.length > 8" class="caption wb-mut">{{ t('velocityB.insights.moreBlocked', { n: blocked.length - 8 }) }}</p>
+      </template>
+    </WbCard>
 
-    <!-- Tickets à analyser : In Progress dépassant l'estimation -->
-    <div class="bg-white rounded-xl border border-gray-100 p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold text-gray-700">Tickets à analyser</h3>
-        <span class="text-xs text-gray-400">durée &gt; estimation (1pt = 0.5j)</span>
-      </div>
-      <p v-if="problematic.length === 0" class="text-sm text-gray-400 py-6 text-center">
-        Aucun ticket en cours dépassant son estimation.
-      </p>
-      <ul v-else class="divide-y divide-gray-100">
-        <li v-for="t in problematic.slice(0, 8)" :key="t.id" class="py-2.5 flex items-start gap-3">
-          <span
-            class="inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums"
-            :class="overrunClass(t.stuck_days, t.expected_days)"
-            :title="`${t.stuck_days}j actuels vs ${t.expected_days}j estimés (${t.estimate ?? '?'}pt)`"
-          >
-            {{ t.stuck_days }}j / {{ t.expected_days }}j
-          </span>
-          <div class="flex-1 min-w-0">
-            <NuxtLink :to="ticketLink(t.id)" class="text-sm text-gray-800 hover:text-brand-primary hover:underline block truncate">
-              <span class="text-gray-400 mr-1">{{ t.identifier ?? '?' }}</span>
-              {{ t.title ?? 'Sans titre' }}
-            </NuxtLink>
-            <p class="text-xs text-gray-500 mt-0.5 truncate">
-              {{ t.assignee_name ?? 'Non assigné' }} · {{ t.status }}
-              <span v-if="t.estimate != null" class="text-gray-400">· {{ t.estimate }}pt</span>
-              <span v-else class="text-gray-400">· sans estimation</span>
-            </p>
-          </div>
-        </li>
-      </ul>
-      <p v-if="problematic.length > 8" class="text-xs text-gray-400 mt-2">
-        + {{ problematic.length - 8 }} autres tickets en cours longs
-      </p>
-    </div>
+    <WbCard :title="t('velocityB.insights.overrunTitle')" :subtitle="t('velocityB.insights.overrunHint')">
+      <p v-if="problematic.length === 0" class="wb-mut">{{ t('velocityB.insights.noOverrun') }}</p>
+      <template v-else>
+        <ul class="wb-list">
+          <li v-for="tk in problematic.slice(0, 8)" :key="tk.id" class="small">
+            <WbBadge :tone="overrunTone(tk.stuck_days, tk.expected_days)" size="sm">
+              <span class="wb-num" :title="t('velocityB.insights.overrunTip', { now: tk.stuck_days, expected: tk.expected_days, pts: tk.estimate ?? '?' })">
+                {{ t('velocityB.insights.daysOf', { n: tk.stuck_days, of: tk.expected_days }) }}
+              </span>
+            </WbBadge>
+            <span class="wb-grow wb-ins-t">
+              <NuxtLink :to="ticketLink(tk.id)"><span class="wb-mono">{{ tk.identifier ?? '?' }}</span> {{ tk.title ?? t('velocityB.insights.untitled') }}</NuxtLink>
+              <span class="caption wb-mut">
+                {{ tk.assignee_name ?? t('velocityB.insights.unassigned') }} · {{ tk.status }} ·
+                {{ tk.estimate != null ? t('velocityB.insights.pts', { n: tk.estimate }) : t('velocityB.insights.noEstimate') }}
+              </span>
+            </span>
+          </li>
+        </ul>
+        <p v-if="problematic.length > 8" class="caption wb-mut">{{ t('velocityB.insights.moreOverrun', { n: problematic.length - 8 }) }}</p>
+      </template>
+    </WbCard>
   </div>
 </template>
+
+<style scoped>
+.wb-ins-t { display: flex; flex-direction: column; min-width: 0; }
+.wb-ins-t a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>

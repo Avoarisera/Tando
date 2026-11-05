@@ -1,25 +1,24 @@
 <script setup lang="ts">
-import type { Invoice, InvoiceStatus } from '~/types/index'
+import type { InvoiceStatus } from '~/types/index'
 
-definePageMeta({ middleware: 'admin-only', layout: 'private' })
+definePageMeta({ titleKey: 'nav.invoices', middleware: 'admin-only', layout: 'private' })
 
 const {
   invoices,
   isLoading,
   error,
   fetchInvoices,
-  createInvoice,
   updateStatus,
   uploadPdf,
   getSignedUrl,
 } = useInvoices()
 const toast = useToast()
+const { t } = useI18n()
+const route = useRoute()
 
 type FilterStatus = 'all' | InvoiceStatus
 
 const showModal = ref(false)
-const formError = ref<string | null>(null)
-const isSubmitting = ref(false)
 const filter = ref<FilterStatus>('all')
 const uploadingId = ref<string | null>(null)
 const searchQuery = ref('')
@@ -31,188 +30,164 @@ const filteredInvoices = computed(() => {
     : invoices.value.filter(i => i.status === filter.value)
   if (trimmedSearch.value.length < 3) return byStatus
   const lower = trimmedSearch.value.toLowerCase()
-  return byStatus.filter(i => i.reference.toLowerCase().includes(lower))
+  return byStatus.filter(i => i.reference.toLowerCase().includes(lower) || i.client.toLowerCase().includes(lower))
 })
 
-const emptyDescription = computed(() => {
-  if (trimmedSearch.value.length >= 3 && filter.value !== 'all') {
-    return `Aucune facture « ${trimmedSearch.value} » avec ce statut.`
+const counts = computed(() => ({
+  all: invoices.value.length,
+  en_attente: invoices.value.filter(i => i.status === 'en_attente').length,
+  envoyee: invoices.value.filter(i => i.status === 'envoyee').length,
+  payee: invoices.value.filter(i => i.status === 'payee').length,
+}))
+const FILTERS: FilterStatus[] = ['all', 'en_attente', 'envoyee', 'payee']
+
+// Summary strip: amounts per status, in euros (other currencies are counted apart)
+const { locale } = useI18n()
+const sumTag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
+const summary = computed(() => (['en_attente', 'envoyee', 'payee'] as const).map((st) => {
+  const list = invoices.value.filter(i => i.status === st)
+  const eur = list.filter(i => i.currency === 'EUR').reduce((s, i) => s + Number(i.amount), 0)
+  return {
+    status: st,
+    count: list.length,
+    amount: new Intl.NumberFormat(sumTag.value, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(eur),
+    other: list.some(i => i.currency !== 'EUR'),
   }
-  if (trimmedSearch.value.length >= 3) {
-    return `Aucune référence ne correspond à « ${trimmedSearch.value} ».`
-  }
-  return 'Essayez un autre statut.'
+}))
+
+onMounted(async () => {
+  await fetchInvoices()
+  // /invoices?new=1 (dashboard shortcut) opens the creation panel
+  if (route.query.new === '1') openModal()
 })
-
-const FILTER_OPTIONS: { value: FilterStatus; label: string }[] = [
-  { value: 'all',        label: 'Toutes' },
-  { value: 'en_attente', label: 'En attente' },
-  { value: 'envoyee',    label: 'Envoyée' },
-  { value: 'payee',      label: 'Payée' },
-]
-
-onMounted(fetchInvoices)
 
 function openModal() {
-  formError.value = null
   showModal.value = true
 }
 
 function closeModal() {
   showModal.value = false
-  formError.value = null
 }
 
-async function handleCreate(payload: Omit<Invoice, 'id' | 'created_at' | 'created_by' | 'pdf_path'>) {
-  isSubmitting.value = true
-  formError.value = null
-  try {
-    await createInvoice(payload)
-    closeModal()
-    toast.add('Facture enregistrée')
-  } catch (e) {
-    formError.value = e instanceof Error ? e.message : 'Erreur lors de la création'
-  } finally {
-    isSubmitting.value = false
-  }
+// Editor saved the invoice, its lines and the generated PDF (R8-G)
+function handleSaved() {
+  closeModal()
+  toast.add(t('r8b.inv.saved'))
 }
 
 async function handleStatusChange(id: string, status: InvoiceStatus) {
   try {
     await updateStatus(id, status)
-    toast.add('Statut mis à jour')
+    toast.add(t('invoices.statusSaved'))
   } catch (e) {
-    toast.add(e instanceof Error ? e.message : 'Erreur de mise à jour', 'error')
+    toast.add(e instanceof Error ? e.message : t('rules.saveError'), 'error')
   }
 }
 
 async function handleUpload(invoiceId: string, file: File) {
   if (file.type !== 'application/pdf') {
-    toast.add('Seuls les fichiers PDF sont acceptés', 'error')
+    toast.add(t('invoices.pdfOnly'), 'error')
     return
   }
   uploadingId.value = invoiceId
   try {
     await uploadPdf(invoiceId, file)
-    toast.add('PDF enregistré')
+    toast.add(t('invoices.pdfSaved'))
   } catch (e) {
-    toast.add(e instanceof Error ? e.message : "Erreur lors de l'envoi du PDF", 'error')
+    toast.add(e instanceof Error ? e.message : t('invoices.uploadError'), 'error')
   } finally {
     uploadingId.value = null
   }
 }
 
 async function handleViewPdf(path: string) {
+  // Open the tab synchronously, inside the click: opened after the await it is
+  // no longer a user gesture and Safari/Firefox block it as a pop-up (TND-16).
+  const tab = window.open('', '_blank')
   try {
     const url = await getSignedUrl(path)
-    window.open(url, '_blank', 'noopener')
+    if (tab) {
+      tab.opener = null
+      tab.location.href = url
+    } else {
+      window.location.assign(url)
+    }
   } catch (e) {
-    toast.add('Impossible de générer le lien PDF', 'error')
+    tab?.close()
+    toast.add(e instanceof Error ? e.message : t('invoices.linkError'), 'error')
   }
 }
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto">
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-xl font-semibold text-gray-900">Factures</h1>
-      <AppButton @click="openModal">Nouvelle facture</AppButton>
-    </div>
-
-    <!-- Recherche -->
-    <div class="mb-4">
-      <label for="invoice-search" class="sr-only">Rechercher par référence</label>
-      <div class="relative max-w-xs">
-        <svg
-          class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="2"
-          stroke="currentColor"
-          aria-hidden="true"
-        >
-          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0Z" />
-        </svg>
-        <input
-          id="invoice-search"
-          v-model="searchQuery"
-          type="search"
-          placeholder="Rechercher une référence…"
-          class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-        />
+  <div class="wb-page wb-stack">
+    <div v-if="invoices.length" class="wb-inv-sum">
+      <div v-for="x in summary" :key="x.status" class="wb-inv-sum-i" :data-status="x.status">
+        <span class="caption wb-mut">{{ t(`invoices.status.${x.status}`) }} · {{ t('v3.inv.count', { n: x.count }, x.count) }}</span>
+        <b class="wb-num">{{ x.amount }}</b>
+        <span v-if="x.other" class="caption2 wb-mut">{{ t('v3.inv.otherCurrencies') }}</span>
       </div>
-      <p v-if="trimmedSearch.length > 0 && trimmedSearch.length < 3" class="mt-1 text-xs text-gray-400">
-        Saisissez au moins 3 caractères pour lancer la recherche.
-      </p>
     </div>
-
-    <!-- Filtres -->
-    <div class="flex flex-wrap gap-2 mb-6">
-      <button
-        v-for="opt in FILTER_OPTIONS"
-        :key="opt.value"
-        class="px-3 py-1.5 rounded-full text-sm font-medium transition-colors"
-        :class="filter === opt.value
-          ? 'bg-brand-primary text-white'
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-        @click="filter = opt.value"
-      >
-        {{ opt.label }}
-      </button>
+    <div class="wb-row-b wb-wrap wb-inv-toolbar">
+      <div class="wb-fb">
+        <div class="wb-fb-s">
+          <WbInput id="invoice-search" v-model="searchQuery" icon="search" type="search" :aria-label="t('invoices.search')" :placeholder="t('invoices.search')" />
+        </div>
+        <div class="wb-fb-c">
+          <WbFilterChip
+            v-for="f in FILTERS"
+            :key="f"
+            :model-value="filter === f"
+            :count="counts[f]"
+            @update:model-value="filter = f"
+          >
+            {{ f === 'all' ? t('invoices.all') : t(`invoices.status.${f}`) }}
+          </WbFilterChip>
+        </div>
+      </div>
+      <WbButton icon="plus" aria-haspopup="dialog" @click="openModal">{{ t('dashboard.newInvoice') }}</WbButton>
     </div>
+    <p v-if="trimmedSearch.length > 0 && trimmedSearch.length < 3" class="caption wb-mut">{{ t('invoices.searchHint') }}</p>
 
-    <!-- 1. Loading -->
-    <template v-if="isLoading">
-      <AppSkeleton v-for="i in 5" :key="i" class="mb-3 h-12" />
-    </template>
-
-    <!-- 2. Error -->
-    <AppErrorBanner
-      v-else-if="error"
-      :message="error"
-      @retry="fetchInvoices"
-    />
-
-    <!-- 3. Empty (global) -->
-    <AppEmptyState
-      v-else-if="invoices.length === 0"
-      title="Aucune facture pour le moment"
-      description="Créez votre première facture en cliquant sur « Nouvelle facture »."
-    >
-      <AppButton class="mt-4" @click="openModal">Nouvelle facture</AppButton>
-    </AppEmptyState>
-
-    <!-- 3b. Empty (filtered / search) -->
-    <AppEmptyState
-      v-else-if="filteredInvoices.length === 0"
-      title="Aucune facture trouvée"
-      :description="emptyDescription"
-    />
-
-    <!-- 4. Content -->
-    <InvoiceTable
-      v-else
-      :invoices="filteredInvoices"
-      :uploading-id="uploadingId"
-      @status-change="handleStatusChange"
-      @upload="handleUpload"
-      @view-pdf="handleViewPdf"
-    />
-
-    <!-- Modal création -->
-    <AppModal
-      v-if="showModal"
-      title="Nouvelle facture"
-      @close="closeModal"
-    >
-      <InvoiceForm
-        :is-submitting="isSubmitting"
-        :error="formError"
-        @submit="handleCreate"
-        @cancel="closeModal"
+    <WbErrorState v-if="error" :message="error" @retry="fetchInvoices" />
+    <WbSkeleton v-else-if="isLoading && !invoices.length" variant="table" />
+    <div v-else-if="!invoices.length" class="wb-card">
+      <WbEmptyState art="invoice" :title="t('invoices.emptyTitle')">
+        {{ t('invoices.emptyText') }}
+        <template #action><WbButton icon="plus" @click="openModal">{{ t('dashboard.newInvoice') }}</WbButton></template>
+      </WbEmptyState>
+    </div>
+    <p v-else-if="!filteredInvoices.length" class="wb-card wb-card-b wb-mut">{{ t('invoices.noMatch') }}</p>
+    <WbCard v-else :pad="false">
+      <InvoiceTable
+        :invoices="filteredInvoices"
+        :uploading-id="uploadingId"
+        @status-change="handleStatusChange"
+        @upload="handleUpload"
+        @view-pdf="handleViewPdf"
       />
-    </AppModal>
+    </WbCard>
+
+    <WbSidePanel v-if="showModal" :title="t('dashboard.newInvoice')" :subtitle="t('r8b.inv.panelHint')" :width="1040" @close="closeModal">
+      <InvoiceEditor @saved="handleSaved" @cancel="closeModal" />
+    </WbSidePanel>
   </div>
 </template>
+
+<style scoped>
+.wb-inv-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-1); }
+.wb-inv-sum-i { display: flex; flex-direction: column; gap: 2px; padding: var(--space-3) var(--space-5); }
+.wb-inv-sum-i + .wb-inv-sum-i { border-left: 1px solid var(--border); }
+.wb-inv-sum-i b { font-size: 20px; line-height: 26px; }
+.wb-inv-sum-i[data-status="envoyee"] b { color: var(--info-text); }
+.wb-inv-sum-i[data-status="payee"] b { color: var(--success-text); }
+.wb-inv-toolbar { gap: var(--space-3); }
+.wb-inv-toolbar :deep(.wb-fb-s) { width: 280px; }
+@container wbapp (max-width: 767px) {
+  .wb-inv-sum { grid-template-columns: minmax(0, 1fr); }
+  .wb-inv-sum-i + .wb-inv-sum-i { border-left: 0; border-top: 1px solid var(--border); }
+  .wb-inv-sum-i { padding: var(--space-2) var(--space-4); flex-direction: row; justify-content: space-between; align-items: baseline; }
+  .wb-inv-sum-i b { font-size: 16px; }
+  .wb-inv-toolbar :deep(.wb-fb-s) { width: 100%; }
+}
+</style>
