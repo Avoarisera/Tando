@@ -139,3 +139,14 @@
 .wb-bar.is-canc { box-shadow: inset 3px 0 0 var(--ls), inset 0 0 0 2px var(--indigo-text); }
 .wb-bar { font-weight: 650; }
 .wb-bar.is-pend { color: var(--ink); }
+
+/* Scroll areas are positioned, so visually-hidden labels (position:absolute)
+   inside wide tables stay clipped instead of widening the page on phones */
+.wb-scroll { position: relative; }
+
+/* Card header with an action (segmented period, link): the title keeps its
+   width and the action drops under it when space runs out */
+.wb-card-h { flex-wrap: wrap; }
+.wb-card-h > :first-child { flex: 1 1 200px; min-width: 0; }
+.wb-card-h .wb-seg { flex: 0 0 auto; max-width: 100%; }
+.wb-seg button, .wb-seg label { white-space: nowrap; }

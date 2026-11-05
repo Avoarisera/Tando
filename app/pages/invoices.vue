@@ -29,8 +29,8 @@ const filteredInvoices = computed(() => {
     ? invoices.value
     : invoices.value.filter(i => i.status === filter.value)
   if (trimmedSearch.value.length < 3) return byStatus
-  const lower = trimmedSearch.value.toLowerCase()
-  return byStatus.filter(i => i.reference.toLowerCase().includes(lower) || i.client.toLowerCase().includes(lower))
+  // accent- and case-insensitive (« societe » finds « Société »)
+  return byStatus.filter(i => textMatch(i.reference, trimmedSearch.value) || textMatch(i.client, trimmedSearch.value))
 })
 
 const counts = computed(() => ({

@@ -157,7 +157,10 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
         <WbMetricCard v-for="k in kpis" :key="k.label" :label="k.label" :value="k.value" :unit="k.unit" :hint="k.hint" :info="k.info" />
       </div>
 
-      <!-- Throughput and capacity side by side, then the heatmap full width -->
+      <!-- What needs attention first, right under the numbers -->
+      <TeamInsights :problematic="problematic" :blocked="blocked" :workspace-id="workspaceId" />
+
+      <!-- Delivery: team throughput next to deliveries per person and month -->
       <div class="wb-vel-pair">
         <WbCard :title="t('velocityB.throughput.title')">
         <p v-if="teamThroughput.every(m => m.total === 0)" class="wb-mut">{{ t('velocityB.empty.period') }}</p>
@@ -171,9 +174,6 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
           />
         </WbChartFrame>
       </WbCard>
-        <CapacityCard v-if="workspaceId" :workspace-id="workspaceId" :team-id="teamId" />
-      </div>
-
       <WbCard :title="t('velocityB.heatmap.title')" :subtitle="activeDevs.length < data.devs.length ? t('velocityB.heatmap.hidden', { n: data.devs.length - activeDevs.length }) : t('velocityB.heatmap.hint')">
         <p v-if="activeDevs.length === 0" class="wb-mut">{{ t('velocityB.empty.period') }}</p>
         <VelociteHeatmap
@@ -187,12 +187,10 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
           @cell-click="handleCellClick"
         />
       </WbCard>
+      </div>
 
-      <TeamInsights :problematic="problematic" :blocked="blocked" :workspace-id="workspaceId" />
-
-
-
-
+      <!-- People: distribution next to the capacity of the period -->
+      <div class="wb-vel-pair">
       <WbCard :title="t('velocityB.dist.title')" :subtitle="t('velocityB.dist.hint')">
         <p v-if="activeDevs.length === 0" class="wb-mut">{{ t('velocityB.empty.noDev') }}</p>
         <TeamDistribution
@@ -206,6 +204,8 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
           :range="selectedRange"
         />
       </WbCard>
+        <CapacityCard v-if="workspaceId" :workspace-id="workspaceId" :team-id="teamId" />
+      </div>
     </template>
   </div>
 </template>
@@ -213,8 +213,10 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
 <style scoped>
 .wb-page :deep(.wb-metric) { padding: var(--space-3) var(--space-4); }
 /* Two charts per row on wide screens */
-.wb-vel-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
-@container wbapp (max-width: 1023px) { .wb-vel-pair { grid-template-columns: minmax(0, 1fr); } }
+.wb-vel-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: stretch; }
+.wb-vel-pair > * { min-width: 0; }
+/* the heatmap and the distribution need room: one per row below 1440 px */
+@container wbapp (max-width: 1439px) { .wb-vel-pair { grid-template-columns: minmax(0, 1fr); } }
 /* The period switch never widens the page (TND-09): it scrolls inside on small screens */
 .wb-period-row { min-width: 0; max-width: 100%; }
 .wb-period { min-width: 0; max-width: 100%; overflow-x: auto; }

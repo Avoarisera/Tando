@@ -40,9 +40,14 @@ const typeOptions = computed(() => {
 const level2Count = computed(() => toReview.value.filter(r => r.status === 'manager_approved').length)
 const level1Count = computed(() => toReview.value.filter(r => r.status === 'pending').length)
 
+function matchesCommon(r: LeaveRequestWithRelations) {
+  if (!textMatch(fullName(r.profiles), search.value)) return false
+  if (teamFilter.value !== 'all' && r.profiles.team_id !== teamFilter.value) return false
+  if (typeFilter.value !== 'all' && r.leave_types?.name !== typeFilter.value) return false
+  return true
+}
 function matches(r: LeaveRequestWithRelations) {
-  const q = search.value.trim().toLowerCase()
-  if (q && !fullName(r.profiles).toLowerCase().includes(q)) return false
+  if (!textMatch(fullName(r.profiles), search.value)) return false
   if (teamFilter.value !== 'all' && r.profiles.team_id !== teamFilter.value) return false
   if (typeFilter.value !== 'all' && r.leave_types?.name !== typeFilter.value) return false
   if (level2.value !== level1.value) {
@@ -52,7 +57,8 @@ function matches(r: LeaveRequestWithRelations) {
   return true
 }
 const shown = computed(() => (isAdmin.value ? toReview.value.filter(matches) : toReview.value))
-const shownDone = computed(() => (isAdmin.value ? reviewed.value.filter(matches) : reviewed.value))
+// processed requests: name search for everyone, team/type filters for the admin (the step chips do not apply)
+const shownDone = computed(() => reviewed.value.filter(r => (isAdmin.value ? matchesCommon(r) : textMatch(fullName(r.profiles), search.value))))
 const donePager = usePagination(shownDone)
 
 function resetFilters() {
@@ -79,13 +85,15 @@ function resetFilters() {
     <div v-if="isAdmin" class="wb-fb wb-ap-toolbar">
       <div class="wb-fb-s"><WbInput v-model="search" icon="search" type="search" :aria-label="t('approvals.search')" :placeholder="t('approvals.search')" /></div>
       <div class="wb-fb-c">
-        <WbFilterChip v-model="level2" :count="level2Count">{{ t('approvals.level2') }}</WbFilterChip>
-        <WbFilterChip v-model="level1" :count="level1Count">{{ t('approvals.level1') }}</WbFilterChip>
+        <WbFilterChip v-if="tab === 'todo'" v-model="level2" :count="level2Count">{{ t('approvals.level2') }}</WbFilterChip>
+        <WbFilterChip v-if="tab === 'todo'" v-model="level1" :count="level1Count">{{ t('approvals.level1') }}</WbFilterChip>
         <WbSelect v-model="teamFilter" :options="teamOptions" :aria-label="t('calendar.team')" />
         <WbSelect v-model="typeFilter" :options="typeOptions" :aria-label="t('calendar.type')" />
         <WbButton variant="ghost" size="sm" @click="resetFilters">{{ t('approvals.reset') }}</WbButton>
       </div>
     </div>
+
+    <div v-if="!isAdmin && tab === 'done'" class="wb-fb-s wb-ap-done-search"><WbInput v-model="search" icon="search" type="search" :aria-label="t('approvals.search')" :placeholder="t('approvals.search')" /></div>
 
     <WbErrorState v-if="error" :message="error" @retry="load" />
     <WbSkeleton v-else-if="!loaded && isLoading" />

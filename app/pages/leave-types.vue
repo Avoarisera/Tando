@@ -154,6 +154,7 @@ const yearOptions = computed(() => [year.value - 1, year.value, year.value + 1].
 const yearModel = computed({ get: () => String(year.value), set: (v: string) => { year.value = Number(v) } })
 const typeOptions = computed(() => leaveTypes.value.filter(x => x.tracks_balance !== false).map(x => ({ value: x.id, label: x.name })))
 const overOnly = ref(false)
+const balanceSearch = ref('')
 
 watch([tab, year], ([tb]) => { if (tb === 'balances') fetchAdminBalances(year.value) }, { immediate: true })
 watch(leaveTypes, (types) => { const first = types.find(x => x.tracks_balance !== false); if (!typeId.value && first) typeId.value = first.id }, { immediate: true })
@@ -162,6 +163,7 @@ const rows = computed(() => adminBalances.value
   .filter(b => b.leave_type_id === typeId.value)
   .map(b => ({ ...b, name: fullName(b.profiles), left: b.allocated_days - b.used_days }))
   .filter(b => !overOnly.value || b.left < 0)
+  .filter(b => textMatch(b.name, balanceSearch.value))
   .sort((a, b) => a.name.localeCompare(b.name)))
 const overCount = computed(() => adminBalances.value.filter(b => b.leave_type_id === typeId.value && b.allocated_days - b.used_days < 0).length)
 
@@ -334,6 +336,7 @@ async function applyAll() {
         <div class="wb-row wb-wrap">
           <WbSelect v-model="yearModel" :options="yearOptions" :aria-label="t('rules.year')" />
           <WbSelect v-model="typeId" :options="typeOptions" :aria-label="t('calendar.type')" />
+          <div class="wb-fb-s"><WbInput v-model="balanceSearch" icon="search" type="search" :aria-label="t('approvals.search')" :placeholder="t('approvals.search')" /></div>
           <WbFilterChip v-model="overOnly" :count="overCount">{{ t('tnd23.overFilter') }}</WbFilterChip>
         </div>
         <form class="wb-row wb-wrap" novalidate @submit.prevent="applyAll">
