@@ -5,26 +5,25 @@ defineProps<{
   type: 'success' | 'error'
 }>()
 defineEmits<{ dismiss: [id: string] }>()
+const { t } = useI18n()
 </script>
 
 <template>
   <div
-    :class="[
-      'flex items-start gap-3 px-4 py-3 rounded-lg shadow-lg min-w-72 max-w-sm',
-      type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-    ]"
+    :class="['wb-toast', type === 'error' ? 'is-danger' : 'is-success']"
     role="alert"
     :aria-live="type === 'error' ? 'assertive' : 'polite'"
   >
-    <span :class="type === 'success' ? 'text-green-600' : 'text-red-600'" class="text-sm flex-1">
-      {{ message }}
-    </span>
-    <button
-      :class="type === 'success' ? 'text-green-400 hover:text-green-600' : 'text-red-400 hover:text-red-600'"
-      aria-label="Fermer la notification"
-      @click="$emit('dismiss', id)"
-    >
-      ✕
+    <WbIcon :name="type === 'error' ? 'circle-alert' : 'circle-check'" :size="18" />
+    <span class="wb-grow">{{ message }}</span>
+    <button type="button" class="wb-toast-x" :aria-label="t('common.closeNotification')" @click="$emit('dismiss', id)">
+      <WbIcon name="x" :size="16" />
     </button>
   </div>
 </template>
+
+<style scoped>
+.wb-toast { font-family: var(--font-sans); font-size: 14px; line-height: 20px; }
+.wb-toast.is-danger { background: var(--danger-solid); color: var(--on-danger); }
+.wb-toast-x { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--radius-sm); text-decoration: none !important; }
+</style>

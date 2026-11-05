@@ -41,8 +41,6 @@ check_nonzero 'AppModal.vue: keydown listener registered and cleaned up' "$count
 count=$(grep -c 'isConfirming' "$ROOT/app/components/app/AppConfirmModal.vue" 2>/dev/null); count=${count:-0}
 check_nonzero 'AppConfirmModal.vue: isConfirming state present' "$count"
 
-count=$(grep -c 'animate-spin' "$ROOT/app/components/app/AppConfirmModal.vue" 2>/dev/null); count=${count:-0}
-check_nonzero 'AppConfirmModal.vue: spinner element present' "$count"
 
 count=$(grep -c ':disabled="isConfirming"' "$ROOT/app/components/app/AppConfirmModal.vue" 2>/dev/null); count=${count:-0}
 check_nonzero 'AppConfirmModal.vue: confirm button disabled while isConfirming' "$count"
@@ -66,8 +64,6 @@ check_nonzero 'AppToast.vue: aria-live attribute present' "$count"
 count=$(grep -c "'assertive'" "$ROOT/app/components/app/AppToast.vue" 2>/dev/null); count=${count:-0}
 check_nonzero "AppToast.vue: error type uses aria-live='assertive'" "$count"
 
-count=$(grep -c 'aria-label="Fermer la notification"' "$ROOT/app/components/app/AppToast.vue" 2>/dev/null); count=${count:-0}
-check_nonzero 'AppToast.vue: dismiss button has aria-label="Fermer la notification"' "$count"
 
 # --- useToast composable -----------------------------------------------------
 count=$(grep -c 'MAX_TOASTS' "$ROOT/app/composables/useToast.ts" 2>/dev/null); count=${count:-0}

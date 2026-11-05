@@ -2,41 +2,31 @@
 import type { NuxtError } from '#app'
 
 const props = defineProps<{ error: NuxtError }>()
+const { t } = useI18n()
 const user = useSupabaseUser()
+// error.vue replaces app.vue: apply the language and theme here too
+const localeHead = useLocaleHead()
+const { resolved, watchSystem } = useTheme()
+useHead(() => ({ htmlAttrs: { 'lang': localeHead.value.htmlAttrs?.lang ?? 'fr-FR', 'data-theme': resolved.value } }))
+onMounted(watchSystem)
 
-const is404 = computed(() => props.error.statusCode === 404)
-const is403 = computed(() => props.error.statusCode === 403)
+const kind = computed(() => (props.error.statusCode === 404 ? 'notFound' : props.error.statusCode === 403 ? 'forbidden' : 'other'))
+const description = computed(() => (kind.value === 'other' && props.error.message ? props.error.message : t(`errorPage.${kind.value}Text`)))
 
-const title = computed(() => {
-  if (is404.value) return 'Page introuvable'
-  if (is403.value) return 'Accès refusé'
-  return 'Une erreur est survenue'
-})
-
-const description = computed(() => {
-  if (is404.value) return "La page que vous cherchez n'existe pas ou a été déplacée."
-  if (is403.value) return "Vous n'avez pas les droits nécessaires pour accéder à cette page."
-  return props.error.message || 'Veuillez réessayer ou contacter votre administrateur.'
-})
-
-const homeLink = computed(() => (user.value ? '/profile' : '/login'))
-
-function handleError() {
-  clearError({ redirect: homeLink.value })
+function goHome() {
+  clearError({ redirect: user.value ? '/' : '/login' })
 }
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-    <div class="max-w-md w-full text-center">
-      <p class="text-6xl font-bold text-brand-primary mb-4">
-        {{ error.statusCode ?? '?' }}
-      </p>
-      <h1 class="text-2xl font-semibold text-gray-900 mb-2">{{ title }}</h1>
-      <p class="text-gray-500 mb-8">{{ description }}</p>
-      <AppButton @click="handleError">
-        Retour à l'accueil
-      </AppButton>
-    </div>
-  </div>
+  <WbAuthShell>
+    <p class="display wb-num wb-err-code">{{ error.statusCode ?? '?' }}</p>
+    <h1 class="h2">{{ t(`errorPage.${kind}Title`) }}</h1>
+    <p class="wb-mut2">{{ description }}</p>
+    <WbButton block icon="house" @click="goHome">{{ t('errorPage.home') }}</WbButton>
+  </WbAuthShell>
 </template>
+
+<style scoped>
+.wb-err-code { color: var(--brand-text); }
+</style>
