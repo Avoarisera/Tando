@@ -1,17 +1,20 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
+const { t } = useI18n()
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 const { isAdmin, loadProfile } = useCurrentUser()
 
+useHead({ title: () => `${t('auth.login.submit')} · WakaBods` })
+
 const email = ref('')
 const password = ref('')
 const isLoading = ref(false)
-const errorMessage = ref<string | null>(null)
+const hasError = ref(false)
 
 // Until Vue has hydrated, @submit.prevent is not bound: a click would trigger a
-// native GET submit that reloads /login? and silently empties the form (TND-04).
+// native submit that reloads /login and silently empties the form (TND-04).
 const isReady = ref(false)
 onMounted(() => { isReady.value = true })
 
@@ -20,85 +23,58 @@ onMounted(() => { isReady.value = true })
 watch(user, async (newUser) => {
   if (!newUser) return
   await loadProfile()
-  navigateTo(isAdmin.value ? '/dashboard' : '/profile')
+  navigateTo(isAdmin.value ? '/dashboard' : '/')
 })
 
 async function handleSubmit() {
   isLoading.value = true
-  errorMessage.value = null
-  try {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.value,
-      password: password.value,
-    })
-    if (error) throw error
-  } catch {
-    errorMessage.value = 'Identifiants incorrects. Veuillez réessayer.'
+  hasError.value = false
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.value,
+    password: password.value,
+  })
+  if (error) {
+    // Same message for an unknown e-mail and a wrong password (no account enumeration)
+    hasError.value = true
     isLoading.value = false
   }
 }
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-    <div class="w-full max-w-sm bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-      <div class="mb-8 text-center">
-        <h1 class="text-2xl font-bold text-gray-900">WakaBods</h1>
-        <p class="mt-1 text-sm text-gray-500">Connectez-vous à votre espace</p>
+  <WbAuthShell>
+    <h1 class="h2">{{ t('auth.login.title') }}</h1>
+
+    <WbBanner v-if="hasError" tone="danger">{{ t('auth.login.error') }}</WbBanner>
+
+    <form method="post" class="wb-stack" novalidate @submit.prevent="handleSubmit">
+      <WbInput
+        id="email"
+        v-model="email"
+        :label="t('auth.login.email')"
+        type="email"
+        autocomplete="email"
+        :placeholder="t('auth.login.emailPlaceholder')"
+        :disabled="isLoading"
+      />
+      <div class="wb-stack-s" style="gap: 4px">
+        <WbPasswordInput
+          id="password"
+          v-model="password"
+          :label="t('auth.login.password')"
+          autocomplete="current-password"
+          :disabled="isLoading"
+        />
+        <NuxtLink class="small" to="/forgot-password">{{ t('auth.login.forgot') }}</NuxtLink>
       </div>
+      <WbButton type="submit" size="lg" block :loading="isLoading" :disabled="!isReady">
+        {{ isLoading ? t('auth.login.submitting') : t('auth.login.submit') }}
+      </WbButton>
+    </form>
 
-      <form method="post" @submit.prevent="handleSubmit" novalidate>
-        <div class="space-y-5">
-          <div>
-            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
-              Adresse e-mail
-            </label>
-            <input
-              id="email"
-              v-model="email"
-              type="email"
-              autocomplete="email"
-              required
-              :disabled="isLoading"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary disabled:opacity-60"
-              placeholder="vous@exemple.com"
-            />
-          </div>
-
-          <div>
-            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
-              Mot de passe
-            </label>
-            <input
-              id="password"
-              v-model="password"
-              type="password"
-              autocomplete="current-password"
-              required
-              :disabled="isLoading"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary disabled:opacity-60"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <div
-            v-if="errorMessage"
-            role="alert"
-            class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
-          >
-            {{ errorMessage }}
-          </div>
-
-          <button
-            type="submit"
-            :disabled="isLoading || !isReady"
-            class="w-full flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-          >
-            <AppSpinner v-if="isLoading" />
-            {{ isLoading ? 'Connexion…' : 'Se connecter' }}
-          </button>
-        </div>
-      </form>
+    <div class="wb-row-b">
+      <span class="small wb-mut">{{ t('auth.login.invite') }}</span>
+      <WbLangSelect />
     </div>
-  </div>
+  </WbAuthShell>
 </template>

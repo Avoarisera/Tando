@@ -1,9 +1,23 @@
 @import "tailwindcss";
+@import "../wb/tokens.css";
+@import "../wb/bundle.css";
 
+body { margin: 0; background: var(--bg); }
+
+/* Legacy colours, kept until every page is redesigned. New code uses the
+   WakaBods tokens (var(--brand), …) or the wb-* utilities below. */
 @theme {
   --color-brand-primary: #2563EB;
   --color-brand-success: #16A34A;
   --color-brand-warning: #D97706;
   --color-brand-danger:  #DC2626;
   --color-brand-muted:   #6B7280;
+
+  --color-wb-bg: var(--bg);
+  --color-wb-surface: var(--surface);
+  --color-wb-ink: var(--ink);
+  --color-wb-ink-2: var(--ink-2);
+  --color-wb-ink-3: var(--ink-3);
+  --color-wb-brand: var(--brand);
+  --color-wb-border: var(--border);
 }

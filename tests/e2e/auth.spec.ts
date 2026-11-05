@@ -30,7 +30,7 @@ async function fillAndSubmit(page: Page, email: string, password: string) {
 async function signIn(page: Page, account: { email: string; password: string }) {
   await page.goto('/login')
   await fillAndSubmit(page, account.email, account.password)
-  await page.waitForURL(/\/(profile|dashboard)/)
+  await page.waitForURL(/\/(dashboard|profile)?$/)
 }
 
 async function clearSession(page: Page) {
@@ -51,10 +51,10 @@ test.describe('F01 — Login', () => {
     await expect(page).toHaveURL('/dashboard')
   })
 
-  test('T-003-002: employee can log in and is redirected to /profile', async ({ page }) => {
+  test('T-003-002: employee can log in and is redirected to Accueil (/)', async ({ page }) => {
     await page.goto('/login')
     await fillAndSubmit(page, ACCOUNTS.employee1.email, ACCOUNTS.employee1.password)
-    await expect(page).toHaveURL('/profile')
+    await expect(page).toHaveURL('/')
   })
 
   test('T-003-003: wrong credentials show French error, no redirect', async ({ page }) => {
@@ -62,7 +62,7 @@ test.describe('F01 — Login', () => {
     await fillAndSubmit(page, ACCOUNTS.admin.email, 'wrongpassword')
     await expect(page).toHaveURL('/login')
     await expect(page.locator('[role="alert"]')).toBeVisible()
-    await expect(page.locator('[role="alert"]')).toContainText('Identifiants incorrects')
+    await expect(page.locator('[role="alert"]')).toContainText('E-mail ou mot de passe incorrect')
   })
 
   test('T-003-004: submit button is disabled and spinner visible during request', async ({ page }) => {
@@ -81,14 +81,64 @@ test.describe('F01 — Login', () => {
 
     // Button must be disabled while request is in flight
     await expect(page.locator('button[type="submit"]')).toBeDisabled()
-    // Spinner (animate-spin element) must be visible
-    await expect(page.locator('button[type="submit"] .animate-spin')).toBeVisible()
+    // Spinner (wb-spin element) must be visible
+    await expect(page.locator('button[type="submit"] .wb-spin')).toBeVisible()
   })
 
-  test('T-003-005: authenticated user visiting /login is redirected to /profile', async ({ page }) => {
+  test('T-003-005: authenticated user visiting /login is redirected to Accueil', async ({ page }) => {
     await signIn(page, ACCOUNTS.employee1)
     await page.goto('/login')
-    await expect(page).toHaveURL('/profile')
+    await expect(page).toHaveURL('/')
+  })
+})
+
+// ============================================================
+// F01b — Password reset (A-02)
+// ============================================================
+test.describe('F01b — Password reset', () => {
+  test.beforeEach(async ({ page }) => {
+    await clearSession(page)
+  })
+
+  test('T-R1-001: login links to the forgot-password page', async ({ page }) => {
+    await page.goto('/login')
+    await waitForHydration(page)
+    await page.getByRole('link', { name: 'Mot de passe oublié ?' }).click()
+    await expect(page).toHaveURL('/forgot-password')
+  })
+
+  test('T-R1-002: sending the link shows the confirmation, even for an unknown e-mail', async ({ page }) => {
+    await page.goto('/forgot-password')
+    await waitForHydration(page)
+    await page.fill('#email', 'personne@inconnu.eu')
+    await page.click('button[type="submit"]')
+    await expect(page.locator('h1')).toContainText('Un lien vous a été envoyé')
+    await expect(page.getByText('personne@inconnu.eu')).toBeVisible()
+  })
+
+  test('T-R1-003: /reset-password without a recovery session asks for a new link', async ({ page }) => {
+    await page.goto('/reset-password')
+    await waitForHydration(page)
+    await expect(page.getByText('Ce lien a expiré')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Recevoir un nouveau lien' })).toHaveAttribute('href', '/forgot-password')
+  })
+
+  test('T-R1-004: the password can be shown and hidden', async ({ page }) => {
+    await page.goto('/login')
+    await waitForHydration(page)
+    await page.fill('#password', 'secret')
+    await page.getByRole('button', { name: 'Afficher le mot de passe' }).click()
+    await expect(page.locator('#password')).toHaveAttribute('type', 'text')
+    await page.getByRole('button', { name: 'Masquer le mot de passe' }).click()
+    await expect(page.locator('#password')).toHaveAttribute('type', 'password')
+  })
+
+  test('T-R1-005: switching to English translates the login page', async ({ page }) => {
+    await page.goto('/login')
+    await waitForHydration(page)
+    await page.getByLabel('Langue').selectOption('en')
+    await expect(page.locator('h1')).toContainText('Sign in to your workspace')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en-GB')
   })
 })
 
@@ -110,7 +160,8 @@ test.describe('F02 — Auth guard (unauthenticated)', () => {
   test('T-003-007b: /login remains accessible without a session', async ({ page }) => {
     await page.goto('/login')
     await expect(page).toHaveURL('/login')
-    await expect(page.locator('h1')).toContainText('WakaBods')
+    await expect(page.locator('.wb-word')).toContainText('WakaBods')
+    await expect(page.locator('h1')).toContainText('Connectez-vous')
   })
 })
 
@@ -151,7 +202,7 @@ test.describe('F03 — Admin guard', () => {
 test.describe('F04 — Logout / session clearing', () => {
   test('T-003-012: private route blocked after session cleared', async ({ page }) => {
     await signIn(page, ACCOUNTS.employee1)
-    await expect(page).toHaveURL('/profile')
+    await expect(page).toHaveURL('/')
 
     // Simulate session loss (cookie cleared)
     await clearSession(page)

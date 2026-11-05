@@ -18,8 +18,10 @@ check_zero "No TODO/FIXME/HACK in app/" "$count"
 count=$(grep -rn "SERVICE_KEY\|service_role" "$ROOT/app/" "$ROOT/nuxt.config.ts" 2>/dev/null | wc -l | tr -d ' ')
 check_zero "SUPABASE_SERVICE_KEY not in client files" "$count"
 
-count=$(grep -rn "v-html" "$ROOT/app/" --include="*.vue" 2>/dev/null | wc -l | tr -d ' ')
-check_zero "No v-html in components" "$count"
+# WbIcon.vue is the only allowed v-html: it renders the static Lucide paths
+# bundled in app/assets/wb/icons.json, never user data.
+count=$(grep -rn "v-html" "$ROOT/app/" --include="*.vue" 2>/dev/null | grep -v "components/wb/WbIcon.vue" | wc -l | tr -d ' ')
+check_zero "No v-html in components (except WbIcon, static icons)" "$count"
 
 count=$(grep -rn "from 'pinia'\|from \"pinia\"\|createPinia\|defineStore" "$ROOT/app/" 2>/dev/null | wc -l | tr -d ' ')
 check_zero "No Pinia usage in app/" "$count"

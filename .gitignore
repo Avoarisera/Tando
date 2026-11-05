@@ -41,3 +41,7 @@ pnpm-debug.log*
 .fleet
 .eslintcache
 *.local
+.env copy
+recovery-codes.txt
+wakabods-handoff
+test-results/
