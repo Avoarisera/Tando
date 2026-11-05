@@ -4,7 +4,7 @@ import type { ConfirmAction, TeamMemberBalance } from '~/types/index'
 definePageMeta({ layout: 'private' })
 
 const { isEmployee, isManager, isAdmin, profile, loadProfile } = useCurrentUser()
-const { requests, isLoading, error, fetchRequests, updateRequestStatus } = useLeaveRequests()
+const { requests, isLoading, error, fetchRequests, reviewRequest } = useLeaveRequests()
 const { teamBalances, isLoadingTeam, teamError, fetchTeamBalances } = useLeaveBalances()
 const { leaveTypes, fetchLeaveTypes } = useLeaveTypes()
 const toast = useToast()
@@ -55,11 +55,7 @@ async function handleApprove() {
   if (!confirmAction.value || !profile.value) return
   const { requestId } = confirmAction.value
   try {
-    await updateRequestStatus(requestId, {
-      status: 'manager_approved',
-      manager_reviewed_by: profile.value.id,
-      manager_reviewed_at: new Date().toISOString(),
-    })
+    await reviewRequest(requestId, 'approve')
     toast.add('Demande approuvée')
     await fetchRequests()
   } catch (e) {
@@ -73,11 +69,7 @@ async function handleReject() {
   if (!confirmAction.value || !profile.value) return
   const { requestId } = confirmAction.value
   try {
-    await updateRequestStatus(requestId, {
-      status: 'rejected',
-      manager_reviewed_by: profile.value.id,
-      manager_reviewed_at: new Date().toISOString(),
-    })
+    await reviewRequest(requestId, 'reject')
     toast.add('Demande refusée')
     await fetchRequests()
   } catch (e) {

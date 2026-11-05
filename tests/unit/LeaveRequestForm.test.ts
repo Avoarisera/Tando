@@ -15,7 +15,7 @@ mockNuxtImport('useLeaveRequests', () => () => ({
   error:               readonly(ref(null)),
   fetchRequests:       vi.fn().mockResolvedValue(undefined),
   createRequest:       mockCreateRequest,
-  updateRequestStatus: vi.fn().mockResolvedValue(undefined),
+  reviewRequest: vi.fn().mockResolvedValue('manager_approved'),
 }))
 
 // ── Mock useToast ────────────────────────────────────────────────────────────
@@ -37,9 +37,15 @@ const ACTIVE_TYPES: LeaveType[] = [
   { id: 'lt-2', name: 'Congé maladie', color: '#F44336', is_active: true, created_at: '2026-01-02T00:00:00Z' },
 ]
 
-const FUTURE_START = '2026-07-01'
-const FUTURE_END   = '2026-07-05'
-const PAST_DATE    = '2026-01-01'
+// Relative dates: fixed "future" dates rot as soon as the calendar passes them.
+const isoInDays = (days: number) => {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const FUTURE_START = isoInDays(30)
+const FUTURE_END   = isoInDays(34)
+const PAST_DATE    = isoInDays(-30)
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -72,35 +78,35 @@ describe('LeaveRequestForm', () => {
   describe('daysCount computed', () => {
     it('shows "Durée : 5 jours" for a 5-day range', async () => {
       const wrapper = await mountForm()
-      await wrapper.find('#start-date').setValue('2026-07-01')
-      await wrapper.find('#end-date').setValue('2026-07-05')
+      await wrapper.find('#start-date').setValue(FUTURE_START)
+      await wrapper.find('#end-date').setValue(FUTURE_END)
       expect(wrapper.text()).toContain('5 jours')
     })
 
     it('shows singular "1 jour" for a same-day selection', async () => {
       const wrapper = await mountForm()
-      await wrapper.find('#start-date').setValue('2026-07-01')
-      await wrapper.find('#end-date').setValue('2026-07-01')
+      await wrapper.find('#start-date').setValue(FUTURE_START)
+      await wrapper.find('#end-date').setValue(FUTURE_START)
       expect(wrapper.text()).toContain('1 jour')
       expect(wrapper.text()).not.toContain('1 jours')
     })
 
     it('shows nothing when end date is not set', async () => {
       const wrapper = await mountForm()
-      await wrapper.find('#start-date').setValue('2026-07-01')
+      await wrapper.find('#start-date').setValue(FUTURE_START)
       expect(wrapper.text()).not.toContain('Durée')
     })
 
     it('shows nothing when start date is not set', async () => {
       const wrapper = await mountForm()
-      await wrapper.find('#end-date').setValue('2026-07-05')
+      await wrapper.find('#end-date').setValue(FUTURE_END)
       expect(wrapper.text()).not.toContain('Durée')
     })
 
     it('shows nothing when end is before start (0 days guard)', async () => {
       const wrapper = await mountForm()
-      await wrapper.find('#start-date').setValue('2026-07-05')
-      await wrapper.find('#end-date').setValue('2026-07-01')
+      await wrapper.find('#start-date').setValue(FUTURE_END)
+      await wrapper.find('#end-date').setValue(FUTURE_START)
       expect(wrapper.text()).not.toContain('Durée')
     })
   })

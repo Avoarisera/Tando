@@ -15,7 +15,7 @@ export function useCurrentUser() {
     if (!userId) return
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, first_name, last_name, role, team_id, joined_at, created_at')
       .eq('id', userId)
       .single()
     if (error) throw error

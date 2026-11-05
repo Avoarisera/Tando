@@ -63,17 +63,16 @@ export function useLeaveRequests() {
     return data as string
   }
 
-  async function updateRequestStatus(
-    requestId: string,
-    update: Partial<Pick<LeaveRequest,
-      'status' | 'manager_reviewed_by' | 'manager_reviewed_at' | 'admin_reviewed_by' | 'admin_reviewed_at'
-    >>
-  ) {
-    const { error: sbError } = await supabase
-      .from('leave_requests')
-      .update(update)
-      .eq('id', requestId)
+  // Approve / reject through the review_leave_request RPC: the database decides
+  // the resulting status from the caller's role (manager → manager_approved,
+  // admin → approved) and fills the reviewer columns itself (TND-14).
+  async function reviewRequest(requestId: string, decision: 'approve' | 'reject') {
+    const { data, error: sbError } = await supabase.rpc('review_leave_request', {
+      p_request_id: requestId,
+      p_decision: decision,
+    })
     if (sbError) throw new Error(sbError.message)
+    return data as LeaveRequest['status']
   }
 
   return {
@@ -82,6 +81,6 @@ export function useLeaveRequests() {
     error: readonly(error),
     fetchRequests,
     createRequest,
-    updateRequestStatus,
+    reviewRequest,
   }
 }

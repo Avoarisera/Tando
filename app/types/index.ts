@@ -8,10 +8,10 @@ export interface Profile {
   role: UserRole
   team_id: string | null
   joined_at: string
-  birth_date: string | null
-  trial_ends_at: string | null
   created_at: string
 }
+// birth_date / trial_ends_at exist in the database but are not readable from the
+// browser (column-level grants, TND-15): only server-side jobs use them.
 
 export interface LeaveRequest {
   id: string

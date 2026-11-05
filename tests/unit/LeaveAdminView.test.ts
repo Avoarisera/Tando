@@ -331,7 +331,7 @@ describe('Status filter select', () => {
 // ── Cancel modal ──────────────────────────────────────────────────────────────
 
 describe('Confirm modal — cancel', () => {
-  it('clicking Annuler closes the modal without calling updateRequestStatus', async () => {
+  it('clicking Annuler closes the modal without calling the review RPC', async () => {
     const wrapper = await mountSuspended(LeaveAdminView)
     const approveBtns = wrapper.findAll('button').filter(b => b.text().trim() === 'Approuver')
     await approveBtns[0].trigger('click')
@@ -347,6 +347,7 @@ describe('Confirm modal — cancel', () => {
     // Modal closed, no Supabase call made
     expect(wrapper.text()).not.toContain('Approuver directement')
     expect(mockFrom).not.toHaveBeenCalled()
+    expect(mockRpc).not.toHaveBeenCalledWith('review_leave_request', expect.anything())
   })
 })
 
@@ -369,9 +370,8 @@ describe('Confirm modal — error handling', () => {
     await approuveBtns[0].trigger('click')
     await wrapper.vm.$nextTick()
 
-    // Inject the DB error AFTER mount so it only affects the update call
-    noopBuilder.then = (resolve: (v: { data: null; error: { message: string } }) => unknown) =>
-      Promise.resolve({ data: null, error: { message: 'Aucun solde trouvé pour cet utilisateur, ce type de congé et cette année' } }).then(resolve)
+    // Inject the DB error AFTER mount so it only affects the review RPC call
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'Aucun solde trouvé pour cet utilisateur, ce type de congé et cette année' } })
 
     // Click the modal's confirm button — it's the last "Approuver" in the DOM
     const allApprouveBtns = wrapper.findAll('button').filter(b => b.text().trim() === 'Approuver')
@@ -392,8 +392,7 @@ describe('Confirm modal — error handling', () => {
     await refuserBtns[0].trigger('click')
     await wrapper.vm.$nextTick()
 
-    noopBuilder.then = (resolve: (v: { data: null; error: { message: string } }) => unknown) =>
-      Promise.resolve({ data: null, error: { message: 'Droits insuffisants' } }).then(resolve)
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'Droits insuffisants' } })
 
     // Click the modal's confirm button — it's the last "Refuser" in the DOM
     const allRefuserBtns = wrapper.findAll('button').filter(b => b.text().trim() === 'Refuser')

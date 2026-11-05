@@ -602,6 +602,13 @@ export type Database = {
         }
         Returns: number
       }
+      review_leave_request: {
+        Args: {
+          p_request_id: string
+          p_decision: 'approve' | 'reject'
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

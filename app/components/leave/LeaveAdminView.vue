@@ -2,7 +2,7 @@
 import type { AdminConfirmAction, LeaveRequestWithRelations, LeaveStatus } from '~/types/index'
 
 const { profile } = useCurrentUser()
-const { requests, updateRequestStatus, fetchRequests } = useLeaveRequests()
+const { requests, reviewRequest, fetchRequests } = useLeaveRequests()
 const toast = useToast()
 
 const statusFilter = ref<LeaveStatus | 'all'>('all')
@@ -61,11 +61,7 @@ async function handleAdminApprove() {
   if (!adminConfirmAction.value || !profile.value) return
   const { requestId } = adminConfirmAction.value
   try {
-    await updateRequestStatus(requestId, {
-      status: 'approved',
-      admin_reviewed_by: profile.value.id,
-      admin_reviewed_at: new Date().toISOString(),
-    })
+    await reviewRequest(requestId, 'approve')
     toast.add('Demande approuvée — solde mis à jour')
     await fetchRequests()
   } catch (e) {
@@ -79,11 +75,7 @@ async function handleAdminReject() {
   if (!adminConfirmAction.value || !profile.value) return
   const { requestId } = adminConfirmAction.value
   try {
-    await updateRequestStatus(requestId, {
-      status: 'rejected',
-      admin_reviewed_by: profile.value.id,
-      admin_reviewed_at: new Date().toISOString(),
-    })
+    await reviewRequest(requestId, 'reject')
     toast.add('Demande refusée')
     await fetchRequests()
   } catch (e) {
