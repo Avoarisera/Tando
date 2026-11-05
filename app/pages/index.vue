@@ -16,7 +16,7 @@ const { requests: mine, loaded, isLoading, error, fetchMine } = useMyLeave()
 const { balances, isLoading: balLoading, error: balError, fetchBalances } = useLeaveBalances()
 const { events, fetchEvents } = useCalendar()
 const { members, fetchMembers } = useTeamMembers()
-const { toReview, fetchAll: fetchApprovals } = useApprovals()
+const { toReview, loaded: approvalsLoaded, fetchAll: fetchApprovals } = useApprovals()
 
 const today = todayIso()
 const year = Number(today.slice(0, 4))
@@ -38,7 +38,8 @@ const balanceRows = computed(() => balances.value.map((b) => {
   const reserved = reservedDays(mine.value, b.leave_type_id, year)
   return { id: b.id, name: b.leave_types.name, color: b.leave_types.color, allocated: b.allocated_days, used: b.used_days, reserved, left: b.allocated_days - b.used_days - reserved }
 }))
-const mainBalance = computed(() => balanceRows.value[0])
+// Headline balance: paid leave first, whatever order the database returns
+const mainBalance = computed(() => balanceRows.value.find(b => /pay|paid/i.test(b.name)) ?? [...balanceRows.value].sort((a, b) => b.allocated - a.allocated)[0])
 
 const nextLeave = computed(() => mine.value
   .filter(r => r.status === 'approved' && r.end_date >= today)
@@ -135,11 +136,13 @@ const pct = (b: { allocated: number, used: number, reserved: number }) => {
 
       <WbCard
         v-if="isManager"
-        :title="t('home.toApprove', { n: toReview.length })"
+        :title="approvalsLoaded ? t('home.toApprove', { n: toReview.length }) : t('nav.approvals')"
         :link-label="toReview.length ? t('home.seeAll') : undefined"
         link-to="/approvals"
       >
-        <ApprovalQueue v-if="toReview.length" :items="toReview.slice(0, 2)" :is-admin="false" />
+        <!-- never claim "nothing to approve" before the queue has loaded -->
+        <WbSkeleton v-if="!approvalsLoaded" :count="2" />
+        <ApprovalQueue v-else-if="toReview.length" :items="toReview.slice(0, 2)" :is-admin="false" />
         <p v-else class="wb-mut">{{ t('home.nothingToApprove') }}</p>
       </WbCard>
 

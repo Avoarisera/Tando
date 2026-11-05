@@ -31,6 +31,9 @@ export function useCurrentUser() {
     useState('calendar-events').value = []
     useState('teams').value = []
     useState('toasts').value = []
+    useState('approval-requests').value = []
+    useState('approval-balances').value = []
+    useState('approval-loaded').value = false
     await navigateTo('/login')
   }
 
