@@ -92,3 +92,25 @@ export const LEAVE_PALETTE: { name: string, hex: string }[] = [
   { name: 'amber', hex: '#895800' }, { name: 'orange', hex: '#9b4805' }, { name: 'pink', hex: '#973f6e' },
   { name: 'indigo', hex: '#5658ab' }, { name: 'lime', hex: '#526f00' }, { name: 'cyan', hex: '#00709a' },
 ]
+
+/**
+ * Working days of a leave period, same rule as count_leave_days() in the
+ * database: Mon–Fri, minus the public holidays of the person's country,
+ * minus half a day when it starts in the afternoon or ends at noon.
+ */
+export function countLeaveDays(start: string, end: string, holidays: Record<string, string>, startHalf = false, endHalf = false): number {
+  let days = 0
+  let d = start
+  while (d <= end) {
+    if (!isWeekend(d) && !holidays[d]) {
+      days += 1
+      if (d === start && startHalf) days -= 0.5
+      if (d === end && endHalf) days -= 0.5
+    }
+    d = addDays(d, 1)
+  }
+  return days
+}
+
+/** "2,5" / "2.5": day counts can be halves */
+export const fmtDays = (n: number, locale: string) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(n)

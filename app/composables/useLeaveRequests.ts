@@ -47,30 +47,67 @@ export function useLeaveRequests() {
     }
   }
 
-  async function createRequest(params: {
+  interface LeaveInput {
     leaveTypeId: string
     startDate: string
     endDate: string
     comment: string | null
-  }) {
+    startHalf?: boolean
+    endHalf?: boolean
+  }
+
+  async function createRequest(params: LeaveInput) {
     const { data, error: sbError } = await supabase.rpc('create_leave_request', {
       p_leave_type_id: params.leaveTypeId,
       p_start_date: params.startDate,
       p_end_date: params.endDate,
       p_comment: params.comment ?? undefined,
+      p_start_half: params.startHalf ?? false,
+      p_end_half: params.endHalf ?? false,
     })
     if (sbError) throw new Error(sbError.message)
     return data as string
   }
 
+  /** Own pending request only (checked by the RPC) */
+  async function updateRequest(requestId: string, params: LeaveInput) {
+    const { data, error: sbError } = await supabase.rpc('update_leave_request', {
+      p_request_id: requestId,
+      p_leave_type_id: params.leaveTypeId,
+      p_start_date: params.startDate,
+      p_end_date: params.endDate,
+      p_comment: params.comment ?? undefined,
+      p_start_half: params.startHalf ?? false,
+      p_end_half: params.endHalf ?? false,
+    })
+    if (sbError) throw new Error(sbError.message)
+    return Number(data)
+  }
+
+  /** pending / manager_approved → cancelled; approved and not started → cancel_requested */
+  async function cancelRequest(requestId: string) {
+    const { data, error: sbError } = await supabase.rpc('cancel_leave_request', { p_request_id: requestId })
+    if (sbError) throw new Error(sbError.message)
+    return data as LeaveRequest['status']
+  }
+
   // Approve / reject through the review_leave_request RPC: the database decides
   // the resulting status from the caller's role (manager → manager_approved,
   // admin → approved) and fills the reviewer columns itself (TND-14).
-  async function reviewRequest(requestId: string, decision: 'approve' | 'reject') {
+  // A reason is mandatory to reject (lot R8).
+  async function reviewRequest(requestId: string, decision: 'approve' | 'reject', comment?: string) {
     const { data, error: sbError } = await supabase.rpc('review_leave_request', {
       p_request_id: requestId,
       p_decision: decision,
+      p_comment: comment,
     })
+    if (sbError) throw new Error(sbError.message)
+    return data as LeaveRequest['status']
+  }
+
+  /** Admin: accept (→ cancelled, days returned) or refuse (→ approved) a cancellation */
+  async function reviewCancellation(requestId: string, decision: 'approve' | 'reject') {
+    const { data, error: sbError } = await supabase.rpc('review_cancellation', { p_request_id: requestId, p_decision: decision })
     if (sbError) throw new Error(sbError.message)
     return data as LeaveRequest['status']
   }
@@ -81,6 +118,9 @@ export function useLeaveRequests() {
     error: readonly(error),
     fetchRequests,
     createRequest,
+    updateRequest,
+    cancelRequest,
     reviewRequest,
+    reviewCancellation,
   }
 }

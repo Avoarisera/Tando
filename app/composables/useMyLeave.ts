@@ -47,8 +47,8 @@ export type LeaveGroup = 'upcoming' | 'pending' | 'past' | 'refused'
 
 /** Which tab of "Mes congés" a request belongs to */
 export function leaveGroup(r: Pick<LeaveRequestWithRelations, 'status' | 'end_date'>, today: string): LeaveGroup {
-  if (r.status === 'rejected') return 'refused'
-  if (r.status === 'pending' || r.status === 'manager_approved') return 'pending'
+  if (r.status === 'rejected' || r.status === 'cancelled') return 'refused'
+  if (r.status === 'pending' || r.status === 'manager_approved' || r.status === 'cancel_requested') return 'pending'
   return r.end_date < today ? 'past' : 'upcoming'
 }
 
@@ -56,7 +56,7 @@ export function leaveGroup(r: Pick<LeaveRequestWithRelations, 'status' | 'end_da
 export function reservedDays(requests: readonly Pick<LeaveRequestWithRelations, 'status' | 'leave_type_id' | 'start_date' | 'days_count'>[], typeId: string, year: number): number {
   return requests
     .filter(r => r.leave_type_id === typeId && (r.status === 'pending' || r.status === 'manager_approved') && Number(r.start_date.slice(0, 4)) === year)
-    .reduce((s, r) => s + r.days_count, 0)
+    .reduce((s, r) => s + Number(r.days_count), 0)
 }
 
 export function formatPeriod(start: string, end: string, locale: string): string {
@@ -96,5 +96,7 @@ export function leaveSteps(
     const waiting = status === 'manager_approved' || (status === 'pending' && !managerStep)
     steps.push({ label: labels.admin, state: waiting ? 'wait' : 'todo' })
   }
+  // Cancelled before any decision: the remaining steps will never happen
+  if (status === 'cancelled') return steps.map(s => (s.state === 'wait' ? { ...s, state: 'todo' as const } : s))
   return steps
 }

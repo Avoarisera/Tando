@@ -85,19 +85,22 @@
       "pending": "Pending",
       "manager_approved": "Manager approved",
       "approved": "Approved",
-      "rejected": "Declined"
+      "rejected": "Declined",
+      "cancel_requested": "Cancellation requested",
+      "cancelled": "Cancelled"
     },
     "steps": {
       "sent": "Sent",
       "manager": "Manager",
       "admin": "Admin"
     },
-    "days": "{n} day | {n} days"
+    "days": "{n} day | {n} days",
+    "workingDays": "{n} working day | {n} working days"
   },
   "picker": {
     "prev": "Previous month",
     "next": "Next month",
-    "off": "Weekend or past",
+    "off": "Weekend, holiday or past",
     "blocked": "Already booked",
     "colleague": "Colleague away"
   },
@@ -120,7 +123,17 @@
     "byAdmin": "The admin approves it directly.",
     "submit": "Send the request",
     "sent": "Request sent",
-    "error": "We couldn’t send the request. Try again."
+    "error": "We couldn’t send the request. Try again.",
+    "fullDay": "Full day",
+    "morning": "Morning",
+    "afternoon": "Afternoon",
+    "theDay": "The day",
+    "firstDay": "First day",
+    "lastDay": "Last day",
+    "noWorkingDay": "No working day in these dates",
+    "editTitle": "Edit the request",
+    "saveChanges": "Save changes",
+    "updated": "Request updated"
   },
   "detail": {
     "comment": "Comment",
@@ -130,7 +143,22 @@
     "managerApproved": "Approved by the manager",
     "managerRefused": "Declined by the manager",
     "adminApproved": "Approved by the admin",
-    "adminRefused": "Declined by the admin"
+    "adminRefused": "Declined by the admin",
+    "reason": "Reason",
+    "edit": "Edit",
+    "cancel": "Cancel the request",
+    "askCancel": "Ask to cancel",
+    "keep": "Keep the request",
+    "cancelTitle": "Cancel this request?",
+    "cancelText": "It leaves the approval queue and the reserved days are released.",
+    "askCancelTitle": "Ask to cancel this leave?",
+    "askCancelText": "This leave is already approved: the admin has to accept the cancellation. You get the days back then.",
+    "cancelledToast": "Request cancelled",
+    "askedToast": "Cancellation sent to the admin",
+    "cancelAsked": "Cancellation requested",
+    "cancelledEvent": "Cancelled",
+    "fromAfternoon": "from the afternoon",
+    "untilNoon": "until noon"
   },
   "home": {
     "hello": "Hello {name} 👋",
@@ -161,7 +189,7 @@
       "upcoming": "Upcoming",
       "pending": "Awaiting approval",
       "past": "Past",
-      "refused": "Declined"
+      "refused": "Declined and cancelled"
     },
     "emptyTitle": "No leave yet",
     "emptyText": "Request your first leave; it goes off for approval.",
@@ -169,7 +197,7 @@
       "upcoming": "No upcoming leave.",
       "pending": "Nothing awaiting approval.",
       "past": "No past leave.",
-      "refused": "No declined request."
+      "refused": "No declined or cancelled request."
     }
   },
   "calendar": {
@@ -247,7 +275,16 @@
     "refuseTitle": "Decline the request from {who}?",
     "refuseText": "{who} will see the request as declined in My leave.",
     "cancel": "Cancel",
-    "refuseConfirm": "Decline the request"
+    "refuseConfirm": "Decline the request",
+    "reason": "Reason for declining",
+    "reasonRequired": "Give the reason for declining",
+    "cancelHint": "{who} asks to cancel this approved leave. If you accept, the days are given back.",
+    "keepLeave": "Keep the leave",
+    "acceptCancel": "Accept the cancellation",
+    "keepTitle": "Keep the leave of {who}?",
+    "keepText": "The cancellation is declined: the leave stays approved.",
+    "cancelAccepted": "Cancellation from {who} accepted",
+    "cancelRefused": "The leave of {who} is kept"
   },
   "dashboard": {
     "headcount": "Headcount",
@@ -309,7 +346,18 @@
     "appliedAll": "Allowance applied to everyone",
     "noBalances": "No balance for this type and year.",
     "allocatedFor": "Allowance of {who}",
-    "editAllocated": "Edit the allowance of {who}"
+    "editAllocated": "Edit the allowance of {who}",
+    "tabHolidays": "Public holidays",
+    "country": "Country",
+    "holidayDate": "Date",
+    "holidayName": "Holiday name",
+    "addHoliday": "Add",
+    "holidayRequired": "Date and name are required",
+    "holidayAdded": "Holiday added",
+    "holidayRemoved": "Holiday removed",
+    "noHolidays": "No public holiday for this country and year.",
+    "remove": "Remove",
+    "holidaysHint": "National days are pre-filled. Add your regional days: they are not counted in the leave of people from this country."
   },
   "colors": {
     "green": "Green",
@@ -651,6 +699,176 @@
       "compositionInfo": "Estimated tickets and tickets without an estimate (bug proxy). A high share without an estimate can point to unplanned debt.",
       "ticketsInfo": "Delivery volume per month, not quality.",
       "pointsInfo": "Points delivered per month: complexity rather than volume."
+    }
+  },
+  "countries": {
+    "FR": "France",
+    "BE": "Belgium",
+    "LU": "Luxembourg",
+    "DE": "Germany",
+    "AT": "Austria",
+    "ES": "Spain",
+    "IT": "Italy",
+    "NL": "Netherlands",
+    "PT": "Portugal",
+    "IE": "Ireland"
+  },
+  "r8a": {
+    "notif": {
+      "title": "Notifications",
+      "readAll": "Mark all as read",
+      "empty": "No notification yet.",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "prefs": "My profile",
+      "bell": "Notifications ({n} unread) | Notifications ({n} unread)",
+      "request_submitted": "{who} requests leave ({type}, {period})",
+      "manager_approved": "The request from {who} ({type}, {period}) was approved by the manager",
+      "approved": "Your {type} leave on {period} is approved",
+      "rejected": "Your {type} request on {period} was declined",
+      "cancel_requested": "{who} asks to cancel leave ({type}, {period})",
+      "cancel_approved": "The cancellation of your {type} leave on {period} is accepted",
+      "cancel_refused": "The cancellation of your {type} leave on {period} was declined: it stays booked"
+    },
+    "invite": {
+      "title": "Join WakaBods",
+      "titleName": "Welcome {name} 👋",
+      "intro": "Choose your password to activate your account.",
+      "password": "Choose a password",
+      "expired": "This invitation has expired or was already used. Ask your administrator for a new one.",
+      "submit": "Join WakaBods"
+    },
+    "people": {
+      "invite": "Invite",
+      "inviteTitle": "Invite a person",
+      "inviteHint": "They get an e-mail to choose their password.",
+      "editTitle": "Edit {name}",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "country": "Country",
+      "countryHint": "Sets their public holidays",
+      "noTeam": "No team",
+      "send": "Send the invitation",
+      "required": "E-mail, first name and last name are required",
+      "invited": "Invitation sent to {email}",
+      "saved": "Profile saved",
+      "exists": "This address already has an account",
+      "newTeam": "New team",
+      "rename": "Rename",
+      "renameTitle": "Rename the team",
+      "teamName": "Team name",
+      "teamCreated": "Team created",
+      "teamRenamed": "Team renamed"
+    },
+    "settings": {
+      "company": "Company",
+      "companyHint": "This information appears on your invoices. Visible to administrators only.",
+      "legalName": "Legal name",
+      "vat": "VAT number",
+      "address": "Address",
+      "iban": "IBAN",
+      "bic": "BIC",
+      "defaultCountry": "Default country",
+      "defaultCountryHint": "Suggested for new invitations",
+      "billing": "Invoicing",
+      "billingHint": "Next reference: {ref}",
+      "prefix": "Invoice prefix",
+      "nextNumber": "Next number",
+      "footer": "Invoice footer",
+      "footerHint": "Payment terms, late fees…",
+      "integrations": "Integrations",
+      "linearHint": "Velocity statistics of your teams",
+      "manage": "Manage",
+      "saved": "Settings saved",
+      "numberInvalid": "The next number must be a whole number, 1 or more",
+      "prefixRequired": "The prefix is required"
+    }
+  },
+  "r8b": {
+    "inv": {
+      "title": "Invoice",
+      "billTo": "Bill to",
+      "description": "Description",
+      "descriptionN": "Description of line {n}",
+      "qty": "Quantity",
+      "unitPrice": "Unit price excl. VAT",
+      "vat": "VAT",
+      "net": "Subtotal",
+      "vatTotal": "VAT total",
+      "gross": "Total incl. VAT",
+      "notes": "Terms",
+      "notesLabel": "Notes and payment terms (optional)",
+      "vatNumber": "VAT",
+      "page": "Page",
+      "lines": "Lines",
+      "addLine": "Add a line",
+      "removeLine": "Remove line {n}",
+      "preview": "Preview",
+      "backToEdit": "Back to editing",
+      "previewOf": "Preview of invoice {ref}",
+      "noCompany": "Your company",
+      "refPending": "Assigned when saved",
+      "refHint": "Leave empty for automatic numbering",
+      "linesInvalid": "Each line needs a description, a quantity above 0 and a price",
+      "saveAndPdf": "Save and generate the PDF",
+      "saved": "Invoice saved, PDF generated",
+      "duplicate": "This reference already exists",
+      "panelHint": "The PDF is generated and attached to the invoice when you save."
+    },
+    "capacity": {
+      "title": "Capacity for the period",
+      "window": "Period",
+      "weeks": "{n} week | {n} weeks",
+      "authError": "Session expired, sign in again",
+      "empty": "No dev in this team.",
+      "summary": "{available} days available out of {working} working days (devs linked to an account)",
+      "unlinked": "Not linked to a WakaBods account",
+      "available": "Available",
+      "daysUnit": "d",
+      "away": "Away:",
+      "hint": "Working days excluding weekends and each person’s public holidays, minus approved leave. A dev is linked through their Linear e-mail."
+    }
+  },
+  "v1": {
+    "leftLabel": "{type} left",
+    "pendingLabel": "Pending requests",
+    "pendingDays": "{n} day reserved | {n} days reserved",
+    "teamToday": "Team today",
+    "present": "in",
+    "details": "Details",
+    "email": "Email",
+    "joined": "Joined",
+    "adminNoBalance": "Administrators have no leave balance."
+  },
+  "v2": {
+    "showPlanning": "Show planning",
+    "hidePlanning": "Hide planning",
+    "period": "Dates",
+    "headcountSub": "Employees and managers",
+    "presenceRate": "{n}% in",
+    "awayTodaySub": "Approved leave",
+    "awayWeekSub": "Monday to Sunday",
+    "toReviewCount": "No request to approve | {n} request to approve | {n} requests to approve",
+    "kpis": "Today’s figures",
+    "resultCount": "No result | {n} result | {n} results",
+    "teamCount": "No team | {n} team | {n} teams",
+    "members": "Members",
+    "manager": "Manager",
+    "typesHint": "Active types are offered when requesting leave.",
+    "settingsSaveHint": "Changes apply to the next invoices and invitations."
+  },
+  "v3": {
+    "auth": {
+      "tagline": "Your team’s leave and velocity, in one place.",
+      "point1": "Request and approve leave in seconds",
+      "point2": "A clear team calendar, public holidays included",
+      "point3": "Linear velocity, to understand, never to rank",
+      "footer": "WakaBods · built for European teams"
+    },
+    "inv": {
+      "details": "Invoice details",
+      "count": "{n} invoice | {n} invoices",
+      "otherCurrencies": "+ other currencies"
     }
   }
 }

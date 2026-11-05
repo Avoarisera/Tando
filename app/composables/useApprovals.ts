@@ -6,7 +6,7 @@ interface BalanceLite { user_id: string, leave_type_id: string, allocated_days: 
 export function canReview(role: UserRole | undefined, status: LeaveStatus, requesterId: string, meId: string | undefined): boolean {
   if (requesterId === meId) return false
   if (role === 'manager') return status === 'pending'
-  if (role === 'admin') return status === 'pending' || status === 'manager_approved'
+  if (role === 'admin') return status === 'pending' || status === 'manager_approved' || status === 'cancel_requested'
   return false
 }
 
@@ -18,7 +18,7 @@ export function useApprovals() {
   const supabase = useSupabaseClient()
   const user = useSupabaseUser()
   const { profile } = useCurrentUser()
-  const { reviewRequest } = useLeaveRequests()
+  const { reviewRequest, reviewCancellation } = useLeaveRequests()
   const requests = useState<LeaveRequestWithRelations[]>('approval-requests', () => [])
   const balances = useState<BalanceLite[]>('approval-balances', () => [])
   const loaded = useState<boolean>('approval-loaded', () => false)
@@ -68,16 +68,20 @@ export function useApprovals() {
     if (!b) return null
     const year = Number(r.start_date.slice(0, 4))
     const reserved = reservedDays(requests.value.filter(x => x.user_id === r.user_id), r.leave_type_id, year)
-    return b.allocated_days - b.used_days - reserved
+    return Number(b.allocated_days) - Number(b.used_days) - reserved
   }
 
-  async function decide(id: string, decision: 'approve' | 'reject') {
-    const status = await reviewRequest(id, decision)
+  /** A cancellation request goes through review_cancellation; a leave request needs a reason to be refused */
+  async function decide(id: string, decision: 'approve' | 'reject', comment?: string) {
+    const current = requests.value.find(x => x.id === id)
+    const status = current?.status === 'cancel_requested'
+      ? await reviewCancellation(id, decision)
+      : await reviewRequest(id, decision, comment)
     const r = requests.value.find(x => x.id === id)
     if (r) {
       const now = new Date().toISOString()
       const patch = role.value === 'admin' ? { admin_reviewed_at: now } : { manager_reviewed_at: now }
-      requests.value = requests.value.map(x => (x.id === id ? { ...x, ...patch, status } : x))
+      requests.value = requests.value.map(x => (x.id === id ? { ...x, ...patch, status, review_comment: comment ?? x.review_comment } : x))
     }
     return status
   }

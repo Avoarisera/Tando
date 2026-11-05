@@ -7,6 +7,7 @@ export default defineNuxtConfig({
   modules: ['@nuxtjs/supabase', '@nuxtjs/i18n'],
   i18n: {
     defaultLocale: 'fr',
+    vueI18n: './i18n.config.ts',
     strategy: 'no_prefix',
     locales: [
       { code: 'fr', language: 'fr-FR', name: 'Français', file: 'fr.json' },
@@ -38,5 +39,7 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   vite: {
     plugins: [tailwindcss()],
+    // pre-bundled so the first invoice PDF does not trigger a Vite reload in dev
+    optimizeDeps: { include: ['pdf-lib'] },
   },
 })

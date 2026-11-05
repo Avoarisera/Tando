@@ -32,7 +32,7 @@ const NAV: Record<Role, [NavSection['key'], NavKey[]][]> = {
 }
 
 /** Pages not built yet: hidden from the menu until their lot ships. */
-const HIDDEN = new Set<NavKey>(['settings'])
+const HIDDEN = new Set<NavKey>([])
 
 export function navSectionsFor(role: Role): NavSection[] {
   return NAV[role]

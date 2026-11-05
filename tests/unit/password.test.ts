@@ -31,3 +31,19 @@ describe('strengthLevel', () => {
     expect(strengthLevel(4)).toBe('strong')
   })
 })
+
+import { countLeaveDays } from '~/utils/wb'
+
+describe('countLeaveDays (same rule as count_leave_days in the database)', () => {
+  const hol = { '2026-12-25': 'Noël' }
+  it('skips weekends and public holidays', () => {
+    expect(countLeaveDays('2026-12-21', '2026-12-28', hol)).toBe(5)
+  })
+  it('counts half days on the first and last day', () => {
+    expect(countLeaveDays('2026-12-21', '2026-12-22', hol, true, true)).toBe(1)
+    expect(countLeaveDays('2026-12-21', '2026-12-21', hol, true)).toBe(0.5)
+  })
+  it('a period with only weekend days is 0', () => {
+    expect(countLeaveDays('2026-12-26', '2026-12-27', hol)).toBe(0)
+  })
+})

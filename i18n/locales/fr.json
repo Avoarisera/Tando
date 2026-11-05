@@ -85,19 +85,22 @@
       "pending": "En attente",
       "manager_approved": "Validé manager",
       "approved": "Approuvé",
-      "rejected": "Refusé"
+      "rejected": "Refusé",
+      "cancel_requested": "Annulation demandée",
+      "cancelled": "Annulé"
     },
     "steps": {
       "sent": "Envoyée",
       "manager": "Manager",
       "admin": "Admin"
     },
-    "days": "{n} jour | {n} jours"
+    "days": "{n} jour | {n} jours",
+    "workingDays": "{n} jour ouvré | {n} jours ouvrés"
   },
   "picker": {
     "prev": "Mois précédent",
     "next": "Mois suivant",
-    "off": "Week-end ou passé",
+    "off": "Week-end, férié ou passé",
     "blocked": "Déjà posé",
     "colleague": "Collègue absent"
   },
@@ -120,7 +123,17 @@
     "byAdmin": "Sera validée directement par l’admin.",
     "submit": "Envoyer la demande",
     "sent": "Demande envoyée",
-    "error": "Impossible d’envoyer la demande. Réessayez."
+    "error": "Impossible d’envoyer la demande. Réessayez.",
+    "fullDay": "Journée",
+    "morning": "Matin",
+    "afternoon": "Après-midi",
+    "theDay": "Le jour",
+    "firstDay": "Premier jour",
+    "lastDay": "Dernier jour",
+    "noWorkingDay": "Aucun jour ouvré sur cette période",
+    "editTitle": "Modifier la demande",
+    "saveChanges": "Enregistrer les modifications",
+    "updated": "Demande modifiée"
   },
   "detail": {
     "comment": "Commentaire",
@@ -130,7 +143,22 @@
     "managerApproved": "Validée par le manager",
     "managerRefused": "Refusée par le manager",
     "adminApproved": "Approuvée par l’admin",
-    "adminRefused": "Refusée par l’admin"
+    "adminRefused": "Refusée par l’admin",
+    "reason": "Motif du refus",
+    "edit": "Modifier",
+    "cancel": "Annuler la demande",
+    "askCancel": "Demander l’annulation",
+    "keep": "Garder la demande",
+    "cancelTitle": "Annuler cette demande ?",
+    "cancelText": "Elle disparaît des validations et les jours réservés sont libérés.",
+    "askCancelTitle": "Demander l’annulation de ce congé ?",
+    "askCancelText": "Le congé est déjà approuvé : l’admin doit accepter l’annulation. Les jours vous sont rendus à ce moment-là.",
+    "cancelledToast": "Demande annulée",
+    "askedToast": "Annulation demandée à l’admin",
+    "cancelAsked": "Annulation demandée",
+    "cancelledEvent": "Annulée",
+    "fromAfternoon": "à partir de l’après-midi",
+    "untilNoon": "jusqu’à midi"
   },
   "home": {
     "hello": "Bonjour {name} 👋",
@@ -161,7 +189,7 @@
       "upcoming": "À venir",
       "pending": "En cours de validation",
       "past": "Passés",
-      "refused": "Refusés"
+      "refused": "Refusés et annulés"
     },
     "emptyTitle": "Aucun congé pour le moment",
     "emptyText": "Posez votre premier congé, il partira en validation.",
@@ -169,7 +197,7 @@
       "upcoming": "Aucun congé à venir.",
       "pending": "Rien en attente de validation.",
       "past": "Aucun congé passé.",
-      "refused": "Aucune demande refusée."
+      "refused": "Aucune demande refusée ou annulée."
     }
   },
   "calendar": {
@@ -247,7 +275,16 @@
     "refuseTitle": "Refuser la demande de {who} ?",
     "refuseText": "{who} verra la demande comme refusée dans Mes congés.",
     "cancel": "Annuler",
-    "refuseConfirm": "Refuser la demande"
+    "refuseConfirm": "Refuser la demande",
+    "reason": "Motif du refus",
+    "reasonRequired": "Indiquez le motif du refus",
+    "cancelHint": "{who} demande à annuler ce congé déjà approuvé. Si vous acceptez, les jours lui sont rendus.",
+    "keepLeave": "Garder le congé",
+    "acceptCancel": "Accepter l’annulation",
+    "keepTitle": "Garder le congé de {who} ?",
+    "keepText": "L’annulation est refusée : le congé reste approuvé.",
+    "cancelAccepted": "Annulation de {who} acceptée",
+    "cancelRefused": "Le congé de {who} est maintenu"
   },
   "dashboard": {
     "headcount": "Effectif",
@@ -309,7 +346,18 @@
     "appliedAll": "Quota appliqué à toute l’équipe",
     "noBalances": "Aucun solde pour ce type et cette année.",
     "allocatedFor": "Jours acquis de {who}",
-    "editAllocated": "Modifier les jours acquis de {who}"
+    "editAllocated": "Modifier les jours acquis de {who}",
+    "tabHolidays": "Jours fériés",
+    "country": "Pays",
+    "holidayDate": "Date",
+    "holidayName": "Nom du jour férié",
+    "addHoliday": "Ajouter",
+    "holidayRequired": "La date et le nom sont obligatoires",
+    "holidayAdded": "Jour férié ajouté",
+    "holidayRemoved": "Jour férié retiré",
+    "noHolidays": "Aucun jour férié pour ce pays et cette année.",
+    "remove": "Retirer",
+    "holidaysHint": "Jours nationaux pré-remplis. Ajoutez vos jours régionaux : ils ne sont pas décomptés des congés des personnes de ce pays."
   },
   "colors": {
     "green": "Vert",
@@ -651,6 +699,176 @@
       "compositionInfo": "Tickets avec estimation et tickets sans estimation (indicateur des bugs). Une part élevée sans estimation peut signaler de la dette non planifiée.",
       "ticketsInfo": "Volume de livraison par mois, pas la qualité.",
       "pointsInfo": "Points livrés par mois : la complexité plutôt que le volume."
+    }
+  },
+  "countries": {
+    "FR": "France",
+    "BE": "Belgique",
+    "LU": "Luxembourg",
+    "DE": "Allemagne",
+    "AT": "Autriche",
+    "ES": "Espagne",
+    "IT": "Italie",
+    "NL": "Pays-Bas",
+    "PT": "Portugal",
+    "IE": "Irlande"
+  },
+  "r8a": {
+    "notif": {
+      "title": "Notifications",
+      "readAll": "Tout marquer comme lu",
+      "empty": "Aucune notification pour le moment.",
+      "today": "Aujourd’hui",
+      "yesterday": "Hier",
+      "prefs": "Mon profil",
+      "bell": "Notifications ({n} non lue) | Notifications ({n} non lues)",
+      "request_submitted": "{who} demande un congé ({type}, {period})",
+      "manager_approved": "La demande de {who} ({type}, {period}) est validée par le manager",
+      "approved": "Votre congé {type} du {period} est approuvé",
+      "rejected": "Votre demande {type} du {period} est refusée",
+      "cancel_requested": "{who} demande l’annulation d’un congé ({type}, {period})",
+      "cancel_approved": "L’annulation de votre congé {type} du {period} est acceptée",
+      "cancel_refused": "L’annulation de votre congé {type} du {period} est refusée : il est maintenu"
+    },
+    "invite": {
+      "title": "Rejoindre WakaBods",
+      "titleName": "Bienvenue {name} 👋",
+      "intro": "Choisissez votre mot de passe pour activer votre compte.",
+      "password": "Choisissez un mot de passe",
+      "expired": "Cette invitation a expiré ou a déjà servi. Demandez une nouvelle invitation à votre administrateur.",
+      "submit": "Rejoindre WakaBods"
+    },
+    "people": {
+      "invite": "Inviter",
+      "inviteTitle": "Inviter une personne",
+      "inviteHint": "Elle reçoit un e-mail pour choisir son mot de passe.",
+      "editTitle": "Modifier {name}",
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "country": "Pays",
+      "countryHint": "Fixe ses jours fériés",
+      "noTeam": "Sans équipe",
+      "send": "Envoyer l’invitation",
+      "required": "L’e-mail, le prénom et le nom sont obligatoires",
+      "invited": "Invitation envoyée à {email}",
+      "saved": "Fiche enregistrée",
+      "exists": "Cette adresse a déjà un compte",
+      "newTeam": "Nouvelle équipe",
+      "rename": "Renommer",
+      "renameTitle": "Renommer l’équipe",
+      "teamName": "Nom de l’équipe",
+      "teamCreated": "Équipe créée",
+      "teamRenamed": "Équipe renommée"
+    },
+    "settings": {
+      "company": "Entreprise",
+      "companyHint": "Ces informations figurent sur vos factures. Visible uniquement par les administrateurs.",
+      "legalName": "Raison sociale",
+      "vat": "N° de TVA",
+      "address": "Adresse",
+      "iban": "IBAN",
+      "bic": "BIC",
+      "defaultCountry": "Pays par défaut",
+      "defaultCountryHint": "Proposé pour les nouvelles invitations",
+      "billing": "Facturation",
+      "billingHint": "Prochaine référence : {ref}",
+      "prefix": "Préfixe des factures",
+      "nextNumber": "Prochain numéro",
+      "footer": "Mentions de pied de facture",
+      "footerHint": "Conditions de paiement, pénalités de retard…",
+      "integrations": "Intégrations",
+      "linearHint": "Statistiques de vélocité de vos équipes",
+      "manage": "Gérer",
+      "saved": "Paramètres enregistrés",
+      "numberInvalid": "Le prochain numéro doit être un entier, 1 ou plus",
+      "prefixRequired": "Le préfixe est obligatoire"
+    }
+  },
+  "r8b": {
+    "inv": {
+      "title": "Facture",
+      "billTo": "Client",
+      "description": "Désignation",
+      "descriptionN": "Désignation de la ligne {n}",
+      "qty": "Quantité",
+      "unitPrice": "Prix unitaire HT",
+      "vat": "TVA",
+      "net": "Total HT",
+      "vatTotal": "Total TVA",
+      "gross": "Total TTC",
+      "notes": "Conditions",
+      "notesLabel": "Notes et conditions de paiement (facultatif)",
+      "vatNumber": "TVA",
+      "page": "Page",
+      "lines": "Lignes",
+      "addLine": "Ajouter une ligne",
+      "removeLine": "Supprimer la ligne {n}",
+      "preview": "Aperçu",
+      "backToEdit": "Revenir à l’édition",
+      "previewOf": "Aperçu de la facture {ref}",
+      "noCompany": "Votre entreprise",
+      "refPending": "Attribuée à l’enregistrement",
+      "refHint": "Laissez vide pour la numérotation automatique",
+      "linesInvalid": "Chaque ligne a besoin d’une désignation, d’une quantité supérieure à 0 et d’un prix",
+      "saveAndPdf": "Enregistrer et générer le PDF",
+      "saved": "Facture enregistrée, PDF généré",
+      "duplicate": "Cette référence existe déjà",
+      "panelHint": "Le PDF est généré et joint à la facture à l’enregistrement."
+    },
+    "capacity": {
+      "title": "Capacité de la période",
+      "window": "Période",
+      "weeks": "{n} semaine | {n} semaines",
+      "authError": "Session expirée, reconnectez-vous",
+      "empty": "Aucun dev dans cette équipe.",
+      "summary": "{available} jours disponibles sur {working} jours ouvrés (devs reliés à un compte)",
+      "unlinked": "Non relié à un compte WakaBods",
+      "available": "Disponible",
+      "daysUnit": "j",
+      "away": "Absent :",
+      "hint": "Jours ouvrés hors week-ends et jours fériés du pays de chacun, moins les congés approuvés. Un dev est relié par son e-mail Linear."
+    }
+  },
+  "v1": {
+    "leftLabel": "{type} restants",
+    "pendingLabel": "Demandes en attente",
+    "pendingDays": "{n} jour réservé | {n} jours réservés",
+    "teamToday": "Équipe aujourd’hui",
+    "present": "présents",
+    "details": "Détails",
+    "email": "E-mail",
+    "joined": "Arrivée",
+    "adminNoBalance": "Les administrateurs n’ont pas de solde de congés."
+  },
+  "v2": {
+    "showPlanning": "Voir le planning",
+    "hidePlanning": "Masquer le planning",
+    "period": "Période",
+    "headcountSub": "Employés et managers",
+    "presenceRate": "{n} % de présence",
+    "awayTodaySub": "Congés approuvés",
+    "awayWeekSub": "Du lundi au dimanche",
+    "toReviewCount": "Aucune demande à valider | {n} demande à valider | {n} demandes à valider",
+    "kpis": "Indicateurs du jour",
+    "resultCount": "Aucun résultat | {n} résultat | {n} résultats",
+    "teamCount": "Aucune équipe | {n} équipe | {n} équipes",
+    "members": "Membres",
+    "manager": "Manager",
+    "typesHint": "Les types actifs sont proposés à la pose d’un congé.",
+    "settingsSaveHint": "Les modifications s’appliquent aux prochaines factures et invitations."
+  },
+  "v3": {
+    "auth": {
+      "tagline": "Les congés et la vélocité de votre équipe, au même endroit.",
+      "point1": "Poser et valider un congé en quelques secondes",
+      "point2": "Un calendrier d’équipe clair, jours fériés compris",
+      "point3": "La vélocité Linear, pour comprendre sans classer",
+      "footer": "WakaBods · conçu pour les équipes européennes"
+    },
+    "inv": {
+      "details": "Détails de la facture",
+      "count": "{n} facture | {n} factures",
+      "otherCurrencies": "+ autres devises"
     }
   }
 }

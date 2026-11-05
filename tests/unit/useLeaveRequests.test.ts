@@ -176,6 +176,8 @@ describe('useLeaveRequests', () => {
         p_start_date:    '2026-07-01',
         p_end_date:      '2026-07-05',
         p_comment:       'Test',
+        p_start_half:    false,
+        p_end_half:      false,
       })
     })
 
