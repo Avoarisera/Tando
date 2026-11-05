@@ -40,6 +40,15 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
 
+# Le healthcheck Coolify appelle curl (ou wget) DANS le conteneur : sans lui,
+# le nouveau conteneur est jugé "unhealthy" et Coolify revient à l'ancien
+# (incident du 05/11/2026). L'image slim n'a ni curl ni wget.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
+  CMD curl -fsS -o /dev/null http://localhost:3000/login || exit 1
+
 # .output est autonome (Nitro bundle le runtime + deps nécessaires)
 COPY --from=builder /app/.output ./.output
 
