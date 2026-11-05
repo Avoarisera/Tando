@@ -1,6 +1,6 @@
 <script setup lang="ts">
 export interface PlanSpan { id: string, from: string, to: string, label: string, color: string, pending?: boolean }
-export interface PlanPerson { id: string, name: string, spans: PlanSpan[] }
+export interface PlanPerson { id: string, name: string, spans: PlanSpan[], /** optional section (team) — a header row is shown when it changes */ group?: string }
 
 const props = withDefaults(defineProps<{
   days: string[]
@@ -70,7 +70,11 @@ const presence = computed(() => props.days.map((d) => {
           <i class="caption2">{{ fmtWeekday(d, tag).slice(0, 2) }}</i><b class="wb-num caption">{{ +d.slice(8) }}</b>
         </span>
       </div>
-      <div v-for="p in people" :key="p.id" class="wb-plan-r" role="row">
+      <template v-for="(p, i) in people" :key="p.id">
+      <div v-if="p.group && p.group !== people[i - 1]?.group" class="wb-plan-r wb-plan-g" role="row">
+        <span class="wb-plan-n caption" role="rowheader"><b>{{ p.group }}</b><span class="wb-mut2">{{ people.filter(x => x.group === p.group).length }}</span></span>
+      </div>
+      <div class="wb-plan-r" role="row">
         <span class="wb-plan-n" role="rowheader"><WbAvatar :name="p.name" :size="dense ? 22 : 26" /><span class="small">{{ p.name }}</span></span>
         <div class="wb-plan-cells">
           <span v-for="d in days" :key="d" :class="['wb-plan-c', { 'is-we': isWeekend(d), 'is-hol': holidays[d], 'is-today': d === today, 'is-hl': inRange(d, highlight?.from, highlight?.to) }]" />
@@ -85,6 +89,7 @@ const presence = computed(() => props.days.map((d) => {
           </div>
         </div>
       </div>
+      </template>
       <div v-if="presenceLabel" class="wb-plan-r wb-plan-ft" role="row">
         <span class="wb-plan-n small"><b>{{ presenceLabel }}</b></span>
         <span v-for="(p, i) in presence" :key="days[i]" :class="['wb-plan-p', { 'is-low': p?.low }]">
@@ -94,3 +99,8 @@ const presence = computed(() => props.days.map((d) => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.wb-plan-g { background: var(--surface-2); }
+.wb-plan-g .wb-plan-n { background: var(--surface-2); gap: var(--space-2); text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); padding-block: 4px; }
+</style>

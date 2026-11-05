@@ -325,7 +325,8 @@
       "start": "Start",
       "end": "End",
       "days": "Days"
-    }
+    },
+    "alertUnderstaffed": "{team} team: {n} of {of} present on {day}"
   },
   "rules": {
     "tabTypes": "Leave types",

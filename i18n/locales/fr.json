@@ -325,7 +325,8 @@
       "start": "Début",
       "end": "Fin",
       "days": "Jours"
-    }
+    },
+    "alertUnderstaffed": "Équipe {team} : {n} présent(s) sur {of} le {day}"
   },
   "rules": {
     "tabTypes": "Types de congé",

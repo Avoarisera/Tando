@@ -6,7 +6,7 @@ const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const { snapshot, isLoading, error, fetchSnapshot } = useDashboard()
 const { toReview, requests, fetchAll } = useApprovals()
 const { events, fetchEvents } = useCalendar()
-const { fetchMembers } = useTeamMembers()
+const { members, fetchMembers } = useTeamMembers()
 const { balanceAfter } = useApprovals()
 const { workspaces, fetchWorkspaces } = useLinearWorkspace()
 
@@ -63,6 +63,33 @@ const departures = computed(() => approved.value
   .map(e => t('dashboard.departure', { who: e.employeeName, date: fmtDate(e.startDate, tag.value, { day: 'numeric', month: 'long' }) })))
 
 // Alerts: requests waiting for more than 3 days, balances that would go negative
+// Teams under half of their headcount on a working day of the next 14 days
+// (approved leave only); one alert per team, on its worst day
+const understaffed = computed(() => {
+  const out: { icon: string, text: string, to: string, tone: 'warning' | 'danger' }[] = []
+  const teams = new Map<string, { name: string, size: number }>()
+  for (const m of members.value) {
+    if (m.role === 'admin' || !m.team_id) continue
+    const e = events.value.find(x => x.teamId === m.team_id && x.teamName)
+    const cur = teams.get(m.team_id) ?? { name: e?.teamName ?? '', size: 0 }
+    cur.size++
+    teams.set(m.team_id, cur)
+  }
+  for (const [id, tm] of teams) {
+    if (tm.size < 2 || !tm.name) continue
+    let worst: { day: string, n: number } | null = null
+    for (let i = 0; i < 14; i++) {
+      const day = addDays(today, i)
+      if (isWeekend(day)) continue
+      const away = new Set(events.value.filter(x => x.teamId === id && x.status === 'approved' && x.startDate <= day && x.endDate >= day).map(x => x.userId)).size
+      const n = tm.size - away
+      if (n / tm.size < 0.5 && (!worst || n < worst.n)) worst = { day, n }
+    }
+    if (worst) out.push({ icon: 'users', tone: 'danger', to: '/calendar', text: t('dashboard.alertUnderstaffed', { team: tm.name, n: worst.n, of: tm.size, day: fmtDate(worst.day, tag.value, { weekday: 'short', day: 'numeric', month: 'short' }) }) })
+  }
+  return out
+})
+
 const alerts = computed(() => {
   const list: { icon: string, text: string, to: string, tone: 'warning' | 'danger' }[] = []
   const limit = addDays(today, -3)
@@ -72,6 +99,7 @@ const alerts = computed(() => {
     const after = balanceAfter(r)
     if (after !== null && after < 0) list.push({ icon: 'triangle-alert', tone: 'danger', to: '/approvals', text: t('dashboard.alertNegative', { who: fullName(r.profiles), type: r.leave_types?.name ?? '', n: after }) })
   }
+  list.push(...understaffed.value)
   return list
 })
 

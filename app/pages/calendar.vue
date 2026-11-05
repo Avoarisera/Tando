@@ -59,19 +59,25 @@ const legend = computed(() => {
   return [...seen].map(([name, color]) => ({ name, color }))
 })
 
+// first name, + initial when two people share it (template unwraps the computed)
+const shortName = computed(() => shortNames(events.value.map(e => e.employeeName)))
 const absentToday = computed(() => events.value.filter(e => e.status === 'approved' && e.startDate <= today && e.endDate >= today))
 
 // Planning: 14 days, one row per visible person
 const planDays = computed(() => Array.from({ length: 14 }, (_, i) => addDays(planStart.value, i)))
+// Planning grouped by team (alphabetical), people without a team last
+const teamNameOf = (id: string | null) => (id ? events.value.find(e => e.teamId === id)?.teamName ?? teams.value.find(x => x.id === id)?.name ?? '' : '') || t('r8a.people.noTeam')
 const people = computed<PlanPerson[]>(() => members.value
   .filter(m => m.role !== 'admin' || members.value.length === 1)
   .filter(m => teamFilter.value === 'all' || m.team_id === teamFilter.value)
   .map(m => ({
     id: m.id,
     name: fullName(m),
+    group: teamNameOf(m.team_id),
     spans: visible.value.filter(e => e.userId === m.id).map(e => ({ id: e.id, from: e.startDate, to: e.endDate, label: e.leaveTypeName, color: e.leaveTypeColor, pending: e.status !== 'approved' })),
   }))
-  .filter(p => !onlyMe.value || p.spans.length))
+  .filter(p => !onlyMe.value || p.spans.length)
+  .sort((a, b) => (a.group === t('r8a.people.noTeam') ? 1 : 0) - (b.group === t('r8a.people.noTeam') ? 1 : 0) || (a.group ?? '').localeCompare(b.group ?? '') || a.name.localeCompare(b.name)))
 
 // List: leave of the shown month, grouped by week
 const weeks = computed(() => {
@@ -160,7 +166,7 @@ function goToday() {
         <b>{{ t('calendar.awayToday') }}</b>
         <template v-if="absentToday.length">
           <span v-for="e in absentToday" :key="e.id" class="wb-cal-away-p">
-            <WbAvatar :name="e.employeeName" :size="22" />{{ e.employeeName.split(' ')[0] }} · {{ e.leaveTypeName }}
+            <WbAvatar :name="e.employeeName" :size="22" />{{ shortName(e.employeeName) }} · {{ e.leaveTypeName }}
           </span>
         </template>
         <span v-else class="wb-mut">{{ t('calendar.nobodyAway') }}</span>
@@ -220,7 +226,7 @@ function goToday() {
 @container wbapp (min-width: 1024px) {
   .wb-cal-card { flex: 1 0 auto; }
   /* Planning: taller rows and readable day headers */
-  .wb-cal-card :deep(.wb-plan-cells) { min-height: clamp(56px, calc((100dvh - 420px) / var(--rows, 6)), 88px); }
+  .wb-cal-card :deep(.wb-plan-cells) { min-height: clamp(40px, calc((100dvh - 420px) / var(--rows, 6)), 88px); }
   .wb-cal-card :deep(.wb-plan .wb-bar) { height: 28px; margin-top: -14px; font-size: 13px; }
   .wb-cal-card :deep(.wb-plan-hd) { font-size: 13px; }
   .wb-cal-card :deep(.wb-cal-w) { grid-template-rows: max(calc(28px + var(--lanes) * 22px), calc((100dvh - 330px) / 6)); }
