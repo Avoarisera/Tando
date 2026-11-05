@@ -44,6 +44,8 @@ const data = computed(() => ({
 const options = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  // room for the top tick label so it never touches the title above
+  layout: { padding: { top: 8 } },
   animation: { duration: typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : 120 },
   plugins: {
     legend: { display: props.legend ?? props.series.length > 1, labels: { color: ink.value, boxWidth: 12 } },

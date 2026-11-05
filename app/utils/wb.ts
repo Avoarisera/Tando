@@ -114,3 +114,20 @@ export function countLeaveDays(start: string, end: string, holidays: Record<stri
 
 /** "2,5" / "2.5": day counts can be halves */
 export const fmtDays = (n: number, locale: string) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(n)
+
+/**
+ * Short label for a person in dense views: the first name, plus the initial of
+ * the last name when several people share that first name ("Emma G.").
+ */
+export function shortNames(fullNames: readonly string[]): (full: string) => string {
+  const count = new Map<string, number>()
+  for (const n of new Set(fullNames)) {
+    const first = n.split(' ')[0] ?? n
+    count.set(first, (count.get(first) ?? 0) + 1)
+  }
+  return (full: string) => {
+    const [first = full, ...rest] = full.split(' ')
+    const last = rest.join(' ')
+    return (count.get(first) ?? 0) > 1 && last ? `${first} ${last.charAt(0)}.` : first
+  }
+}

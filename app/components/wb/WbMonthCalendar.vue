@@ -28,6 +28,7 @@ const weeks = computed(() => {
     return { days, bars, lanes: Math.max(lanes.length, 2) }
   })
 })
+const short = computed(() => shortNames(props.events.map(b => b.who)))
 </script>
 
 <template>
@@ -53,7 +54,7 @@ const weeks = computed(() => {
         :title="`${bar.who} · ${bar.type ?? ''}${bar.pending ? ` · ${t('leave.status.pending')}` : ''}`"
       >
         <WbAvatar :name="bar.who" :size="16" />
-        <span>{{ bar.who.split(' ')[0] }}{{ bar.pending ? ` · ${t('calendar.pendingShort')}` : '' }}</span>
+        <span>{{ short(bar.who) }}{{ bar.pending ? ` · ${t('calendar.pendingShort')}` : '' }}</span>
       </div>
     </div>
   </div>
