@@ -191,7 +191,7 @@ const pct = (b: { allocated: number, used: number, reserved: number }) => {
 .wb-kpi-text { margin-top: 4px; }
 .wb-lc-list { display: flex; flex-direction: column; gap: var(--space-2); }
 .wb-list-dense { gap: var(--space-2); }
-.wb-home-plan { margin-inline: calc(-1 * var(--space-5)); }
+.wb-home-plan { margin-top: var(--space-1); }
 .wb-bal { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .wb-bal li { display: flex; flex-direction: column; gap: 6px; }
 .wb-bal-bar { display: flex; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
