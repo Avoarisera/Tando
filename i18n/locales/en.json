@@ -882,7 +882,7 @@
       "point1": "Request and approve leave in seconds",
       "point2": "A clear team calendar, public holidays included",
       "point3": "Linear velocity, to understand, never to rank",
-      "footer": "WakaBods · built for European teams"
+      "footer": "WakaBods · leave and velocity, made simple"
     },
     "inv": {
       "details": "Invoice details",
@@ -947,5 +947,25 @@
   "header": {
     "toLight": "Switch to light mode",
     "toDark": "Switch to dark mode"
+  },
+  "tnd24": {
+    "intro": "Your Linear teams: click a team to see its velocity.",
+    "workspaces": "Linear workspaces",
+    "teams": "Teams",
+    "search": "Search a team",
+    "noTeams": "No team synced yet: run a sync in “Linear workspaces”.",
+    "blocked": "{n} blocked | {n} blocked | {n} blocked",
+    "recent": "Recently viewed",
+    "thisMonth": "Delivered this month",
+    "vsLast": "vs same days last month",
+    "lastMonth": "{n} last month",
+    "cycle": "Median cycle (3 months)",
+    "open": "Open the team",
+    "switch": "Switch team",
+    "unlinked": "{n} Linear person not linked to a WakaBods account | {n} Linear people not linked to a WakaBods account",
+    "unlinkedShow": "Show who",
+    "unlinkedHide": "Hide",
+    "unlinkedHint": "A dev is linked when their Linear e-mail is their WakaBods account e-mail.",
+    "linkPeople": "Manage people"
   }
 }

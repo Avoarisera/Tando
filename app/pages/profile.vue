@@ -78,6 +78,16 @@ async function changePassword() {
     pwSaving.value = false
   }
 }
+
+// "Mot de passe" in the user menu lands here: bring the security card into view, focus the field
+const route = useRoute()
+onMounted(() => {
+  if (route.hash !== '#security') return
+  nextTick(() => {
+    document.getElementById('security')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    document.getElementById('current-password')?.focus({ preventScroll: true })
+  })
+})
 </script>
 
 <template>
@@ -140,7 +150,7 @@ async function changePassword() {
         </div>
       </WbCard>
 
-      <WbCard :title="t('profile.security')">
+      <WbCard id="security" :title="t('profile.security')">
         <form class="wb-stack-s" novalidate @submit.prevent="changePassword">
           <WbBanner v-if="pwError" tone="danger">{{ pwError }}</WbBanner>
           <WbPasswordInput id="current-password" v-model="currentPw" :label="t('profile.currentPassword')" autocomplete="current-password" />

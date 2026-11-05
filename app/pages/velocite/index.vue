@@ -60,9 +60,51 @@ function teamsOf(ws: Workspace) {
   if (all.length) return picked?.length ? all.filter(x => picked.includes(x.id)) : all
   return (ws.selected_teams ?? []).map(x => ({ id: x.id, name: x.name }))
 }
+// ── TND-24: overview of every team, one click to a team ────────────────────
+interface TeamOverview { id: string, name: string, workspaceId: string, workspaceName: string, thisMonth: number, lastMonth: number, lastMonthToDate: number, monthly: { month: string, count: number }[], cycleMedianHours: number | null, blocked: number }
+const overview = ref<TeamOverview[]>([])
+const overviewLoading = ref(false)
+const overviewError = ref<string | null>(null)
+const teamSearch = ref('')
+const lastTeam = ref<string | null>(null)
+async function loadOverview(fresh = false) {
+  overviewLoading.value = true
+  overviewError.value = null
+  try { overview.value = await $fetch<TeamOverview[]>('/api/teams-overview', { query: fresh ? { fresh: '1' } : {} }) }
+  catch (e) { overviewError.value = errorMessage(e) }
+  finally { overviewLoading.value = false }
+}
+const multiWorkspace = computed(() => new Set(overview.value.map(x => x.workspaceId)).size > 1)
+// blocked teams first, then the last one opened, then by name
+const teamCards = computed(() => overview.value
+  .filter(x => textMatch(`${x.name} ${x.workspaceName}`, teamSearch.value))
+  .sort((a, b) => Number(b.blocked > 0) - Number(a.blocked > 0) || Number(b.id === lastTeam.value) - Number(a.id === lastTeam.value) || a.name.localeCompare(b.name)))
+const teamLink = (x: TeamOverview) => ({ path: `/velocite/teams/${x.id}`, query: { workspaceId: x.workspaceId, name: x.name } })
+// compared with the same days of the previous month (1st → today), not the whole month
+function delta(x: TeamOverview) {
+  if (!x.lastMonthToDate) return null
+  return Math.round(((x.thisMonth - x.lastMonthToDate) / x.lastMonthToDate) * 100)
+}
+/** tiny 6-month line, as an SVG path in a 100×28 box */
+function spark(x: TeamOverview) {
+  const vals = x.monthly.map(m => m.count)
+  const max = Math.max(1, ...vals)
+  return vals.map((v, i) => `${i === 0 ? 'M' : 'L'}${(i / (vals.length - 1)) * 100},${26 - (v / max) * 24}`).join(' ')
+}
+// workspace management, folded under the teams (open when something needs attention)
+const showWs = ref(false)
+const wsAttention = computed(() => workspaces.value.some(ws => ws.sync_status === 'error' || wsSyncing(ws)))
+const wsBadge = computed(() => (workspaces.value.some(ws => ws.sync_status === 'error')
+  ? { tone: 'danger' as const, label: t('velocityA.status.error') }
+  : workspaces.value.some(ws => wsSyncing(ws)) ? { tone: 'info' as const, label: t('velocityA.status.running') } : { tone: 'success' as const, label: t('velocityA.status.ok') }))
+
+const route = useRoute()
 onMounted(async () => {
-  await fetchWorkspaces()
-  await loadWsTeams().catch(() => undefined)
+  lastTeam.value = typeof localStorage === 'undefined' ? null : localStorage.getItem('wb_vel_last')
+  await Promise.all([fetchWorkspaces(), loadOverview(), loadWsTeams().catch(() => undefined)])
+  if (wsAttention.value) showWs.value = true
+  // a single team: open it straight away (the overview stays reachable with ?all=1)
+  if (overview.value.length === 1 && route.query.all !== '1') await navigateTo(teamLink(overview.value[0]!), { replace: true })
 })
 
 // ─── Step 1 : create workspace ───────────────────────────────────────────
@@ -268,8 +310,13 @@ function cardSubtitle(ws: Workspace): string {
 <template>
   <div class="wb-page wb-stack">
     <div class="wb-row-b wb-wrap">
-      <p class="wb-mut2">{{ t('velocityA.intro') }}</p>
-      <WbButton v-if="!panelOpen" icon="plus" aria-haspopup="dialog" @click="step = 'form'">{{ t('velocityA.connect') }}</WbButton>
+      <p class="wb-mut2">{{ workspaces.length ? t('tnd24.intro') : t('velocityA.intro') }}</p>
+      <div class="wb-row wb-wrap" style="gap: 8px">
+        <WbButton v-if="workspaces.length" variant="secondary" size="sm" icon="link" :aria-expanded="showWs" data-action="toggle-ws" @click="showWs = !showWs">
+          {{ t('tnd24.workspaces') }} <WbBadge :tone="wsBadge.tone" size="sm">{{ wsBadge.label }}</WbBadge>
+        </WbButton>
+        <WbButton v-if="!panelOpen" size="sm" icon="plus" aria-haspopup="dialog" @click="step = 'form'">{{ t('velocityA.connect') }}</WbButton>
+      </div>
     </div>
 
     <WbErrorState v-if="error" :message="readableApiError(error)" @retry="fetchWorkspaces" />
@@ -283,7 +330,45 @@ function cardSubtitle(ws: Workspace): string {
       </WbEmptyState>
     </div>
 
-    <div v-else class="wb-grid wb-cols-2">
+    <template v-else>
+    <!-- Teams first: one card per team, the whole card opens it -->
+    <section class="wb-stack-s" :aria-label="t('tnd24.teams')">
+      <div v-if="overview.length > 3" class="wb-fb-s wb-vo-search"><WbInput v-model="teamSearch" icon="search" type="search" :aria-label="t('tnd24.search')" :placeholder="t('tnd24.search')" /></div>
+      <WbErrorState v-if="overviewError" :message="overviewError" @retry="loadOverview(true)" />
+      <WbSkeleton v-else-if="overviewLoading && !overview.length" variant="metric" :count="3" />
+      <p v-else-if="!overview.length" class="wb-card wb-card-b wb-mut">{{ t('tnd24.noTeams') }}</p>
+      <div v-else class="wb-vo-grid">
+        <NuxtLink v-for="x in teamCards" :key="x.id" :to="teamLink(x)" class="wb-card wb-vo-card" :data-team="x.name">
+          <div class="wb-row-b">
+            <div class="wb-vo-t">
+              <span class="h3">{{ x.name }}</span>
+              <span v-if="multiWorkspace" class="caption wb-mut2">{{ x.workspaceName }}</span>
+            </div>
+            <WbBadge v-if="x.blocked" tone="danger" size="sm" icon="clock">{{ t('tnd24.blocked', { n: x.blocked }, x.blocked) }}</WbBadge>
+            <WbBadge v-else-if="x.id === lastTeam" tone="info" size="sm">{{ t('tnd24.recent') }}</WbBadge>
+          </div>
+          <div class="wb-vo-kpis">
+            <div>
+              <span class="caption wb-mut2">{{ t('tnd24.thisMonth') }}</span>
+              <b class="display wb-num">{{ x.thisMonth }}</b>
+              <span v-if="delta(x) !== null" :class="['caption wb-num', (delta(x) ?? 0) >= 0 ? 'wb-c-success' : 'wb-c-danger']">{{ (delta(x) ?? 0) >= 0 ? '+' : '' }}{{ delta(x) }} % {{ t('tnd24.vsLast') }}</span>
+              <span v-else class="caption wb-mut2">{{ t('tnd24.lastMonth', { n: x.lastMonth }) }}</span>
+            </div>
+            <div>
+              <span class="caption wb-mut2">{{ t('tnd24.cycle') }}</span>
+              <b class="h2 wb-num">{{ velociteDuration(x.cycleMedianHours, tag) }}</b>
+            </div>
+          </div>
+          <svg class="wb-vo-spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true"><path :d="spark(x)" /></svg>
+          <span class="caption wb-mut2 wb-vo-cta">{{ t('tnd24.open') }} <WbIcon name="chevron-right" :size="14" /></span>
+        </NuxtLink>
+      </div>
+    </section>
+
+    <!-- Linear workspaces: sync and settings, folded by default -->
+    <section v-show="showWs" class="wb-stack-s" :aria-label="t('tnd24.workspaces')">
+      <h2 class="h3">{{ t('tnd24.workspaces') }}</h2>
+    <div class="wb-grid wb-cols-2">
       <WbCard v-for="ws in workspaces" :key="ws.id" :title="ws.name" :subtitle="cardSubtitle(ws)" :data-ws="ws.name">
         <template #action>
           <NuxtLink class="small wb-card-l" :to="`/velocite/workspaces/${ws.id}`">{{ t('velocityA.seeTeams') }}</NuxtLink>
@@ -301,11 +386,6 @@ function cardSubtitle(ws: Workspace): string {
             <span v-if="!teamsOf(ws).length" class="small wb-mut">{{ t('velocityA.allTeams') }}</span>
           </div>
 
-          <nav v-if="teamsOf(ws).length" class="wb-ws-teams" :aria-label="t('velocityA.seeTeams')">
-            <NuxtLink v-for="tm in teamsOf(ws)" :key="tm.id" class="wb-ws-team" :to="`/velocite/teams/${tm.id}?workspaceId=${ws.id}`" :data-team="tm.name">
-              <WbIcon name="users" :size="16" /><span class="wb-grow">{{ tm.name }}</span><WbIcon name="chevron-right" :size="16" />
-            </NuxtLink>
-          </nav>
           <div v-if="wsSyncing(ws) || ws.sync_status === 'done'" class="wb-stack-s" style="gap: 4px">
             <div
               class="wb-gauge-t"
@@ -336,6 +416,8 @@ function cardSubtitle(ws: Workspace): string {
         </div>
       </WbCard>
     </div>
+    </section>
+    </template>
 
     <!-- Connect wizard (step 1 → 2) and team editor -->
     <WbSidePanel v-if="panelOpen" :title="panelTitle" :subtitle="panelSubtitle" :width="560" @close="closePanel">
@@ -417,6 +499,18 @@ function cardSubtitle(ws: Workspace): string {
 </template>
 
 <style scoped>
+/* Team overview (TND-24) */
+.wb-vo-search { max-width: 360px; }
+.wb-vo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--space-3); }
+.wb-vo-card { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); color: inherit; text-decoration: none; transition: border-color .15s, box-shadow .15s; }
+.wb-vo-card:hover { border-color: var(--brand); box-shadow: var(--shadow-2); }
+.wb-vo-card:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.wb-vo-t { display: flex; flex-direction: column; min-width: 0; }
+.wb-vo-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.wb-vo-kpis > div { display: flex; flex-direction: column; gap: 2px; }
+.wb-vo-spark { width: 100%; height: 32px; }
+.wb-vo-spark path { fill: none; stroke: var(--chart-1); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.wb-vo-cta { display: inline-flex; align-items: center; gap: 2px; margin-top: auto; color: var(--brand-text); }
 /* Teams straight from the workspace card: one click to a team */
 .wb-ws-teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-2); }
 .wb-ws-team { display: flex; align-items: center; gap: var(--space-2); padding: 10px var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--ink); text-decoration: none; font-weight: 600; font-size: 14px; background: var(--surface); }

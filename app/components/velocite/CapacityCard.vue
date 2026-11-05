@@ -41,6 +41,10 @@ async function load() {
 onMounted(load)
 watch(weeks, load)
 
+// TND-24: people not linked to a WakaBods account are grouped on one foldable line
+const linked = computed(() => devs.value.filter(d => d.linked))
+const unlinked = computed(() => devs.value.filter(d => !d.linked))
+const showUnlinked = ref(false)
 const totals = computed(() => devs.value.filter(d => d.linked).reduce((s, d) => ({ working: s.working + d.working, available: s.available + d.available }), { working: 0, available: 0 }))
 const gaugeState = (d: CapacityDev) => (d.working === 0 ? 'ok' : d.available / d.working < 0.5 ? 'over' : d.available < d.working ? 'busy' : 'ok')
 const fmtNum = (n: number) => new Intl.NumberFormat(tag.value, { maximumFractionDigits: 1 }).format(n)
@@ -56,11 +60,11 @@ const period = computed(() => formatPeriod(from.value, to.value, tag.value))
     <WbSkeleton v-else-if="isLoading && !devs.length" variant="table" :count="3" />
     <p v-else-if="!devs.length" class="wb-mut">{{ t('r8b.capacity.empty') }}</p>
     <div v-else class="wb-stack">
-      <p class="small wb-mut2">
+      <p v-if="linked.length" class="small wb-mut2">
         {{ t('r8b.capacity.summary', { available: fmtNum(totals.available), working: fmtNum(totals.working) }) }}
       </p>
-      <ul class="wb-list wb-cap-list">
-        <li v-for="d in devs" :key="d.id" class="wb-cap-row" :data-dev="d.name">
+      <ul v-if="linked.length" class="wb-list wb-cap-list">
+        <li v-for="d in linked" :key="d.id" class="wb-cap-row" :data-dev="d.name">
           <WbAvatar :name="d.name" :size="32" />
           <div class="wb-grow wb-stack-s" style="gap: 4px; min-width: 0">
             <div class="wb-row-b wb-wrap">
@@ -82,11 +86,25 @@ const period = computed(() => formatPeriod(from.value, to.value, tag.value))
           </div>
         </li>
       </ul>
+      <div v-if="unlinked.length" class="wb-cap-unl">
+        <div class="wb-row-b wb-wrap" style="gap: 8px">
+          <span class="small"><WbIcon name="link" :size="14" /> {{ t('tnd24.unlinked', { n: unlinked.length }, unlinked.length) }}</span>
+          <span class="wb-row" style="gap: 4px">
+            <WbButton variant="ghost" size="sm" :aria-expanded="showUnlinked" data-action="toggle-unlinked" @click="showUnlinked = !showUnlinked">{{ showUnlinked ? t('tnd24.unlinkedHide') : t('tnd24.unlinkedShow') }}</WbButton>
+            <WbButton variant="ghost" size="sm" to="/people">{{ t('tnd24.linkPeople') }}</WbButton>
+          </span>
+        </div>
+        <p v-if="showUnlinked" class="caption wb-mut2 wb-cap-names">{{ unlinked.map(d => d.name).join(', ') }}</p>
+        <p class="caption wb-mut">{{ t('tnd24.unlinkedHint') }}</p>
+      </div>
       <p class="caption wb-mut">{{ t('r8b.capacity.hint') }}</p>
     </div>
   </WbCard>
 </template>
 
 <style scoped>
+.wb-cap-unl { display: flex; flex-direction: column; gap: 4px; padding: var(--space-2) var(--space-3); border: 1px dashed var(--border); border-radius: var(--radius-md); background: var(--surface-2); }
+.wb-cap-unl :deep(.wb-btn) { margin: 0; }
+.wb-cap-names { line-height: 1.6; }
 .wb-cap-row { align-items: flex-start; }
 </style>

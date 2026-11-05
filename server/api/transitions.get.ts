@@ -1,4 +1,5 @@
 import { serverSupabaseClient } from '#supabase/server'
+import { fetchAllRows } from '../utils/paginate'
 
 export default defineEventHandler(async (event) => {
   const { workspaceId, teamId, assigneeId, months: monthsParam } = getQuery(event)
@@ -6,6 +7,7 @@ export default defineEventHandler(async (event) => {
 
   const supabase = await serverSupabaseClient(event)
 
+  const build = () => {
   let query = supabase
     .from('issue_history')
     .select('from_status, to_status, issue_id, changed_at, linear_issues!inner(id, identifier, title, team_id, assignee_id)')
@@ -25,9 +27,12 @@ export default defineEventHandler(async (event) => {
     const to = nextMonth.toISOString().slice(0, 10)
     query = query.gte('changed_at', from).lt('changed_at', to)
   }
+  return query.order('id')
+  }
 
-  const { data, error } = await query
-  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+  // every page (the API stops at 1000 rows) — TND-24
+  type TransitionRow = { from_status: string | null, to_status: string | null, issue_id: string, changed_at: string, linear_issues: unknown }
+  const data = await fetchAllRows<TransitionRow>((from, to) => build().range(from, to))
 
   interface TicketRef { id: string; identifier: string | null; title: string | null; assignee_id?: string | null }
 

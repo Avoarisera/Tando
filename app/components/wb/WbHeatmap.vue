@@ -20,7 +20,7 @@ const level = (v: number) => (v <= 0 ? 1 : Math.min(6, Math.ceil((v / mx.value) 
         <tr v-for="r in rows" :key="r.id">
           <th scope="row" class="small">
             <button type="button" class="wb-hm-n" @click="emit('row-click', r.id)">
-              <span class="wb-cp"><WbAvatar :name="r.name" :size="24" />{{ r.name }}</span>
+              <span class="wb-cp"><WbAvatar :name="r.name" :size="24" /><span>{{ r.name }}</span></span>
             </button>
           </th>
           <td v-for="(v, i) in r.values" :key="i">
