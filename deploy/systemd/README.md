@@ -1,6 +1,6 @@
 # Sync Linear via systemd (VPS)
 
-Remplace le cron Vercel (`vercel.json`, ignoré hors Vercel). Un timer systemd appelle
+Planifie la sync sur le VPS (l’app tourne dans Coolify, plus sur Vercel). Un timer systemd appelle
 `GET /api/cron/sync` toutes les 15 min → sync incrémentale Linear + snapshots mensuels.
 
 ## 1. Sécuriser l'endpoint (obligatoire)
