@@ -24,12 +24,14 @@ interface LeaveRow extends CapacityLeave {
  * e-mail; the service role is needed to read auth e-mails and everyone's leave.
  */
 export default defineEventHandler(async (event) => {
-  const { supabase, user } = await requireAdmin(event)
   const { workspaceId, teamId, from, to } = getQuery(event)
 
   if (typeof workspaceId !== 'string' || typeof teamId !== 'string' || !workspaceId || !teamId) {
     throw createError({ statusCode: 400, statusMessage: 'workspaceId et teamId requis' })
   }
+  // admin, or a manager whose team is linked to this Linear team (TND-26)
+  const access = await requireVelocityAccess(event, workspaceId, teamId)
+  const { supabase } = access
   if (typeof from !== 'string' || typeof to !== 'string' || !ISO.test(from) || !ISO.test(to) || to < from) {
     throw createError({ statusCode: 400, statusMessage: 'Période invalide' })
   }
@@ -38,8 +40,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: `Période limitée à ${MAX_DAYS} jours` })
   }
 
-  // Same ownership rule as the other Vélocité routes: the workspace belongs to this admin
-  const { data: ws } = await supabase.from('workspaces').select('id').eq('id', workspaceId).eq('user_id', user.id).maybeSingle()
+  const { data: ws } = await supabase.from('workspaces').select('id').eq('id', workspaceId).maybeSingle()
   if (!ws) throw createError({ statusCode: 404, statusMessage: 'Workspace introuvable' })
 
   // Devs of the team = assignees of its issues
@@ -49,7 +50,13 @@ export default defineEventHandler(async (event) => {
   const issues = await fetchAllRows<{ assignee_id: string | null }>((from, to) => supabase
     .from('linear_issues').select('assignee_id').eq('workspace_id', workspaceId).eq('team_id', teamId)
     .not('assignee_id', 'is', null).gte('updated_at', activeSince).order('id').range(from, to))
-  const devIds = [...new Set(issues.map(i => i.assignee_id as string))]
+  let devIds = [...new Set(issues.map(i => i.assignee_id as string))]
+  // A manager: only the members of their own team, with their Linear account (TND-26)
+  if (access.role === 'manager') {
+    const { data: mine } = await supabase.from('profiles').select('linear_user_id').eq('team_id', access.teamId!).not('linear_user_id', 'is', null)
+    const members = new Set((mine ?? []).map(p => p.linear_user_id as string))
+    devIds = [...new Set([...devIds.filter(id => members.has(id)), ...members])]
+  }
   if (!devIds.length) return { from, to, devs: [] }
 
   const { data: linearUsers, error: luError } = await supabase
@@ -69,7 +76,19 @@ export default defineEventHandler(async (event) => {
   return byEmail
   })
 
-  const matched = (linearUsers ?? []).map(lu => ({ lu, profileId: lu.email ? byEmail.get(lu.email.toLowerCase()) : undefined }))
+  // Explicit link first (profiles.linear_user_id, TND-26), then the e-mail.
+  // A manager only gets the people of their own team matched (leave of others stays private).
+  const { data: linkedRows } = await supabase.from('profiles').select('id, linear_user_id, team_id').in('linear_user_id', devIds)
+  const byLinear = new Map((linkedRows ?? []).map(p => [p.linear_user_id as string, p]))
+  let allowed: Set<string> | null = null
+  if (access.role === 'manager') {
+    const { data: mine } = await supabase.from('profiles').select('id').eq('team_id', access.teamId!)
+    allowed = new Set((mine ?? []).map(p => p.id as string))
+  }
+  const matched = (linearUsers ?? []).map((lu) => {
+    const id = byLinear.get(lu.id)?.id ?? (lu.email ? byEmail.get(lu.email.toLowerCase()) : undefined)
+    return { lu, profileId: id && (!allowed || allowed.has(id)) ? id : undefined }
+  })
   const profileIds = matched.map(m => m.profileId).filter((x): x is string => !!x)
 
   const [{ data: profiles }, { data: leaves }] = await Promise.all([

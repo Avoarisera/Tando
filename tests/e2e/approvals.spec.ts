@@ -114,19 +114,17 @@ test.describe('R4 — Admin', () => {
 })
 
 test.describe('R4 — Manager', () => {
-  test('T-R4-010: manager only sees pending requests of the team, with the team planning', async ({ page }) => {
+  test('T-R4-010: manager only sees pending requests of the team, with a link to the planning', async ({ page }) => {
     await signIn(page, ACCOUNTS.manager)
     await expect(page.locator(EMMA)).toBeVisible()
     await expect(page.locator(EDDY)).toHaveCount(0) // already validated by the manager
     await expect(page.locator(CARD, { hasText: /Validée par le manager|Attend .* \(manager\)/ })).toHaveCount(0)
-    // The team planning is folded by default to keep the queue compact
+    // TND-25: no planning folded in the card, a link to the calendar at the leave date
     await expect(page.locator(`${EMMA} .wb-plan`)).toHaveCount(0)
-    const toggle = page.locator(`${EMMA} button[aria-expanded]`)
-    await expect(toggle).toHaveText(/Voir le planning|v2\.showPlanning/) // label resolves once the v2 strings are merged
-    await toggle.click()
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    await expect(page.locator(`${EMMA} .wb-plan`)).toBeVisible()
-    await expect(page.getByPlaceholder('Rechercher une personne')).toHaveCount(0)
+    await page.locator(EMMA).getByRole('link', { name: 'Voir dans le planning' }).click()
+    await page.waitForURL(/\/calendar\?.*view=plan.*date=2026-05-12/)
+    await expect(page.locator('.wb-plan .wb-bar.is-focus')).toBeVisible()
+    await expect(page.locator('.wb-card-h h2')).toContainText('mai')
   })
 
   test('T-R4-011: manager home shows the queue with "Voir tout"', async ({ page }) => {

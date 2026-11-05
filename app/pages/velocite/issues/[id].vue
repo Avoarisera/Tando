@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HistoryEvent } from '~/components/velocite/HistoryTimeline.vue'
 
-definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'admin-only' })
+definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'velocity-access' })
 
 interface IssueDetail {
   id: string

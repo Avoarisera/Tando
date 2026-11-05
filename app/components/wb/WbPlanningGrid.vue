@@ -1,5 +1,5 @@
 <script setup lang="ts">
-export interface PlanSpan { id: string, from: string, to: string, label: string, color: string, pending?: boolean, /** own requests: 'rejected' | 'cancel_requested' styling (TND-23) */ state?: string }
+export interface PlanSpan { id: string, from: string, to: string, label: string, color: string, pending?: boolean, /** own requests: 'rejected' | 'cancel_requested' styling (TND-23) */ state?: string, /** a request I can approve (TND-25) */ review?: boolean }
 export interface PlanPerson { id: string, name: string, spans: PlanSpan[], /** optional section (team) — a header row is shown when it changes */ group?: string }
 
 const props = withDefaults(defineProps<{
@@ -11,7 +11,12 @@ const props = withDefaults(defineProps<{
   presenceLabel?: string
   /** Days to highlight, e.g. the request being reviewed */
   highlight?: { from: string, to: string }
-}>(), { holidays: () => ({}) })
+  /** bars are buttons that emit `open` (TND-25) */
+  interactive?: boolean
+  /** request to highlight */
+  focus?: string | null
+}>(), { holidays: () => ({}), focus: null })
+defineEmits<{ open: [id: string] }>()
 const { locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 // Columns stretch to the available width (never narrower than the base size)
@@ -78,15 +83,20 @@ const presence = computed(() => props.days.map((d) => {
         <span class="wb-plan-n" role="rowheader"><WbAvatar :name="p.name" :size="dense ? 22 : 26" /><span class="small">{{ p.name }}</span></span>
         <div class="wb-plan-cells">
           <span v-for="d in days" :key="d" :class="['wb-plan-c', { 'is-we': isWeekend(d), 'is-hol': holidays[d], 'is-today': d === today, 'is-hl': inRange(d, highlight?.from, highlight?.to) }]" />
-          <div
+          <component
+            :is="interactive ? 'button' : 'div'"
             v-for="s in visibleSpans(p)"
             :key="s.id"
-            :class="['wb-bar', { 'is-pend': s.pending && s.state !== 'rejected', 'is-rej': s.state === 'rejected', 'is-canc': s.state === 'cancel_requested' }]"
-            :title="s.label"
+            :type="interactive ? 'button' : undefined"
+            :data-id="s.id"
+            :class="['wb-bar', { 'is-pend': s.pending && s.state !== 'rejected', 'is-rej': s.state === 'rejected', 'is-canc': s.state === 'cancel_requested', 'is-focus': focus === s.id }]"
+            :title="`${p.name} · ${s.label}`"
+            :aria-label="interactive ? `${p.name}, ${s.label}, ${formatPeriod(s.from, s.to, tag)}` : undefined"
             :style="{ ...leaveVars(s.color), left: `calc(${s.a} * var(--c) + 2px)`, width: `calc(${s.z - s.a + 1} * var(--c) - 4px)` }"
+            @click="interactive && $emit('open', s.id)"
           >
             <span>{{ s.z - s.a > 0 ? s.label : '' }}</span>
-          </div>
+          </component>
         </div>
       </div>
       </template>

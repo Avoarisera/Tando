@@ -2,7 +2,7 @@
 import { VELOCITE_RANGES, getAvailableYears, isValidRange, isValidYear, computeSelectionMonths } from '~/utils/velocite-periods'
 
 // key: switching team (same page, other param) remounts the page with the new team
-definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'admin-only', key: r => String(r.params.teamId) })
+definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'velocity-access', key: r => String(r.params.teamId) })
 
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))

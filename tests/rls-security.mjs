@@ -329,6 +329,54 @@ async function main() {
     const ids = (data?.employees ?? []).map((e) => e.id)
     check('TND-05a', 'les managers comptent dans l\'effectif', ids.includes(IDS.manager))
   }
+
+  console.log('\nTND-26 — espace manager')
+  {
+    // Fixture: a workspace with two Linear teams; the manager's team is linked to « API » only
+    const { data: ws } = await service.from('workspaces').insert({ user_id: (await admin.auth.getUser()).data.user.id, name: 'sec-ws', linear_api_key: 'lin_secret_sec' }).select('id').single()
+    await service.from('linear_teams').insert([{ id: 'sec-api', workspace_id: ws.id, name: 'API' }, { id: 'sec-ui', workspace_id: ws.id, name: 'UI' }])
+    await service.from('linear_issues').insert([
+      { id: 'sec-i1', workspace_id: ws.id, identifier: 'API-1', title: 'a', team_id: 'sec-api', status: 'Done', assignee_id: 'sec-u-emma' },
+      { id: 'sec-i2', workspace_id: ws.id, identifier: 'UI-1', title: 'b', team_id: 'sec-ui', status: 'Done', assignee_id: 'sec-u-emma' },
+      { id: 'sec-i3', workspace_id: ws.id, identifier: 'API-2', title: 'c', team_id: 'sec-api', status: 'Done', assignee_id: 'sec-u-other' },
+      { id: 'sec-i4', workspace_id: ws.id, identifier: 'API-3', title: 'd', team_id: 'sec-api', status: 'Done' },
+    ])
+    await service.from('linear_users').insert([{ id: 'sec-u-emma', workspace_id: ws.id, display_name: 'emma' }, { id: 'sec-u-other', workspace_id: ws.id, display_name: 'other' }])
+    await service.from('profiles').update({ linear_user_id: 'sec-u-emma' }).eq('id', IDS.emma)
+    const { data: mgr } = await service.from('profiles').select('team_id').eq('id', IDS.manager).single()
+    const { error: linkE } = await manager.from('team_linear_teams').insert({ team_id: mgr.team_id, workspace_id: ws.id, linear_team_id: 'sec-ui' })
+    check('TND-26a', 'un manager ne relie pas lui-même son équipe à Linear', !!linkE)
+    await admin.from('team_linear_teams').insert({ team_id: mgr.team_id, workspace_id: ws.id, linear_team_id: 'sec-api' })
+    try {
+      const { data: mi } = await manager.from('linear_issues').select('id').eq('workspace_id', ws.id)
+      const got = (mi ?? []).map(r => r.id)
+      check('TND-26b', 'le manager lit les tickets de l\'équipe Linear reliée', got.includes('sec-i1'))
+      check('TND-26c', 'le manager ne lit pas les tickets d\'une équipe non reliée', !got.includes('sec-i2'))
+      check('TND-26j', 'le manager ne lit pas les tickets d\'une personne hors de son équipe', !got.includes('sec-i3') && !got.includes('sec-i4'))
+      const { data: mu } = await manager.from('linear_users').select('id').eq('workspace_id', ws.id)
+      check('TND-26k', 'le manager ne voit que les comptes Linear de son équipe', (mu ?? []).length === 1 && mu[0].id === 'sec-u-emma')
+      const { data: mw } = await manager.from('workspaces').select('id').eq('id', ws.id)
+      check('TND-26d', 'le manager ne lit pas le workspace (clé API)', (mw ?? []).length === 0)
+      const { data: ek } = await emma.from('linear_issues').select('id').eq('workspace_id', ws.id)
+      check('TND-26e', 'un employé ne lit aucun ticket Linear', (ek ?? []).length === 0)
+      const { data: vt } = await manager.rpc('velocity_teams')
+      check('TND-26f', 'velocity_teams du manager : seulement l\'équipe reliée', (vt ?? []).length === 1 && vt[0].team_id === 'sec-api' && !('linear_api_key' in vt[0]))
+      const { data: snap } = await manager.rpc('get_dashboard_snapshot')
+      check('TND-26g', 'le tableau de bord du manager se limite à son équipe', !!snap && (snap.employees ?? []).every(e => e.team_name === (snap.employees[0]?.team_name)))
+      const { error: snapE } = await emma.rpc('get_dashboard_snapshot')
+      check('TND-26h', 'un employé n\'a pas de tableau de bord', !!snapE)
+      const { error: luE } = await manager.rpc('admin_set_linear_user', { p_id: IDS.emma, p_linear_user_id: 'x' })
+      check('TND-26i', 'un manager ne relie pas une personne à Linear', !!luE)
+    }
+    finally {
+      await service.from('profiles').update({ linear_user_id: null }).eq('id', IDS.emma)
+      await service.from('linear_users').delete().eq('workspace_id', ws.id)
+      await service.from('team_linear_teams').delete().eq('workspace_id', ws.id)
+      await service.from('linear_issues').delete().eq('workspace_id', ws.id)
+      await service.from('linear_teams').delete().eq('workspace_id', ws.id)
+      await service.from('workspaces').delete().eq('id', ws.id)
+    }
+  }
 }
 
 try {

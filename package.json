@@ -20,7 +20,8 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "seed:demo": "node --env-file=.env scripts/seed-demo.mjs",
-    "seed:demo:reset": "node --env-file=.env scripts/seed-demo.mjs --reset"
+    "seed:demo:reset": "node --env-file=.env scripts/seed-demo.mjs --reset",
+    "seed:demo:linear": "node --env-file=.env scripts/seed-demo.mjs --linear"
   },
   "dependencies": {
     "@linear/sdk": "^82.1.0",

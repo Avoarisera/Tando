@@ -10,6 +10,14 @@
  *
  *   node --env-file=.env scripts/seed-demo.mjs           # crée / recrée la démo
  *   node --env-file=.env scripts/seed-demo.mjs --reset   # supprime la démo uniquement
+ *   node --env-file=.env scripts/seed-demo.mjs --linear  # démo à partir des personnes de Linear (TND-26)
+ *
+ * --linear : une équipe « Démo · <équipe Linear> » par équipe Linear, avec les personnes
+ * Linear actives (chacune dans l'équipe où elle a le plus de tickets), reliées à leur
+ * compte Linear (profiles.linear_user_id) et l'équipe reliée à l'équipe Linear
+ * (team_linear_teams) : le manager voit la Vélocité de son équipe. Le manager est la
+ * personne qui a le plus de tickets. E-mails en @demo.tando.app : aucun mail ne part
+ * vers les vraies personnes.
  *
  * Variables : SUPABASE_URL + SUPABASE_SECRET_KEY (clé service, jamais côté navigateur).
  * Mot de passe des comptes de démo : DEMO_PASSWORD (défaut « Demo2026! »).
@@ -77,8 +85,48 @@ async function reset() {
   console.log(`Démo supprimée : ${ids.length} comptes.`)
 }
 
+/** Teams and people from Linear: active users, each in the team where they have the most tickets */
+async function teamsFromLinear() {
+  const since = new Date(Date.now() - 365 * 86_400_000).toISOString()
+  const lteams = await must(sb.from('linear_teams').select('id, name, workspace_id'), 'équipes Linear')
+  const users = await must(sb.from('linear_users').select('id, display_name, email, is_active').eq('is_active', true), 'personnes Linear')
+  const counts = new Map() // user → team → n
+  for (let from = 0; ; from += 1000) {
+    const page = await must(sb.from('linear_issues').select('assignee_id, team_id').not('assignee_id', 'is', null).gte('updated_at', since).order('id').range(from, from + 999), 'tickets')
+    for (const i of page) {
+      const m = counts.get(i.assignee_id) ?? new Map()
+      m.set(i.team_id, (m.get(i.team_id) ?? 0) + 1)
+      counts.set(i.assignee_id, m)
+    }
+    if (page.length < 1000) break
+  }
+  const cap = w => w.charAt(0).toUpperCase() + w.slice(1)
+  const teams = lteams.map(t => ({ name: t.name, linearTeamId: t.id, workspaceId: t.workspace_id, people: [] }))
+  for (const u of users) {
+    const m = counts.get(u.id)
+    if (!m) continue
+    const [teamId, n] = [...m].sort((a, b) => b[1] - a[1])[0]
+    const team = teams.find(t => t.linearTeamId === teamId)
+    if (!team) continue
+    const parts = (u.display_name ?? u.email ?? u.id).split(/[._\s-]+/).filter(Boolean)
+    team.people.push({ first: cap(parts[0] ?? 'Dev'), last: parts.slice(1).map(cap).join(' '), handle: slug(u.display_name ?? u.id), linearUserId: u.id, n })
+  }
+  for (const t of teams) {
+    t.people.sort((a, b) => b.n - a.n)
+    if (t.people[0]) t.people[0].isManager = true
+  }
+  return teams.filter(t => t.people.length)
+}
+
 async function create() {
   await reset()
+  const fromLinear = process.argv.includes('--linear')
+  const teamsDef = fromLinear ? await teamsFromLinear() : TEAMS.map(t => ({ name: t.name, people: t.people.map((raw) => {
+    const full = raw.replace('*', '')
+    const [first, ...rest] = full.split(' ')
+    return { first, last: rest.join(' '), isManager: raw.endsWith('*') }
+  }) }))
+  if (!teamsDef.length) throw new Error('Aucune personne Linear active avec des tickets : synchronisez Linear d’abord.')
 
   const { data: admin } = await sb.from('profiles').select('id').eq('role', 'admin').order('joined_at').limit(1).single()
   if (!admin) throw new Error('Aucun admin dans la base : créez-en un avant la démo.')
@@ -95,18 +143,16 @@ async function create() {
 
   // Comptes, profils, équipes
   const people = []
-  for (const team of TEAMS) {
+  for (const team of teamsDef) {
     const [tm] = await must(sb.from('teams').insert({ name: `${TEAM_PREFIX}${team.name}` }).select('id'), 'équipe')
-    for (const raw of team.people) {
-      const isManager = raw.endsWith('*')
-      const full = raw.replace('*', '')
-      const [first, ...rest] = full.split(' ')
-      const last = rest.join(' ')
-      const email = `${slug(first)}.${slug(last)}@${DOMAIN}`
+    if (team.linearTeamId) await must(sb.from('team_linear_teams').insert({ team_id: tm.id, workspace_id: team.workspaceId, linear_team_id: team.linearTeamId }), 'lien Linear')
+    for (const person of team.people) {
+      const { first, last, isManager = false } = person
+      const email = person.handle ? `${person.handle}@${DOMAIN}` : `${slug(first)}.${slug(last)}@${DOMAIN}`
       const { data: u, error } = await sb.auth.admin.createUser({ email, password: PASSWORD, email_confirm: true, user_metadata: { first_name: first, last_name: last } })
       if (error) throw new Error(`${email} : ${error.message}`)
       const joined = `${YEAR - 1 - Math.floor(rnd() * 3)}-${pad(1 + Math.floor(rnd() * 12))}-01`
-      await must(sb.from('profiles').upsert({ id: u.user.id, first_name: first, last_name: last, role: isManager ? 'manager' : 'employee', team_id: tm.id, joined_at: joined, country: 'FR' }), `profil ${email}`)
+      await must(sb.from('profiles').upsert({ id: u.user.id, first_name: first, last_name: last, role: isManager ? 'manager' : 'employee', team_id: tm.id, joined_at: joined, country: 'FR', ...(person.linearUserId ? { linear_user_id: person.linearUserId } : {}) }), `profil ${email}`)
       people.push({ id: u.user.id, first, last, email, team: team.name, teamId: tm.id, isManager })
     }
   }
@@ -179,7 +225,7 @@ async function create() {
   const doneIds = (done ?? []).map(r => r.id)
   for (let k = 0; k < doneIds.length; k += 100) await must(sb.from('notifications').delete().in('request_id', doneIds.slice(k, k + 100)), 'notifications')
 
-  console.log(`Démo créée : ${people.length} personnes, ${TEAMS.length} équipes, ${ok}/${reqs.length} demandes.`)
+  console.log(`Démo créée : ${people.length} personnes, ${teamsDef.length} équipes, ${ok}/${reqs.length} demandes.`)
   console.log(`Connexion : <prénom>.<nom>@${DOMAIN} — managers : ${people.filter(p => p.isManager).map(p => p.email).join(', ')}`)
 }
 

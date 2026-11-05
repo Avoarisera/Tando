@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TicketRow } from '~/components/velocite/TicketsTable.vue'
-definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'admin-only' })
+definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'velocity-access' })
 
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))

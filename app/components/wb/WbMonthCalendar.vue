@@ -1,9 +1,9 @@
 <script setup lang="ts">
 export type BarState = 'pending' | 'approved' | 'rejected' | 'cancel_requested'
-export interface CalBar { id: string, from: string, to: string, who: string, type?: string, color: string, pending?: boolean, /** own requests only: shown with their status */ state?: BarState }
+export interface CalBar { id: string, from: string, to: string, who: string, type?: string, color: string, pending?: boolean, /** own requests only: shown with their status */ state?: BarState, /** a request I can approve (manager / admin, TND-25) */ review?: boolean }
 
-const props = withDefaults(defineProps<{ month: string, events: CalBar[], today: string, holidays?: Record<string, string> }>(), { holidays: () => ({}) })
-defineEmits<{ day: [iso: string] }>()
+const props = withDefaults(defineProps<{ month: string, events: CalBar[], today: string, holidays?: Record<string, string>, /** bars are buttons that emit `open` (TND-25) */ interactive?: boolean, /** request to highlight */ focus?: string | null }>(), { holidays: () => ({}), focus: null })
+defineEmits<{ day: [iso: string], open: [id: string] }>()
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const labels = computed(() => weekdayLabels(tag.value))
@@ -32,6 +32,7 @@ const weeks = computed(() => {
 const short = computed(() => shortNames(props.events.map(b => b.who)))
 /** Status words on one's own bars (TND-23): pending, refused, cancellation asked */
 function stateLabel(bar: CalBar): string {
+  if (bar.review) return t('tnd25.toReview')
   if (bar.state === 'rejected') return t('tnd23.state.rejected')
   if (bar.state === 'cancel_requested') return t('tnd23.state.cancelRequested')
   if (bar.pending) return t('calendar.pendingShort')
@@ -54,16 +55,21 @@ function stateLabel(bar: CalBar): string {
         <span class="wb-num small">{{ +d.slice(8) }}</span>
         <span v-if="holidays[d]" class="wb-cal-h caption2">{{ holidays[d] }}</span>
       </button>
-      <div
+      <component
+        :is="interactive ? 'button' : 'div'"
         v-for="bar in week.bars"
         :key="bar.id"
-        :class="['wb-bar', { 'is-pend': bar.pending && bar.state !== 'rejected', 'is-rej': bar.state === 'rejected', 'is-canc': bar.state === 'cancel_requested' }]"
+        :type="interactive ? 'button' : undefined"
+        :data-id="bar.id"
+        :class="['wb-bar', { 'is-pend': bar.pending && bar.state !== 'rejected', 'is-rej': bar.state === 'rejected', 'is-canc': bar.state === 'cancel_requested', 'is-focus': focus === bar.id }]"
         :style="{ ...leaveVars(bar.color), left: `calc(${bar.s} * 100% / 7 + 3px)`, width: `calc(${bar.f - bar.s + 1} * 100% / 7 - 6px)`, '--l': bar.l }"
         :title="`${bar.who} · ${bar.type ?? ''}${stateLabel(bar) ? ` · ${stateLabel(bar)}` : ''}`"
+        :aria-label="interactive ? `${bar.who}, ${bar.type ?? ''}, ${formatPeriod(bar.from, bar.to, tag)}${stateLabel(bar) ? `, ${stateLabel(bar)}` : ''}` : undefined"
+        @click="interactive && $emit('open', bar.id)"
       >
         <WbAvatar :name="bar.who" :size="16" />
         <span>{{ short(bar.who) }}{{ stateLabel(bar) ? ` · ${stateLabel(bar)}` : '' }}</span>
-      </div>
+      </component>
     </div>
   </div>
 </template>

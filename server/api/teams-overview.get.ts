@@ -58,15 +58,13 @@ export default defineEventHandler(async (event): Promise<TeamOverview[]> => {
 
   const supabase = await serverSupabaseClient(event)
 
-  const { data: workspaces, error: wsError } = await supabase
-    .from('workspaces').select('id, name, selected_teams')
-  if (wsError) throw createError({ statusCode: 500, statusMessage: wsError.message })
-  if (!workspaces?.length) return []
-  const wsIds = workspaces.map(w => w.id)
-
-  const { data: teams, error: tError } = await supabase
-    .from('linear_teams').select('id, name, workspace_id').in('workspace_id', wsIds).order('name')
+  // Teams this user can see: admin → every (selected) team, manager → the Linear
+  // teams linked to their team (TND-26). Never reads workspaces (API key).
+  const { data: vt, error: tError } = await supabase.rpc('velocity_teams')
   if (tError) throw createError({ statusCode: 500, statusMessage: tError.message })
+  const visible = (vt ?? []) as { workspace_id: string, workspace_name: string, team_id: string, team_name: string | null }[]
+  if (!visible.length) return []
+  const wsIds = [...new Set(visible.map(v => v.workspace_id))]
 
   // Issues touched in the last 6 months, read page by page (the API caps a page at 1000 rows)
   const now = new Date()
@@ -77,6 +75,7 @@ export default defineEventHandler(async (event): Promise<TeamOverview[]> => {
       .from('linear_issues')
       .select('id, team_id, workspace_id, assignee_id, status, estimate, started_at, qa_started_at, completed_at, updated_at, created_at, labels')
       .in('workspace_id', wsIds)
+      .in('team_id', [...new Set(visible.map(v => v.team_id))])
       .gte('updated_at', since.toISOString())
       .order('id')
       .range(from, from + PAGE - 1)
@@ -91,11 +90,11 @@ export default defineEventHandler(async (event): Promise<TeamOverview[]> => {
   const cycleMonths = new Set(months.slice(-3))
 
   const result: TeamOverview[] = []
-  for (const ws of workspaces) {
-    const picked = Array.isArray(ws.selected_teams) ? (ws.selected_teams as { id: string }[]).map(t => t.id) : null
-    const wsTeams = (teams ?? []).filter(t => t.workspace_id === ws.id && (!picked?.length || picked.includes(t.id)))
-    for (const team of wsTeams) {
-      const mine = issues.filter(i => i.team_id === team.id)
+  {
+    for (const v of visible) {
+      const team = { id: v.team_id, name: v.team_name }
+      const ws = { id: v.workspace_id, name: v.workspace_name }
+      const mine = issues.filter(i => i.team_id === team.id && i.workspace_id === ws.id)
       const delivered = mine.filter(i => DEV_DELIVERED_STATES.includes(i.status ?? ''))
       const perMonth = new Map<string, number>(months.map(m => [m, 0]))
       const cycles: number[] = []

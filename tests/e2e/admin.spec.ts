@@ -41,6 +41,8 @@ test.describe('R5 — Access', () => {
     test(`S-R5-001: ${path} is admin-only (403 for employee and manager)`, async ({ page }) => {
       await signIn(page, ACCOUNTS.employee1, path)
       await expect(page.locator('body')).toContainText('403')
+      // TND-26: /dashboard is the manager's « Mon équipe » (their own team only)
+      if (path === '/dashboard') return
       await signIn(page, ACCOUNTS.manager, path)
       await expect(page.locator('body')).toContainText('403')
     })

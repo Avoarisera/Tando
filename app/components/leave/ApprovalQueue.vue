@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import type { LeaveRequestWithRelations } from '~/types/index'
-import type { PlanPerson } from '~/components/wb/WbPlanningGrid.vue'
 
 // Approval cards with their decisions: approve, refuse (confirmation modal),
 // and for the admin a bulk approval of the selected requests.
-const props = defineProps<{ items: LeaveRequestWithRelations[], isAdmin: boolean, bulk?: boolean, withPlanning?: boolean, /** cards side by side, rendered as you scroll */ grid?: boolean }>()
+const props = defineProps<{ items: LeaveRequestWithRelations[], isAdmin: boolean, bulk?: boolean, /** "Voir dans le planning" on each card (TND-25) */ planLink?: boolean, /** cards side by side, rendered as you scroll */ grid?: boolean }>()
 
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
-const { requests, balanceAfter, decide, approveException } = useApprovals()
+const { balanceAfter, decide, approveException } = useApprovals()
 const { events } = useCalendar()
 const { members } = useTeamMembers()
 const toast = useToast()
+/** A decision was made on this request (the calendar closes its panel and reloads) */
+const emit = defineEmits<{ decided: [id: string] }>()
 
 /** Managers of the requester's team (not the requester): who should validate at step 1 */
 function managersOf(r: LeaveRequestWithRelations) {
@@ -22,16 +23,6 @@ function managersOf(r: LeaveRequestWithRelations) {
 function teamSize(r: LeaveRequestWithRelations) {
   return members.value.filter(m => m.role !== 'admin' && m.team_id && m.team_id === r.profiles.team_id).length
 }
-/** Dense planning for managers: approved leave plain, pending hatched */
-const planning = computed<PlanPerson[]>(() => members.value
-  .filter(m => m.role !== 'admin')
-  .map(m => ({
-    id: m.id,
-    name: fullName(m),
-    spans: requests.value
-      .filter(r => r.user_id === m.id && r.status !== 'rejected')
-      .map(r => ({ id: r.id, from: r.start_date, to: r.end_date, label: r.leave_types?.name ?? '', color: r.leave_types?.color ?? 'gray', pending: r.status !== 'approved' })),
-  })))
 
 // Decisions
 const busy = ref<string | null>(null)
@@ -48,6 +39,7 @@ async function approve(r: LeaveRequestWithRelations) {
     await decide(r.id, 'approve')
     toast.add(wasCancellation ? t('approvals.cancelAccepted', { who: r.profiles.first_name }) : t('approvals.approved', { who: r.profiles.first_name }))
     selected.value = selected.value.filter(id => id !== r.id)
+    emit('decided', r.id)
   }
   catch (e) {
     toast.add(e instanceof Error ? e.message : t('approvals.error'), 'error')
@@ -70,6 +62,7 @@ async function confirmRefuse() {
     await decide(r.id, 'reject', refusingCancellation.value ? undefined : reason.value.trim())
     toast.add(refusingCancellation.value ? t('approvals.cancelRefused', { who: r.profiles.first_name }) : t('approvals.refused', { who: r.profiles.first_name }))
     selected.value = selected.value.filter(id => id !== r.id)
+    emit('decided', r.id)
   }
   catch (e) {
     toast.add(e instanceof Error ? e.message : t('approvals.error'), 'error')
@@ -99,6 +92,7 @@ async function confirmException() {
     toast.add(t('tnd23.approved', { who: r.profiles.first_name }))
     selected.value = selected.value.filter(id => id !== r.id)
     excepting.value = null
+    emit('decided', r.id)
   }
   catch (e) {
     exError.value = e instanceof Error ? e.message : t('approvals.error')
@@ -183,7 +177,7 @@ async function approveSelected() {
       :selectable="bulk && isAdmin"
       :selected="selected.includes(r.id)"
       :busy="busy === r.id"
-      :planning="withPlanning ? planning : undefined"
+      :plan-link="planLink"
       @update:selected="toggle(r.id, $event)"
       @approve="approve(r)"
       @refuse="refusing = r"
