@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "../wb/tokens.css";
 @import "../wb/bundle.css";
+@import "./wb-overrides.css";
 
 body { margin: 0; background: var(--bg); }
 

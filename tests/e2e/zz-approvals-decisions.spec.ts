@@ -35,33 +35,37 @@ async function signIn(page: Page, account: { email: string; password: string }, 
 
 // Mutating tests: keep last (they change the seed)
 test.describe('R4 — Decisions', () => {
+  const EMMA = `${CARD}[data-id="00000000-0000-0000-0000-000000000041"]`
+  const EDDY = `${CARD}[data-id="00000000-0000-0000-0000-000000000042"]`
+
   test('T-R4-020: manager approves Emma → toast, card gone, admin then sees it at level 2', async ({ page }) => {
     await signIn(page, ACCOUNTS.manager)
-    // The seeded pending request (other specs may have added more for Emma)
-    const seeded = `${CARD}[data-id="00000000-0000-0000-0000-000000000041"]`
-    const before = await page.locator(CARD).count()
-    await page.locator(seeded).getByRole('button', { name: 'Approuver' }).click()
+    await expect(page.locator(EMMA)).toBeVisible()
+    await page.locator(EMMA).getByRole('button', { name: 'Approuver' }).click()
     await expect(page.getByText('Demande de Emma approuvée')).toBeVisible()
-    await expect(page.locator(seeded)).toHaveCount(0)
-    await expect(page.locator(CARD)).toHaveCount(before - 1)
+    await expect(page.locator(EMMA)).toHaveCount(0)
 
     await signIn(page, ACCOUNTS.admin)
-    await expect(page.locator(seeded)).toContainText('Niveau 2')
+    await expect(page.locator(EMMA)).toContainText('Niveau 2')
   })
 
-  test('T-R4-021: admin refuses Eddy → status Refusé in Traitées', async ({ page }) => {
+  test('T-R4-021: admin refuses Eddy with a reason (mandatory since R8)', async ({ page }) => {
     await signIn(page, ACCOUNTS.admin)
-    await page.locator(CARD, { hasText: 'Eddy' }).getByRole('button', { name: 'Refuser' }).click()
-    await page.locator('.wb-modal').getByRole('button', { name: 'Refuser la demande' }).click()
+    await page.locator(EDDY).getByRole('button', { name: 'Refuser' }).click()
+    const modal = page.locator('.wb-modal')
+    await modal.locator('textarea').fill('Solde RTT insuffisant')
+    await modal.getByRole('button', { name: 'Refuser la demande' }).click()
     await expect(page.getByText('Demande de Eddy refusée')).toBeVisible()
-    await expect(page.locator(CARD, { hasText: 'Eddy' })).toHaveCount(0)
+    await expect(page.locator(EDDY)).toHaveCount(0)
   })
 
   test('T-R4-022: admin approves the selection', async ({ page }) => {
     await signIn(page, ACCOUNTS.admin)
+    await expect(page.locator(EMMA)).toBeVisible()
     await page.getByText('Tout sélectionner').click()
     await page.getByRole('button', { name: 'Approuver la sélection' }).click()
     await expect(page.getByText(/demandes? approuvées?/)).toBeVisible()
-    await expect(page.locator(CARD)).toHaveCount(0)
+    // requests over balance stay with an error toast; Emma's seeded one goes through
+    await expect(page.locator(EMMA)).toHaveCount(0)
   })
 })

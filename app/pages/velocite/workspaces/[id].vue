@@ -31,7 +31,7 @@ const teamInitial = (name: string | null) => (name ?? '?').charAt(0).toUpperCase
   <div class="wb-page wb-stack">
     <p class="wb-mut2">{{ t('velocityA.teamsIntro') }}</p>
 
-    <WbErrorState v-if="error" :message="error" @retry="fetchTeams(workspaceId)" />
+    <WbErrorState v-if="error" :message="readableApiError(error)" @retry="fetchTeams(workspaceId)" />
     <WbSkeleton v-else-if="isLoading && !teams.length" variant="table" :count="4" />
     <div v-else-if="teams.length === 0" class="wb-card">
       <WbEmptyState art="link" :title="t('velocityA.noTeamsTitle')">{{ t('velocityA.noTeamsText') }}</WbEmptyState>

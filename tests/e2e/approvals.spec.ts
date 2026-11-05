@@ -33,52 +33,61 @@ async function signIn(page: Page, account: { email: string; password: string }, 
   await waitForHydration(page)
 }
 
+// The seed's two open requests. Other specs add requests to the same local
+// database, so tests target these two by id and count with "at least".
+const EDDY = `${CARD}[data-id="00000000-0000-0000-0000-000000000042"]`   // manager_approved, RTT
+const EMMA = `${CARD}[data-id="00000000-0000-0000-0000-000000000041"]`   // pending, Congé payé
+
 test.describe('R4 — Admin', () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page, ACCOUNTS.admin)
   })
 
-  test('T-R4-001: shows the 2 open requests with their level, and the sidebar count', async ({ page }) => {
-    await expect(page.locator(CARD)).toHaveCount(2)
-    await expect(page.locator(CARD, { hasText: 'Eddy' })).toContainText('Niveau 2')
-    await expect(page.locator(CARD, { hasText: 'Emma' })).toContainText('Niveau 1')
-    await expect(page.locator(SIDE_COUNT)).toHaveText('2')
+  test('T-R4-001: shows the open requests with their level, and the sidebar count', async ({ page }) => {
+    await expect(page.locator(EDDY)).toContainText('Niveau 2')
+    await expect(page.locator(EMMA)).toContainText('Niveau 1')
+    const n = await page.locator(CARD).count()
+    expect(n).toBeGreaterThanOrEqual(2)
+    await expect(page.locator(SIDE_COUNT)).toHaveText(String(n))
   })
 
   test('T-R4-002: a level-1 request warns that the manager is skipped', async ({ page }) => {
-    await expect(page.locator(CARD, { hasText: 'Emma' })).toContainText('Vous allez approuver sans l’avis du manager')
-    await expect(page.locator(CARD, { hasText: 'Eddy' })).not.toContainText('sans l’avis du manager')
+    await expect(page.locator(EMMA)).toContainText('Vous allez approuver sans l’avis du manager')
+    await expect(page.locator(EDDY)).not.toContainText('sans l’avis du manager')
   })
 
   test('T-R4-003: impact shows overlaps, presence and the balance after (negative in danger)', async ({ page }) => {
-    const eddy = page.locator(CARD, { hasText: 'Eddy' })
+    const eddy = page.locator(EDDY)
     await expect(eddy).toContainText('Impact sur l’équipe')
     await expect(eddy).toContainText(/Présents le .+ : \d+ \/ \d+/)
     await expect(eddy.locator('li.wb-c-danger', { hasText: 'Solde après' })).toBeVisible()
   })
 
   test('T-R4-004: level and search filters narrow the list; reset restores it', async ({ page }) => {
+    await expect(page.locator(EMMA)).toBeVisible()
+    const all = await page.locator(CARD).count()
     await page.getByRole('button', { name: /Niveau 2/ }).click()
-    await expect(page.locator(CARD)).toHaveCount(1)
-    await expect(page.locator(CARD)).toContainText('Eddy')
+    await expect(page.locator(EDDY)).toBeVisible()
+    await expect(page.locator(EMMA)).toHaveCount(0)
     await page.getByRole('button', { name: 'Réinitialiser' }).click()
-    await expect(page.locator(CARD)).toHaveCount(2)
+    await expect(page.locator(CARD)).toHaveCount(all)
     await page.getByPlaceholder('Rechercher une personne').fill('emma')
-    await expect(page.locator(CARD)).toHaveCount(1)
+    await expect(page.locator(EMMA)).toBeVisible()
+    await expect(page.locator(EDDY)).toHaveCount(0)
     await page.getByPlaceholder('Rechercher une personne').fill('zzz')
     await expect(page.getByText('Aucune demande ne correspond à ces filtres.')).toBeVisible()
   })
 
   test('T-R4-005: "Traitées" lists decided requests with their status', async ({ page }) => {
     await page.getByRole('tab', { name: /Traitées/ }).click()
-    await expect(page.locator('.wb-list li', { hasText: 'Approuvé' }).first()).toBeVisible()
-    await expect(page.locator('.wb-list li', { hasText: 'Refusé' }).first()).toBeVisible()
+    await expect(page.locator('.wb-dt tbody tr', { hasText: 'Approuvé' }).first()).toBeVisible()
+    await expect(page.locator('.wb-dt tbody tr', { hasText: 'Refusé' }).first()).toBeVisible()
   })
 
   test('T-R4-006: refusing asks for confirmation; Annuler sends nothing', async ({ page }) => {
     let mutated = false
     page.on('request', (r) => { if (r.url().includes('review_leave_request')) mutated = true })
-    await page.locator(CARD, { hasText: 'Eddy' }).getByRole('button', { name: 'Refuser' }).click()
+    await page.locator(EDDY).getByRole('button', { name: 'Refuser' }).click()
     const modal = page.locator('.wb-modal[role="dialog"]')
     await expect(modal).toContainText('Refuser la demande de Eddy Employé ?')
     await expect(modal.getByRole('button', { name: 'Refuser la demande' })).toHaveClass(/wb-btn-danger/)
@@ -88,10 +97,12 @@ test.describe('R4 — Admin', () => {
   })
 
   test('T-R4-007: select all toggles the bulk action', async ({ page }) => {
+    await expect(page.locator(EMMA)).toBeVisible()
+    const n = await page.locator(CARD).count()
     const bulk = page.getByRole('button', { name: 'Approuver la sélection' })
     await expect(bulk).toBeDisabled()
     await page.getByText('Tout sélectionner').click()
-    await expect(page.getByText('2 demandes sélectionnées')).toBeVisible()
+    await expect(page.getByText(`${n} demandes sélectionnées`)).toBeVisible()
     await expect(bulk).toBeEnabled()
   })
 
@@ -105,15 +116,22 @@ test.describe('R4 — Admin', () => {
 test.describe('R4 — Manager', () => {
   test('T-R4-010: manager only sees pending requests of the team, with the team planning', async ({ page }) => {
     await signIn(page, ACCOUNTS.manager)
-    await expect(page.locator(CARD)).toHaveCount(1)
-    await expect(page.locator(CARD)).toContainText('Emma')
-    await expect(page.locator(`${CARD} .wb-plan`)).toBeVisible()
+    await expect(page.locator(EMMA)).toBeVisible()
+    await expect(page.locator(EDDY)).toHaveCount(0) // already validated by the manager
+    await expect(page.locator(CARD, { hasText: 'Niveau' })).toHaveCount(0)
+    // The team planning is folded by default to keep the queue compact
+    await expect(page.locator(`${EMMA} .wb-plan`)).toHaveCount(0)
+    const toggle = page.locator(`${EMMA} button[aria-expanded]`)
+    await expect(toggle).toHaveText(/Voir le planning|v2\.showPlanning/) // label resolves once the v2 strings are merged
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.locator(`${EMMA} .wb-plan`)).toBeVisible()
     await expect(page.getByPlaceholder('Rechercher une personne')).toHaveCount(0)
   })
 
   test('T-R4-011: manager home shows the queue with "Voir tout"', async ({ page }) => {
     await signIn(page, ACCOUNTS.manager, '/')
-    await expect(page.getByRole('heading', { name: 'À valider (1)' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^À valider \(\d+\)$/ })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Voir tout' })).toHaveAttribute('href', '/approvals')
     await expect(page.getByText('Vos demandes partent directement à l’admin.')).toBeVisible()
   })

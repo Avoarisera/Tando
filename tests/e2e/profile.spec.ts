@@ -40,14 +40,14 @@ test.describe('R3 — Identité', () => {
     await goToProfile(page)
     await expect(page.locator('header.wb-head h1')).toHaveText('Profil')
     await expect(page.getByText('Emma Employée').first()).toBeVisible()
-    await expect(page.getByText('Employé · Équipe A')).toBeVisible()
+    await expect(page.getByText('Employé · Équipe A · France')).toBeVisible()
     await expect(page.getByText('employee1@waka.com')).toBeVisible()
   })
 
   test('T-R3-061: admin is shown as Administrateur, whole company', async ({ page }) => {
     await signIn(page, ACCOUNTS.admin)
     await goToProfile(page)
-    await expect(page.getByText('Administrateur · Toute l’entreprise')).toBeVisible()
+    await expect(page.getByText('Administrateur · Toute l’entreprise · France')).toBeVisible()
   })
 })
 

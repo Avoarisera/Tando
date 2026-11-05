@@ -68,7 +68,7 @@ function resetFilters() {
   <div class="wb-page wb-stack">
     <WbTabs v-model="tab" :tabs="tabs" :label="t('nav.approvals')" />
 
-    <div v-if="isAdmin" class="wb-fb">
+    <div v-if="isAdmin" class="wb-fb wb-ap-toolbar">
       <div class="wb-fb-s"><WbInput v-model="search" icon="search" type="search" :aria-label="t('approvals.search')" :placeholder="t('approvals.search')" /></div>
       <div class="wb-fb-c">
         <WbFilterChip v-model="level2" :count="level2Count">{{ t('approvals.level2') }}</WbFilterChip>
@@ -92,17 +92,37 @@ function resetFilters() {
 
     <template v-else>
       <p v-if="!shownDone.length" class="wb-card wb-card-b wb-mut">{{ t('approvals.noneDone') }}</p>
-      <ul v-else class="wb-card wb-card-b wb-list" role="tabpanel">
-        <li v-for="r in shownDone" :key="r.id">
-          <WbAvatar :name="fullName(r.profiles)" />
-          <span class="wb-grow">
-            <b class="small">{{ fullName(r.profiles) }}</b><br>
-            <span class="small wb-mut2">{{ r.leave_types?.name }} · {{ formatPeriod(r.start_date, r.end_date, tag) }}</span>
-          </span>
-          <WbStatusBadge :status="r.status" />
-        </li>
-      </ul>
+      <WbCard v-else :pad="false" role="tabpanel">
+        <div class="wb-scroll wb-dt">
+          <table>
+            <caption class="wb-sr">{{ t('approvals.tabDone') }}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{{ t('dashboard.csv.person') }}</th>
+                <th scope="col">{{ t('calendar.type') }}</th>
+                <th scope="col">{{ t('v2.period') }}</th>
+                <th scope="col" class="is-r">{{ t('dashboard.csv.days') }}</th>
+                <th scope="col">{{ t('rules.status') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in shownDone" :key="r.id">
+                <td><span class="wb-cp"><WbAvatar :name="fullName(r.profiles)" :size="28" /><b class="small">{{ fullName(r.profiles) }}</b></span></td>
+                <td><WbTypeBadge :name="r.leave_types?.name ?? ''" :color="r.leave_types?.color" /></td>
+                <td class="wb-num">{{ formatPeriod(r.start_date, r.end_date, tag) }}</td>
+                <td class="is-r wb-num">{{ fmtDays(Number(r.days_count), tag) }}</td>
+                <td><WbStatusBadge :status="r.status" /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </WbCard>
     </template>
 
   </div>
 </template>
+
+<style scoped>
+.wb-ap-toolbar { padding: var(--space-2) var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.wb-ap-toolbar :deep(.wb-btn) { margin: 0; }
+</style>

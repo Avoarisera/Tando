@@ -10,13 +10,15 @@ const toast = useToast()
 const route = useRoute()
 const router = useRouter()
 
-const tab = computed<'types' | 'balances'>({
-  get: () => (route.query.tab === 'balances' ? 'balances' : 'types'),
+type RulesTab = 'types' | 'balances' | 'holidays'
+const tab = computed<RulesTab>({
+  get: () => (route.query.tab === 'balances' || route.query.tab === 'holidays' ? route.query.tab : 'types'),
   set: (v) => { router.replace({ query: { ...route.query, tab: v } }) },
 })
 const tabs = computed(() => [
   { id: 'types', label: t('rules.tabTypes'), count: leaveTypes.value.length },
   { id: 'balances', label: t('rules.tabBalances') },
+  { id: 'holidays', label: t('rules.tabHolidays') },
 ])
 
 onMounted(() => fetchLeaveTypes(false))
@@ -92,6 +94,54 @@ async function toggle(type: LeaveType) {
   }
 }
 
+// ── Public holidays (lot R8) ─────────────────────────────────────────────────
+const { all: holidays, fetchAll: fetchHolidays, add: addHoliday, remove: removeHoliday } = useHolidays()
+const hCountry = ref<string>('FR')
+const hYear = ref(String(new Date().getFullYear()))
+const countryOptions = computed(() => COUNTRIES.map(c => ({ value: c, label: t(`countries.${c}`) })))
+const hYearOptions = computed(() => {
+  const y = new Date().getFullYear()
+  return [y - 1, y, y + 1].map(v => ({ value: String(v), label: String(v) }))
+})
+const hLoading = ref(false)
+const hError = ref<string | null>(null)
+async function loadHolidays() {
+  hLoading.value = true
+  hError.value = null
+  try { await fetchHolidays(hCountry.value, Number(hYear.value)) }
+  catch (e) { hError.value = e instanceof Error ? e.message : String(e) }
+  finally { hLoading.value = false }
+}
+watch([tab, hCountry, hYear], ([tb]) => { if (tb === 'holidays') loadHolidays() }, { immediate: true })
+const newDay = ref('')
+const newName = ref('')
+const hFormError = ref<string | null>(null)
+async function saveHoliday() {
+  if (!newDay.value || !newName.value.trim()) {
+    hFormError.value = t('rules.holidayRequired')
+    return
+  }
+  hFormError.value = null
+  try {
+    await addHoliday(hCountry.value, newDay.value, newName.value.trim())
+    toast.add(t('rules.holidayAdded'))
+    newDay.value = ''
+    newName.value = ''
+    await loadHolidays()
+  }
+  catch (e) { hFormError.value = e instanceof Error ? e.message : t('rules.saveError') }
+}
+async function deleteHoliday(day: string) {
+  try {
+    await removeHoliday(hCountry.value, day)
+    toast.add(t('rules.holidayRemoved'))
+    await loadHolidays()
+  }
+  catch (e) { toast.add(e instanceof Error ? e.message : t('rules.saveError'), 'error') }
+}
+const { locale } = useI18n()
+const htag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
+
 // ── Balances ─────────────────────────────────────────────────────────────────
 const year = ref(new Date().getFullYear())
 const typeId = ref('')
@@ -166,13 +216,14 @@ async function applyAll() {
 
 <template>
   <div class="wb-page wb-stack">
-    <div class="wb-row-b wb-wrap">
-      <WbTabs v-model="tab" :tabs="tabs" :label="t('nav.rules')" />
-      <WbButton v-if="tab === 'types'" icon="plus" @click="startCreate">{{ t('rules.addType') }}</WbButton>
-    </div>
+    <WbTabs v-model="tab" :tabs="tabs" :label="t('nav.rules')" />
 
     <!-- Types -->
     <template v-if="tab === 'types'">
+      <div class="wb-adm-bar">
+        <span class="small wb-mut2">{{ t('v2.typesHint') }}</span>
+        <WbButton size="sm" icon="plus" @click="startCreate">{{ t('rules.addType') }}</WbButton>
+      </div>
       <WbBanner v-if="allInactive" tone="warning">{{ t('rules.allInactive') }}</WbBanner>
       <WbErrorState v-if="error" :message="error" @retry="fetchLeaveTypes(false)" />
       <WbSkeleton v-else-if="isLoading && !leaveTypes.length" variant="table" />
@@ -215,24 +266,59 @@ async function applyAll() {
             <WbInput id="type-name" v-model="formName" :label="t('rules.name')" :error="formError" maxlength="60" />
             <WbColorPicker v-model="formColor" :label="t('rules.color')" />
             <div class="wb-row" style="gap: 8px">
-              <WbButton type="submit" :loading="isSaving">{{ t('rules.save') }}</WbButton>
-              <WbButton variant="ghost" @click="stopEdit">{{ t('approvals.cancel') }}</WbButton>
+              <WbButton type="submit" size="sm" :loading="isSaving">{{ t('rules.save') }}</WbButton>
+              <WbButton variant="ghost" size="sm" @click="stopEdit">{{ t('approvals.cancel') }}</WbButton>
             </div>
           </form>
         </WbCard>
       </div>
     </template>
 
+    <!-- Public holidays -->
+    <template v-else-if="tab === 'holidays'">
+      <div class="wb-adm-bar">
+        <div class="wb-row wb-wrap">
+          <WbSelect v-model="hCountry" :options="countryOptions" :aria-label="t('rules.country')" />
+          <WbSelect v-model="hYear" :options="hYearOptions" :aria-label="t('rules.year')" />
+        </div>
+        <form class="wb-row wb-wrap" novalidate @submit.prevent="saveHoliday">
+          <WbInput id="holiday-day" v-model="newDay" type="date" :aria-label="t('rules.holidayDate')" />
+          <WbInput id="holiday-name" v-model="newName" :aria-label="t('rules.holidayName')" :placeholder="t('rules.holidayName')" maxlength="80" />
+          <WbButton type="submit" size="sm" icon="plus">{{ t('rules.addHoliday') }}</WbButton>
+        </form>
+      </div>
+      <WbBanner v-if="hFormError" tone="danger">{{ hFormError }}</WbBanner>
+      <p class="small wb-mut2">{{ t('rules.holidaysHint') }}</p>
+      <WbErrorState v-if="hError" :message="hError" @retry="loadHolidays" />
+      <WbSkeleton v-else-if="hLoading && !holidays.length" variant="table" />
+      <p v-else-if="!holidays.length" class="wb-card wb-card-b wb-mut">{{ t('rules.noHolidays') }}</p>
+      <WbCard v-else :pad="false">
+        <div class="wb-scroll wb-dt">
+          <table>
+            <caption class="wb-sr">{{ t('rules.tabHolidays') }}</caption>
+            <thead><tr><th scope="col">{{ t('rules.holidayDate') }}</th><th scope="col">{{ t('rules.holidayName') }}</th><th scope="col" class="is-r">{{ t('rules.actions') }}</th></tr></thead>
+            <tbody>
+              <tr v-for="h in holidays" :key="h.day" :data-day="h.day">
+                <td class="wb-num">{{ fmtDate(h.day, htag, { weekday: 'short', day: 'numeric', month: 'long' }) }}</td>
+                <td>{{ h.name }}</td>
+                <td class="is-r"><WbButton variant="ghost" size="sm" icon="trash-2" @click="deleteHoliday(h.day)">{{ t('rules.remove') }}</WbButton></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </WbCard>
+    </template>
+
     <!-- Balances -->
     <template v-else>
-      <div class="wb-row-b wb-wrap">
+      <div class="wb-adm-bar">
         <div class="wb-row wb-wrap">
           <WbSelect v-model="yearModel" :options="yearOptions" :aria-label="t('rules.year')" />
           <WbSelect v-model="typeId" :options="typeOptions" :aria-label="t('calendar.type')" />
         </div>
         <form class="wb-row wb-wrap" novalidate @submit.prevent="applyAll">
           <WbInput v-model="bulk" inputmode="numeric" :aria-label="t('rules.applyAllDays')" :placeholder="t('rules.applyAllDays')" :error="bulkError" style="width: 140px" />
-          <WbButton type="submit" variant="secondary" :loading="bulkSaving" :disabled="!typeId">{{ t('rules.applyAll') }}</WbButton>
+          <WbButton type="submit" size="sm" variant="secondary" :loading="bulkSaving" :disabled="!typeId">{{ t('rules.applyAll') }}</WbButton>
         </form>
       </div>
 
@@ -276,6 +362,10 @@ async function applyAll() {
 </template>
 
 <style scoped>
+/* Toolbar row: filters on the left, primary action on the right */
+.wb-adm-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.wb-adm-bar :deep(.wb-btn) { margin: 0; }
+.wb-adm-bar :deep(.wb-row) { gap: var(--space-2); }
 .wb-edit-n { all: unset; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; padding: 4px 8px; border-radius: var(--radius-sm); }
 .wb-edit-n:hover { background: var(--surface-2); }
 .wb-edit-n:focus-visible { outline: 2px solid var(--focus); }

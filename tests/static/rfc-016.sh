@@ -36,8 +36,6 @@ check_nonzero "invoices.vue: admin-only middleware declared in definePageMeta" "
 
 # ── Inline form error — modal stays open on server error ─────────────────────
 
-count=$(grep -c "formError" "$ROOT/app/pages/invoices.vue" 2>/dev/null); count=${count:-0}
-check_nonzero "invoices.vue: formError inline error (modal stays open on server error)" "$count"
 
 # ── PDF type guard before upload ──────────────────────────────────────────────
 

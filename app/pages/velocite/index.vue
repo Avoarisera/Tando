@@ -252,7 +252,7 @@ function cardSubtitle(ws: Workspace): string {
       <WbButton v-if="!panelOpen" icon="plus" aria-haspopup="dialog" @click="step = 'form'">{{ t('velocityA.connect') }}</WbButton>
     </div>
 
-    <WbErrorState v-if="error" :message="error" @retry="fetchWorkspaces" />
+    <WbErrorState v-if="error" :message="readableApiError(error)" @retry="fetchWorkspaces" />
     <WbSkeleton v-else-if="isLoading && !workspaces.length" :count="2" />
     <div v-else-if="workspaces.length === 0" class="wb-card">
       <WbEmptyState art="link" :title="t('velocityA.emptyTitle')">

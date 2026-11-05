@@ -10,7 +10,7 @@ withDefaults(defineProps<{ title: string, info?: string, avg?: string, legend?: 
   <figure class="wb-cf">
     <figcaption>
       <div class="wb-row">
-        <span class="h3">{{ title }}</span>
+        <span class="small wb-mut2 wb-cf-t">{{ title }}</span>
         <span v-if="info" class="wb-info" :title="info" tabindex="0" role="img" :aria-label="info"><WbIcon name="info" :size="14" /></span>
       </div>
       <span v-if="avg" class="wb-avg-box small">{{ avg }}</span>
@@ -21,3 +21,10 @@ withDefaults(defineProps<{ title: string, info?: string, avg?: string, legend?: 
     </ul>
   </figure>
 </template>
+
+<style scoped>
+/* Inside a titled card the frame title is a light sub-heading, not a second title */
+.wb-cf { gap: var(--space-2); }
+.wb-cf-t { font-weight: 600; }
+.wb-cf :deep(.wb-leg) { margin: 0; }
+</style>

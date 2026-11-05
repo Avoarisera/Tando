@@ -11,6 +11,9 @@ const { events, isLoading, error, fetchEvents } = useCalendar()
 const { members, fetchMembers } = useTeamMembers()
 const { teams, fetchTeams } = useTeams()
 const { leaveTypes, fetchLeaveTypes } = useLeaveTypes()
+const { profile } = useCurrentUser()
+const { fetchCountry, holidaysOf } = useHolidays()
+const holidays = computed(() => holidaysOf(profile.value?.country ?? 'FR'))
 
 const today = todayIso()
 const mode = ref<'month' | 'plan' | 'list'>('month')
@@ -22,7 +25,7 @@ const teamFilter = ref('all')
 
 async function load() {
   await loadProfile()
-  await Promise.all([fetchEvents(), fetchMembers(), fetchLeaveTypes(), isAdmin.value ? fetchTeams() : Promise.resolve()])
+  await Promise.all([fetchEvents(), fetchMembers(), fetchLeaveTypes(), isAdmin.value ? fetchTeams() : Promise.resolve(), fetchCountry(profile.value?.country ?? 'FR')])
 }
 onMounted(load)
 
@@ -105,65 +108,84 @@ function goToday() {
 </script>
 
 <template>
-  <div class="wb-page wb-stack">
-    <div class="wb-row-b wb-wrap">
-      <WbSegmented v-model="mode" :options="modes" :label="t('calendar.view')" />
-      <div class="wb-row wb-wrap">
-        <WbFilterChip v-model="onlyMe">{{ t('calendar.onlyMe') }}</WbFilterChip>
-        <WbSelect v-if="isAdmin" v-model="teamFilter" :options="teamOptions" :aria-label="t('calendar.team')" />
-        <WbSelect v-model="typeFilter" :options="typeOptions" :aria-label="t('calendar.type')" />
-      </div>
-    </div>
+  <div class="wb-page">
+    <section class="wb-card wb-cal-card">
+      <!-- One toolbar: period navigation on the left, view and filters on the right -->
+      <header class="wb-card-h wb-cal-tb">
+        <div class="wb-row wb-cal-nav">
+          <WbButton variant="ghost" size="sm" icon="chevron-left" icon-only @click="prev">{{ t('picker.prev') }}</WbButton>
+          <WbButton variant="secondary" size="sm" @click="goToday">{{ t('calendar.today') }}</WbButton>
+          <WbButton variant="ghost" size="sm" icon="chevron-right" icon-only @click="next">{{ t('picker.next') }}</WbButton>
+          <h2 class="h2">{{ mode === 'plan' ? planTitle : monthTitle }}</h2>
+        </div>
+        <div class="wb-row wb-wrap wb-cal-filters">
+          <WbSegmented v-model="mode" :options="modes" :label="t('calendar.view')" />
+          <WbFilterChip v-model="onlyMe">{{ t('calendar.onlyMe') }}</WbFilterChip>
+          <WbSelect v-if="isAdmin" v-model="teamFilter" :options="teamOptions" :aria-label="t('calendar.team')" />
+          <WbSelect v-model="typeFilter" :options="typeOptions" :aria-label="t('calendar.type')" />
+        </div>
+      </header>
 
-    <div class="wb-card wb-card-b wb-row wb-wrap" style="gap: 12px">
-      <span class="h3">{{ t('calendar.awayToday') }}</span>
-      <template v-if="absentToday.length">
-        <span v-for="e in absentToday" :key="e.id" class="wb-row" style="gap: 6px">
-          <WbAvatar :name="e.employeeName" :size="28" /><span class="small">{{ e.employeeName.split(' ')[0] }} · {{ e.leaveTypeName }}</span>
-        </span>
-      </template>
-      <span v-else class="small wb-mut">{{ t('calendar.nobodyAway') }}</span>
-    </div>
-
-    <WbErrorState v-if="error" :message="error" @retry="load" />
-    <WbSkeleton v-else-if="isLoading && !events.length" variant="table" />
-
-    <template v-else>
-      <WbCard :title="mode === 'plan' ? planTitle : monthTitle">
-        <template #action>
-          <div class="wb-row" style="gap: 4px">
-            <WbButton variant="ghost" size="sm" icon="chevron-left" icon-only @click="prev">{{ t('picker.prev') }}</WbButton>
-            <WbButton variant="secondary" size="sm" @click="goToday">{{ t('calendar.today') }}</WbButton>
-            <WbButton variant="ghost" size="sm" icon="chevron-right" icon-only @click="next">{{ t('picker.next') }}</WbButton>
-          </div>
+      <div class="wb-cal-away small">
+        <b>{{ t('calendar.awayToday') }}</b>
+        <template v-if="absentToday.length">
+          <span v-for="e in absentToday" :key="e.id" class="wb-cal-away-p">
+            <WbAvatar :name="e.employeeName" :size="22" />{{ e.employeeName.split(' ')[0] }} · {{ e.leaveTypeName }}
+          </span>
         </template>
+        <span v-else class="wb-mut">{{ t('calendar.nobodyAway') }}</span>
+      </div>
 
-        <WbMonthCalendar v-if="mode === 'month'" :month="month" :events="bars" :today="today" />
-        <WbPlanningGrid v-else-if="mode === 'plan'" :days="planDays" :people="people" :today="today" :presence-label="t('calendar.present')" />
-        <div v-else class="wb-stack">
-          <p v-if="!weeks.length" class="wb-mut">{{ t('calendar.emptyMonth') }}</p>
-          <div v-for="w in weeks" :key="w.wk" class="wb-stack-s">
-            <h3 class="h3">{{ t('calendar.weekOf', { date: fmtDate(w.wk, tag, { day: 'numeric', month: 'long' }) }) }}</h3>
-            <div v-for="e in w.items" :key="e.id" class="wb-row wb-cal-li" style="gap: 12px">
-              <WbAvatar :name="e.employeeName" />
-              <div class="wb-grow">
-                <p class="h3">{{ e.employeeName }}</p>
-                <p class="small wb-mut2">{{ formatPeriod(e.startDate, e.endDate, tag) }}<template v-if="e.status !== 'approved'"> · {{ t('leave.status.pending') }}</template></p>
+      <div class="wb-card-b">
+        <WbErrorState v-if="error" :message="error" @retry="load" />
+        <WbSkeleton v-else-if="isLoading && !events.length" variant="table" />
+        <template v-else>
+          <WbMonthCalendar v-if="mode === 'month'" :month="month" :events="bars" :today="today" :holidays="holidays" />
+          <WbPlanningGrid v-else-if="mode === 'plan'" :days="planDays" :people="people" :today="today" :holidays="holidays" :presence-label="t('calendar.present')" />
+          <div v-else class="wb-stack-s">
+            <p v-if="!weeks.length" class="wb-mut">{{ t('calendar.emptyMonth') }}</p>
+            <div v-for="w in weeks" :key="w.wk" class="wb-stack-s">
+              <h3 class="caption wb-mut wb-cal-wk">{{ t('calendar.weekOf', { date: fmtDate(w.wk, tag, { day: 'numeric', month: 'long' }) }) }}</h3>
+              <div v-for="e in w.items" :key="e.id" class="wb-row wb-cal-li">
+                <WbAvatar :name="e.employeeName" :size="28" />
+                <div class="wb-grow small">
+                  <b>{{ e.employeeName }}</b>
+                  <span class="wb-mut2"> · {{ formatPeriod(e.startDate, e.endDate, tag) }}<template v-if="e.status !== 'approved'"> · {{ t('leave.status.pending') }}</template></span>
+                </div>
+                <WbTypeBadge :name="e.leaveTypeName" :color="e.leaveTypeColor" />
               </div>
-              <WbTypeBadge :name="e.leaveTypeName" :color="e.leaveTypeColor" />
             </div>
           </div>
-        </div>
-      </WbCard>
 
-      <ul v-if="legend.length" class="wb-leg caption">
-        <li v-for="l in legend" :key="l.name"><WbTypeBadge :name="l.name" :color="l.color" /></li>
-        <li>{{ t('calendar.hatched') }}</li>
-      </ul>
-    </template>
+          <ul v-if="legend.length" class="wb-leg caption wb-cal-leg">
+            <li v-for="l in legend" :key="l.name"><WbTypeBadge :name="l.name" :color="l.color" /></li>
+            <li>{{ t('calendar.hatched') }}</li>
+          </ul>
+        </template>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.wb-cal-li { padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.wb-cal-tb { align-items: center; flex-wrap: wrap; padding-bottom: var(--space-3); border-bottom: 1px solid var(--border); }
+.wb-cal-nav { gap: 4px; }
+.wb-cal-nav .h2 { margin-left: var(--space-2); white-space: nowrap; }
+.wb-cal-filters { gap: var(--space-2); margin-left: auto; }
+.wb-cal-filters :deep(.wb-field) { flex: 0 0 auto; }
+.wb-cal-away { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); padding: var(--space-2) var(--space-5); background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.wb-cal-away-p { display: inline-flex; align-items: center; gap: 6px; }
+.wb-cal-wk { text-transform: none; margin-top: var(--space-2); }
+.wb-cal-li { gap: var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.wb-cal-leg { margin-top: var(--space-3); }
+/* Denser month grid: shorter weeks, bars on 22 px lanes */
+.wb-cal-card :deep(.wb-cal-w) { grid-template-rows: calc(28px + var(--lanes) * 22px); }
+.wb-cal-card :deep(.wb-cal .wb-bar) { top: calc(27px + var(--l) * 22px); height: 20px; }
+@container wbapp (max-width: 767px) {
+  .wb-cal-nav { flex-wrap: wrap; min-width: 0; }
+  .wb-cal-nav .h2 { white-space: normal; margin-left: 0; flex-basis: 100%; }
+  .wb-cal-filters { margin-left: 0; }
+  .wb-cal-filters :deep(.wb-seg) { flex-basis: 100%; }
+  .wb-cal-away { padding-inline: var(--space-4); }
+}
 </style>

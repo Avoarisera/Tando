@@ -17,7 +17,6 @@ const teamName = computed(() => teams.value.find(t => t.id === teamId)?.name ?? 
 const { problematic, blocked, fetchInsights } = useTeamInsights()
 
 
-
 const availableYears = getAvailableYears()
 const currentYear = new Date().getFullYear()
 
@@ -148,7 +147,7 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
     </div>
 
     <WbSkeleton v-if="isLoading" variant="metric" :count="4" />
-    <WbErrorState v-else-if="error" :message="error" @retry="load" />
+    <WbErrorState v-else-if="error" :message="readableApiError(error)" @retry="load" />
     <div v-else-if="!data || data.devs.length === 0" class="wb-card">
       <WbEmptyState art="link" :title="t('velocityB.empty.title')">{{ t('velocityB.empty.text') }}</WbEmptyState>
     </div>
@@ -158,7 +157,22 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
         <WbMetricCard v-for="k in kpis" :key="k.label" :label="k.label" :value="k.value" :unit="k.unit" :hint="k.hint" :info="k.info" />
       </div>
 
-      <TeamInsights :problematic="problematic" :blocked="blocked" :workspace-id="workspaceId" />
+      <!-- Throughput and capacity side by side, then the heatmap full width -->
+      <div class="wb-vel-pair">
+        <WbCard :title="t('velocityB.throughput.title')">
+        <p v-if="teamThroughput.every(m => m.total === 0)" class="wb-mut">{{ t('velocityB.empty.period') }}</p>
+        <WbChartFrame v-else :title="t('velocityB.throughput.chart')" :legend="[{ label: t('velocityB.charts.delivered'), color: '--chart-1' }]">
+          <WbLineChart
+            :title="t('velocityB.throughput.chart')"
+            :labels="throughputLabels"
+            :series="[{ label: t('velocityB.charts.delivered'), data: teamThroughput.map(m => m.total) }]"
+            area
+            :legend="false"
+          />
+        </WbChartFrame>
+      </WbCard>
+        <CapacityCard v-if="workspaceId" :workspace-id="workspaceId" :team-id="teamId" />
+      </div>
 
       <WbCard :title="t('velocityB.heatmap.title')" :subtitle="activeDevs.length < data.devs.length ? t('velocityB.heatmap.hidden', { n: data.devs.length - activeDevs.length }) : t('velocityB.heatmap.hint')">
         <p v-if="activeDevs.length === 0" class="wb-mut">{{ t('velocityB.empty.period') }}</p>
@@ -174,18 +188,10 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
         />
       </WbCard>
 
-      <WbCard :title="t('velocityB.throughput.title')">
-        <p v-if="teamThroughput.every(m => m.total === 0)" class="wb-mut">{{ t('velocityB.empty.period') }}</p>
-        <WbChartFrame v-else :title="t('velocityB.throughput.chart')" :legend="[{ label: t('velocityB.charts.delivered'), color: '--chart-1' }]">
-          <WbLineChart
-            :title="t('velocityB.throughput.chart')"
-            :labels="throughputLabels"
-            :series="[{ label: t('velocityB.charts.delivered'), data: teamThroughput.map(m => m.total) }]"
-            area
-            :legend="false"
-          />
-        </WbChartFrame>
-      </WbCard>
+      <TeamInsights :problematic="problematic" :blocked="blocked" :workspace-id="workspaceId" />
+
+
+
 
       <WbCard :title="t('velocityB.dist.title')" :subtitle="t('velocityB.dist.hint')">
         <p v-if="activeDevs.length === 0" class="wb-mut">{{ t('velocityB.empty.noDev') }}</p>
@@ -205,6 +211,10 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
 </template>
 
 <style scoped>
+.wb-page :deep(.wb-metric) { padding: var(--space-3) var(--space-4); }
+/* Two charts per row on wide screens */
+.wb-vel-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
+@container wbapp (max-width: 1023px) { .wb-vel-pair { grid-template-columns: minmax(0, 1fr); } }
 /* The period switch never widens the page (TND-09): it scrolls inside on small screens */
 .wb-period-row { min-width: 0; max-width: 100%; }
 .wb-period { min-width: 0; max-width: 100%; overflow-x: auto; }

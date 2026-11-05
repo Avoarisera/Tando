@@ -42,7 +42,7 @@ function onFile(id: string, e: Event) {
             <th scope="col">{{ t('invoices.form.due') }}</th>
             <th scope="col" class="is-r">{{ t('invoices.form.amount') }}</th>
             <th scope="col">{{ t('rules.status') }}</th>
-            <th scope="col">PDF</th>
+            <th scope="col" class="is-r">PDF</th>
           </tr>
         </thead>
         <tbody>
@@ -52,18 +52,19 @@ function onFile(id: string, e: Event) {
             <td class="wb-num">{{ date(inv.invoice_date) }}</td>
             <td class="wb-num">{{ date(inv.due_date) }}</td>
             <td class="is-r"><b class="wb-num">{{ money(inv) }}</b></td>
-            <td>
+            <td class="wb-inv-st">
               <WbSelect
                 :model-value="inv.status"
                 :options="statusOptions"
+                :class="`is-${inv.status}`"
                 :aria-label="t('invoices.statusOf', { ref: inv.reference })"
                 @update:model-value="emit('status-change', inv.id, $event as InvoiceStatus)"
               />
             </td>
-            <td>
-              <div class="wb-row" style="gap: 4px">
-                <WbButton v-if="inv.pdf_path" variant="ghost" size="sm" icon="file-text" @click="emit('view-pdf', inv.pdf_path)">{{ t('invoices.view') }}</WbButton>
-                <WbButton variant="ghost" size="sm" icon="upload" :loading="uploadingId === inv.id" @click="pick(inv.id)">
+            <td class="is-r">
+              <div class="wb-inv-act">
+                <WbButton v-if="inv.pdf_path" variant="ghost" size="sm" icon="file-text" icon-only :title="t('invoices.view')" @click="emit('view-pdf', inv.pdf_path)">{{ t('invoices.view') }}</WbButton>
+                <WbButton variant="ghost" size="sm" icon="upload" icon-only :title="inv.pdf_path ? t('invoices.replace') : t('invoices.upload')" :loading="uploadingId === inv.id" @click="pick(inv.id)">
                   {{ inv.pdf_path ? t('invoices.replace') : t('invoices.upload') }}
                 </WbButton>
                 <input :ref="el => (inputs[inv.id] = el as HTMLInputElement | null)" type="file" accept="application/pdf" class="wb-sr" tabindex="-1" :aria-label="t('invoices.pdfOf', { ref: inv.reference })" @change="onFile(inv.id, $event)">
@@ -98,5 +99,16 @@ function onFile(id: string, e: Event) {
 </template>
 
 <style scoped>
+/* Dense rows: compact status select and icon actions */
+.wb-dt td { vertical-align: middle; }
+.wb-inv-st { width: 150px; }
+.wb-inv-st :deep(.wb-field) { gap: 0; }
+.wb-inv-st :deep(.wb-input) { min-height: 32px !important; padding: 0 var(--space-2); border-color: var(--border); }
+.wb-inv-st :deep(select) { font-size: 13px; font-weight: 600; min-height: 0; height: 30px; line-height: 30px; padding-block: 0; }
+.wb-inv-st :deep(.is-en_attente) { color: var(--ink-2); }
+.wb-inv-st :deep(.is-envoyee) { color: var(--info-text); }
+.wb-inv-st :deep(.is-payee) { color: var(--success-text); }
+.wb-inv-act { display: inline-flex; gap: 2px; justify-content: flex-end; }
+.wb-inv-act :deep(.wb-btn-sm) { min-height: 32px; min-width: 32px; }
 .wb-inv-cards { list-style: none; margin: 0; padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3); }
 </style>

@@ -112,7 +112,7 @@ usePageHeader(() => ({
   <div class="wb-page wb-stack">
     <div><WbButton variant="ghost" size="sm" icon="arrow-left" @click="goBack">{{ t('velocityA.ticket.back') }}</WbButton></div>
 
-    <WbErrorState v-if="error" :message="error" @retry="$router.go(0)" />
+    <WbErrorState v-if="error" :message="readableApiError(error)" @retry="$router.go(0)" />
     <WbSkeleton v-else-if="isLoading || !issue" variant="metric" :count="4" />
 
     <template v-else>

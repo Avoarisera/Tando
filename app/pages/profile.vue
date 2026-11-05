@@ -36,7 +36,7 @@ onMounted(async () => {
 
 const name = computed(() => (profile.value ? fullName(profile.value) : ''))
 const email = computed(() => supabaseUser.value?.email ?? '')
-const subtitle = computed(() => [profile.value ? t(`roles.${profile.value.role}`) : '', teamName.value ?? t('profile.allCompany')].filter(Boolean).join(' · '))
+const subtitle = computed(() => [profile.value ? t(`roles.${profile.value.role}`) : '', teamName.value ?? t('profile.allCompany'), profile.value?.country ? t(`countries.${profile.value.country}`) : ''].filter(Boolean).join(' · '))
 const joined = computed(() => (profile.value?.joined_at ? fmtDate(profile.value.joined_at, tag.value, { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''))
 
 const rows = computed(() => balances.value.map((b) => {
@@ -81,18 +81,22 @@ async function changePassword() {
 
 <template>
   <div class="wb-page wb-stack">
-    <WbCard :title="t('profile.identity')" :subtitle="t('profile.identityHint')">
-      <div class="is-row" style="gap: 16px; flex-wrap: wrap">
-        <WbAvatar :name="name || '?'" :size="64" />
-        <div class="wb-grow" style="min-width: 200px">
-          <p class="h2">{{ name }}</p>
-          <p class="wb-mut2">{{ subtitle }}</p>
-          <p class="small wb-mut">{{ email }}</p>
-          <p v-if="joined" class="small wb-mut">{{ t('profile.joined', { date: joined }) }}</p>
-        </div>
+    <section class="wb-card wb-card-b wb-prof-id">
+      <WbAvatar :name="name || '?'" :size="56" />
+      <div class="wb-grow">
+        <h2 class="h2">{{ name }}</h2>
+        <p class="small wb-mut2">{{ subtitle }}</p>
       </div>
-    </WbCard>
+      <dl class="wb-prof-kv small">
+        <div><dt class="wb-mut">{{ t('v1.email') }}</dt><dd>{{ email }}</dd></div>
+        <div v-if="joined"><dt class="wb-mut">{{ t('v1.joined') }}</dt><dd class="wb-num">{{ joined }}</dd></div>
+      </dl>
+      <p class="caption wb-mut wb-prof-hint">{{ t('profile.identityHint') }}</p>
+    </section>
 
+    <div class="wb-split wb-prof-grid">
+
+    <div class="wb-stack">
     <WbCard v-if="!isAdmin" :title="t('profile.balances', { year })" :pad="false">
       <div v-if="balancesError" class="wb-card-b"><WbErrorState :message="balancesError" @retry="loadBalances" /></div>
       <div v-else-if="balancesLoading && !rows.length" class="wb-card-b"><WbSkeleton variant="table" :count="3" /></div>
@@ -121,8 +125,10 @@ async function changePassword() {
         </table>
       </div>
     </WbCard>
+    <p v-if="isAdmin" class="wb-card wb-card-b small wb-mut">{{ t('v1.adminNoBalance') }}</p>
+    </div>
 
-    <div class="wb-grid wb-cols-2">
+    <div class="wb-stack">
       <WbCard :title="t('profile.preferences')">
         <div class="wb-stack-s">
           <WbLangSelect with-label />
@@ -143,5 +149,14 @@ async function changePassword() {
         </form>
       </WbCard>
     </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.wb-prof-id { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.wb-prof-kv { display: flex; gap: var(--space-6); margin: 0; flex-wrap: wrap; }
+.wb-prof-kv dd { margin: 2px 0 0; color: var(--ink); }
+.wb-prof-hint { flex-basis: 100%; margin-top: calc(-1 * var(--space-2)); }
+.wb-prof-grid { align-items: start; }
+</style>

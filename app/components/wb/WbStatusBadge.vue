@@ -11,11 +11,13 @@ const TONES: Record<LeaveStatus, [WbBadgeTone, string]> = {
   manager_approved: ['warning', 'check'],
   approved: ['success', 'circle-check'],
   rejected: ['danger', 'circle-x'],
+  cancel_requested: ['indigo', 'undo-2'],
+  cancelled: ['neutral', 'ban'],
 }
 const tone = computed(() => TONES[props.status][0])
 const icon = computed(() => TONES[props.status][1])
 </script>
 
 <template>
-  <WbBadge :tone="tone" :icon="icon">{{ t(`leave.status.${status}`) }}</WbBadge>
+  <WbBadge :tone="tone" :icon="icon" :strike="status === 'cancelled'">{{ t(`leave.status.${status}`) }}</WbBadge>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Invoice, InvoiceStatus } from '~/types/index'
+import type { InvoiceStatus } from '~/types/index'
 
 definePageMeta({ titleKey: 'nav.invoices', middleware: 'admin-only', layout: 'private' })
 
@@ -8,7 +8,6 @@ const {
   isLoading,
   error,
   fetchInvoices,
-  createInvoice,
   updateStatus,
   uploadPdf,
   getSignedUrl,
@@ -20,8 +19,6 @@ const route = useRoute()
 type FilterStatus = 'all' | InvoiceStatus
 
 const showModal = ref(false)
-const formError = ref<string | null>(null)
-const isSubmitting = ref(false)
 const filter = ref<FilterStatus>('all')
 const uploadingId = ref<string | null>(null)
 const searchQuery = ref('')
@@ -44,6 +41,20 @@ const counts = computed(() => ({
 }))
 const FILTERS: FilterStatus[] = ['all', 'en_attente', 'envoyee', 'payee']
 
+// Summary strip: amounts per status, in euros (other currencies are counted apart)
+const { locale } = useI18n()
+const sumTag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
+const summary = computed(() => (['en_attente', 'envoyee', 'payee'] as const).map((st) => {
+  const list = invoices.value.filter(i => i.status === st)
+  const eur = list.filter(i => i.currency === 'EUR').reduce((s, i) => s + Number(i.amount), 0)
+  return {
+    status: st,
+    count: list.length,
+    amount: new Intl.NumberFormat(sumTag.value, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(eur),
+    other: list.some(i => i.currency !== 'EUR'),
+  }
+}))
+
 onMounted(async () => {
   await fetchInvoices()
   // /invoices?new=1 (dashboard shortcut) opens the creation panel
@@ -51,27 +62,17 @@ onMounted(async () => {
 })
 
 function openModal() {
-  formError.value = null
   showModal.value = true
 }
 
 function closeModal() {
   showModal.value = false
-  formError.value = null
 }
 
-async function handleCreate(payload: Omit<Invoice, 'id' | 'created_at' | 'created_by' | 'pdf_path'>) {
-  isSubmitting.value = true
-  formError.value = null
-  try {
-    await createInvoice(payload)
-    closeModal()
-    toast.add(t('invoices.saved'))
-  } catch (e) {
-    formError.value = e instanceof Error ? e.message : t('invoices.createError')
-  } finally {
-    isSubmitting.value = false
-  }
+// Editor saved the invoice, its lines and the generated PDF (R8-G)
+function handleSaved() {
+  closeModal()
+  toast.add(t('r8b.inv.saved'))
 }
 
 async function handleStatusChange(id: string, status: InvoiceStatus) {
@@ -120,7 +121,14 @@ async function handleViewPdf(path: string) {
 
 <template>
   <div class="wb-page wb-stack">
-    <div class="wb-row-b wb-wrap">
+    <div v-if="invoices.length" class="wb-inv-sum">
+      <div v-for="x in summary" :key="x.status" class="wb-inv-sum-i" :data-status="x.status">
+        <span class="caption wb-mut">{{ t(`invoices.status.${x.status}`) }} · {{ t('v3.inv.count', { n: x.count }, x.count) }}</span>
+        <b class="wb-num">{{ x.amount }}</b>
+        <span v-if="x.other" class="caption2 wb-mut">{{ t('v3.inv.otherCurrencies') }}</span>
+      </div>
+    </div>
+    <div class="wb-row-b wb-wrap wb-inv-toolbar">
       <div class="wb-fb">
         <div class="wb-fb-s">
           <WbInput id="invoice-search" v-model="searchQuery" icon="search" type="search" :aria-label="t('invoices.search')" :placeholder="t('invoices.search')" />
@@ -160,8 +168,26 @@ async function handleViewPdf(path: string) {
       />
     </WbCard>
 
-    <WbSidePanel v-if="showModal" :title="t('dashboard.newInvoice')" :width="640" @close="closeModal">
-      <InvoiceForm :is-submitting="isSubmitting" :error="formError" @submit="handleCreate" @cancel="closeModal" />
+    <WbSidePanel v-if="showModal" :title="t('dashboard.newInvoice')" :subtitle="t('r8b.inv.panelHint')" :width="1040" @close="closeModal">
+      <InvoiceEditor @saved="handleSaved" @cancel="closeModal" />
     </WbSidePanel>
   </div>
 </template>
+
+<style scoped>
+.wb-inv-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-1); }
+.wb-inv-sum-i { display: flex; flex-direction: column; gap: 2px; padding: var(--space-3) var(--space-5); }
+.wb-inv-sum-i + .wb-inv-sum-i { border-left: 1px solid var(--border); }
+.wb-inv-sum-i b { font-size: 20px; line-height: 26px; }
+.wb-inv-sum-i[data-status="envoyee"] b { color: var(--info-text); }
+.wb-inv-sum-i[data-status="payee"] b { color: var(--success-text); }
+.wb-inv-toolbar { gap: var(--space-3); }
+.wb-inv-toolbar :deep(.wb-fb-s) { width: 280px; }
+@container wbapp (max-width: 767px) {
+  .wb-inv-sum { grid-template-columns: minmax(0, 1fr); }
+  .wb-inv-sum-i + .wb-inv-sum-i { border-left: 0; border-top: 1px solid var(--border); }
+  .wb-inv-sum-i { padding: var(--space-2) var(--space-4); flex-direction: row; justify-content: space-between; align-items: baseline; }
+  .wb-inv-sum-i b { font-size: 16px; }
+  .wb-inv-toolbar :deep(.wb-fb-s) { width: 100%; }
+}
+</style>

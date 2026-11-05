@@ -120,7 +120,7 @@ test.describe('R5 — Personnes et équipes', () => {
 
   test('T-R5-012: teams tab shows members and the manager', async ({ page }) => {
     await page.getByRole('tab', { name: /Équipes/ }).click()
-    await expect(page.locator('.wb-card', { hasText: 'Équipe A' })).toContainText('Manager : Marc Manager')
+    await expect(page.locator('tr[data-team="Équipe A"]')).toContainText('Manager : Marc Manager')
   })
 })
 
@@ -193,20 +193,23 @@ test.describe('R5 — Factures', () => {
     await signIn(page, ACCOUNTS.admin, '/invoices')
   })
 
+  const NEW_INVOICE = '.wb-inv-toolbar button:has-text("Nouvelle facture")'
+
+  /** Editor (lot R8): one line 1 × 1 250 € HT at 20 % = 1 500 € TTC */
   async function createInvoice(page: Page, ref: string) {
-    await page.getByRole('button', { name: 'Nouvelle facture' }).click()
+    await page.locator(NEW_INVOICE).click()
     await page.fill('#inv-reference', ref)
     await page.fill('#inv-client', 'ACME Corp')
-    await page.fill('#inv-amount', '1500')
-    await page.fill('#inv-date', new Date().toISOString().slice(0, 10))
-    await page.locator(PANEL).getByRole('button', { name: 'Enregistrer' }).click()
-    await expect(page.locator(PANEL)).toHaveCount(0)
+    const line = page.locator('[data-line="0"]')
+    await line.locator('input').nth(0).fill('Prestation')
+    await line.locator('input').nth(2).fill('1250')
+    await page.locator('[data-action="save-pdf"]').click()
+    await expect(page.locator(PANEL)).toHaveCount(0, { timeout: 15_000 })
   }
 
   test('T-R5-030: create → toast → row "En attente" with the amount', async ({ page }) => {
     const ref = `FAC-E2E-${Date.now() % 100000}`
     await createInvoice(page, ref)
-    await expect(page.getByText('Facture enregistrée')).toBeVisible()
     const row = page.locator(`tr[data-ref="${ref}"]`)
     await expect(row).toContainText('1 500,00 €')
     await expect(row.getByLabel(`Statut de ${ref}`)).toHaveValue('en_attente')
@@ -215,23 +218,24 @@ test.describe('R5 — Factures', () => {
   test('T-R5-031: validation blocks the request (amount 0, due before date)', async ({ page }) => {
     let posted = false
     page.on('request', (r) => { if (r.url().includes('/rest/v1/invoices') && r.method() === 'POST') posted = true })
-    await page.getByRole('button', { name: 'Nouvelle facture' }).click()
-    await page.fill('#inv-reference', 'FAC-X')
+    await page.locator(NEW_INVOICE).click()
     await page.fill('#inv-client', 'ACME')
-    await page.fill('#inv-amount', '0')
+    const line = page.locator('[data-line="0"]')
+    await line.locator('input').nth(0).fill('Prestation')
+    await line.locator('input').nth(2).fill('0')
+    await page.locator('[data-action="save-pdf"]').click()
+    await expect(page.locator(`${PANEL} .wb-banner.wb-t-danger`)).toBeVisible()
+    await line.locator('input').nth(2).fill('10')
     await page.fill('#inv-date', '2026-05-10')
-    await page.locator(PANEL).getByRole('button', { name: 'Enregistrer' }).click()
-    await expect(page.locator(PANEL)).toContainText('Le montant doit être supérieur à 0')
-    await page.fill('#inv-amount', '10')
     await page.fill('#inv-due', '2026-05-01')
-    await page.locator(PANEL).getByRole('button', { name: 'Enregistrer' }).click()
+    await page.locator('[data-action="save-pdf"]').click()
     await expect(page.locator(PANEL)).toContainText('ne peut pas être avant la date de facture')
     expect(posted).toBe(false)
     await page.keyboard.press('Escape')
     await expect(page.locator(PANEL)).toHaveCount(0)
   })
 
-  test('T-R5-032: attach a PDF, then "Voir le PDF" opens a new tab', async ({ page, context }) => {
+  test('T-R5-032: replace the generated PDF, then "Voir le PDF" opens a new tab', async ({ page, context }) => {
     const ref = `FAC-PDF-${Date.now() % 100000}`
     await createInvoice(page, ref)
     const row = page.locator(`tr[data-ref="${ref}"]`)

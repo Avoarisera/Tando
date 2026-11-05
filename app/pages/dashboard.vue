@@ -19,12 +19,17 @@ onMounted(load)
 const kpis = computed(() => {
   const s = snapshot.value
   if (!s) return []
+  const rate = s.total_employees ? Math.round((s.present / s.total_employees) * 100) : 100
   return [
-    { label: t('dashboard.headcount'), value: s.total_employees },
-    { label: t('dashboard.presentToday'), value: s.present },
-    { label: t('dashboard.awayToday'), value: s.on_leave_today, tone: s.on_leave_today ? 'warning' as const : undefined },
-    { label: t('dashboard.awayWeek'), value: s.on_leave_week },
+    { label: t('dashboard.headcount'), value: s.total_employees, icon: 'users', sub: t('v2.headcountSub') },
+    { label: t('dashboard.presentToday'), value: s.present, icon: 'circle-check', sub: t('v2.presenceRate', { n: rate }) },
+    { label: t('dashboard.awayToday'), value: s.on_leave_today, icon: 'tree-palm', tone: s.on_leave_today ? 'warning' as const : undefined, sub: t('v2.awayTodaySub') },
+    { label: t('dashboard.awayWeek'), value: s.on_leave_week, icon: 'calendar-days', sub: t('v2.awayWeekSub') },
   ]
+})
+const todayLabel = computed(() => {
+  const x = fmtDate(today, tag.value, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  return x.charAt(0).toUpperCase() + x.slice(1)
 })
 
 const awayToday = computed(() => (snapshot.value?.employees ?? []).filter(e => e.on_leave))
@@ -71,30 +76,44 @@ function exportMonth() {
 </script>
 
 <template>
-  <div class="wb-page wb-stack">
-    <div class="wb-row wb-wrap">
-      <WbButton variant="secondary" icon="download" @click="exportMonth">{{ t('dashboard.export') }}</WbButton>
-      <WbButton variant="secondary" icon="receipt-text" to="/invoices?new=1">{{ t('dashboard.newInvoice') }}</WbButton>
+  <div class="wb-page wb-stack wb-dash">
+    <div class="wb-row-b wb-wrap wb-dash-bar">
+      <div>
+        <p class="h3">{{ todayLabel }}</p>
+        <p class="small wb-mut2">{{ t('v2.toReviewCount', { n: toReview.length }, toReview.length) }}</p>
+      </div>
+      <div class="wb-row wb-wrap" style="gap: 8px">
+        <WbButton variant="secondary" size="sm" icon="download" @click="exportMonth">{{ t('dashboard.export') }}</WbButton>
+        <WbButton variant="secondary" size="sm" icon="receipt-text" to="/invoices?new=1">{{ t('dashboard.newInvoice') }}</WbButton>
+      </div>
     </div>
 
     <WbErrorState v-if="error" :message="error" @retry="load" />
     <WbSkeleton v-else-if="isLoading && !snapshot" variant="metric" :count="4" />
 
     <template v-else-if="snapshot">
-      <div class="wb-grid wb-cols-4">
-        <WbMetricCard v-for="k in kpis" :key="k.label" :label="k.label" :value="k.value" :tone="k.tone" />
-      </div>
+      <!-- KPI strip: one card split in four cells -->
+      <section class="wb-card wb-kpis" :aria-label="t('v2.kpis')">
+        <div v-for="k in kpis" :key="k.label" class="wb-metric wb-kpi">
+          <span class="wb-kpi-i" aria-hidden="true"><WbIcon :name="k.icon" :size="18" /></span>
+          <div>
+            <span class="small wb-mut2">{{ k.label }}</span>
+            <div class="wb-kpi-v"><span :class="['display', 'wb-num', k.tone && `wb-c-${k.tone}`]">{{ k.value }}</span></div>
+            <span class="caption wb-mut">{{ k.sub }}</span>
+          </div>
+        </div>
+      </section>
 
       <div class="wb-split">
         <div class="wb-stack">
           <WbCard :title="t('nav.approvals')" :link-label="toReview.length ? t('dashboard.seeAll', { n: toReview.length }) : undefined" link-to="/approvals">
-            <ApprovalQueue v-if="toReview.length" :items="toReview.slice(0, 2)" is-admin />
+            <ApprovalQueue v-if="toReview.length" :items="toReview.slice(0, 3)" is-admin />
             <p v-else class="wb-mut">{{ t('home.nothingToApprove') }}</p>
           </WbCard>
 
           <WbCard :title="t('dashboard.next14')" :subtitle="t('dashboard.next14Hint')">
             <div class="wb-stack-s">
-              <WbBarChart :title="t('dashboard.next14Hint')" :labels="next14Labels" :series="[{ label: t('dashboard.away'), data: next14Counts }]" />
+              <WbBarChart :title="t('dashboard.next14Hint')" :labels="next14Labels" :series="[{ label: t('dashboard.away'), data: next14Counts }]" :height="180" />
               <p v-if="departures.length" class="small wb-mut2">{{ t('dashboard.departures') }} {{ departures.join(', ') }}.</p>
             </div>
           </WbCard>
@@ -102,26 +121,26 @@ function exportMonth() {
 
         <div class="wb-stack">
           <WbCard :title="t('calendar.today')">
-            <ul v-if="awayToday.length" class="wb-list">
+            <ul v-if="awayToday.length" class="wb-list wb-dash-list">
               <li v-for="e in awayToday" :key="e.id">
-                <WbAvatar :name="`${e.first_name} ${e.last_name}`" />
+                <WbAvatar :name="`${e.first_name} ${e.last_name}`" :size="28" />
                 <span class="wb-grow small">
-                  {{ e.first_name }} {{ e.last_name }}
-                  <template v-if="e.leave_end_date"><br><span class="wb-mut">{{ t('dashboard.backOn', { date: fmtDate(addDays(e.leave_end_date, 1), tag, { weekday: 'long', day: 'numeric', month: 'long' }) }) }}</span></template>
+                  <b>{{ e.first_name }} {{ e.last_name }}</b>
+                  <template v-if="e.leave_end_date"><br><span class="wb-mut">{{ t('dashboard.backOn', { date: fmtDate(addDays(e.leave_end_date, 1), tag, { weekday: 'short', day: 'numeric', month: 'short' }) }) }}</span></template>
                 </span>
-                <WbBadge v-if="e.leave_type_name">{{ e.leave_type_name }}</WbBadge>
+                <WbBadge v-if="e.leave_type_name" size="sm">{{ e.leave_type_name }}</WbBadge>
               </li>
             </ul>
-            <p v-else class="wb-mut">{{ t('dashboard.allHere') }}</p>
+            <p v-else class="small wb-mut">{{ t('dashboard.allHere') }}</p>
           </WbCard>
 
           <WbCard :title="t('dashboard.alerts')">
-            <ul v-if="alerts.length" class="wb-list">
+            <ul v-if="alerts.length" class="wb-list wb-dash-list">
               <li v-for="(a, i) in alerts" :key="i" :class="['small', `wb-c-${a.tone}`]">
-                <WbIcon :name="a.icon" /><NuxtLink class="wb-grow" :to="a.to">{{ a.text }}</NuxtLink>
+                <WbIcon :name="a.icon" :size="16" /><NuxtLink class="wb-grow" :to="a.to">{{ a.text }}</NuxtLink>
               </li>
             </ul>
-            <p v-else class="wb-mut">{{ t('dashboard.noAlerts') }}</p>
+            <p v-else class="small wb-mut">{{ t('dashboard.noAlerts') }}</p>
           </WbCard>
 
           <WbCard :title="t('nav.velocity')" :link-label="t('dashboard.seeVelocity')" link-to="/velocite">
@@ -132,3 +151,22 @@ function exportMonth() {
     </template>
   </div>
 </template>
+
+<style scoped>
+.wb-dash-bar :deep(.wb-btn) { margin: 0; }
+.wb-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
+.wb-kpi { border: 0; border-radius: 0; box-shadow: none; flex-direction: row; gap: var(--space-3); align-items: flex-start; padding: var(--space-4) var(--space-5); }
+.wb-kpi + .wb-kpi { border-left: 1px solid var(--border); }
+.wb-kpi-i { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: var(--radius-md); background: var(--brand-tint); color: var(--brand-text); }
+.wb-kpi-v { line-height: 1; margin: 2px 0; }
+.wb-dash-list li { padding-block: 6px; }
+@container wbapp (max-width: 1023px) {
+  .wb-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wb-kpi:nth-child(3) { border-left: 0; }
+  .wb-kpi:nth-child(n + 3) { border-top: 1px solid var(--border); }
+}
+@container wbapp (max-width: 767px) {
+  .wb-kpi { padding: var(--space-3); }
+  .wb-kpi-i { display: none; }
+}
+</style>

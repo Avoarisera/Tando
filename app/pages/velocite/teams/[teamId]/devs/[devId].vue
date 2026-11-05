@@ -266,10 +266,10 @@ function mom(metric: 'ticketsCount' | 'pointsSum'): string {
     </div>
 
     <WbSkeleton v-if="isLoading" variant="metric" :count="4" />
-    <WbErrorState v-else-if="error" :message="error" @retry="handleRetry" />
+    <WbErrorState v-else-if="error" :message="readableApiError(error)" @retry="handleRetry" />
 
     <template v-else>
-      <div class="wb-grid wb-cols-3">
+      <div class="wb-grid wb-cols-3 wb-vel-kpis">
         <WbMetricCard :label="t('velocityB.kpi.tickets')" :value="aggregatedMetrics.ticketsCount" :hint="mom('ticketsCount') || undefined" :info="t('velocityB.kpi.ticketsInfo')" />
         <WbMetricCard :label="t('velocityB.kpi.points')" :value="aggregatedMetrics.pointsSum.toFixed(0)" :hint="mom('pointsSum') || undefined" :info="t('velocityB.kpi.pointsInfo')" />
         <WbMetricCard :label="t('velocityB.kpi.bugs')" :value="aggregatedMetrics.bugsCount" :hint="t('velocityB.kpi.bugsHint')" :info="t('velocityB.kpi.bugsInfo')" />
@@ -368,6 +368,9 @@ function mom(metric: 'ticketsCount' | 'pointsSum'): string {
 </template>
 
 <style scoped>
+/* Six indicators on one row on wide screens */
+@container wbapp (min-width: 1280px) { .wb-vel-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.wb-vel-kpis :deep(.wb-metric) { padding: var(--space-3) var(--space-4); }
 /* The period switch never widens the page (TND-09): it scrolls inside on small screens */
 .wb-period-row { min-width: 0; max-width: 100%; }
 .wb-period { min-width: 0; max-width: 100%; overflow-x: auto; }

@@ -56,6 +56,13 @@ async function openPanel(page: Page) {
   await expect(page.locator(`${PANEL} .wb-rc.is-on`)).toHaveCount(1)
 }
 
+/** First pickable day on or after `min` (earlier runs may have booked some days) */
+async function firstFreeDay(page: Page, min: Date): Promise<string | null> {
+  const dates = await page.locator(`${PANEL} .wb-rp-d:not([disabled])`).evaluateAll(
+    (els, m) => els.map(e => e.getAttribute('data-date') ?? '').filter(d => d >= m), iso(min))
+  return dates[0] ?? null
+}
+
 async function pickRange(page: Page, a: Date, b: Date) {
   await page.locator(`${PANEL} .wb-rp-d[data-date="${iso(a)}"]`).click()
   await page.locator(`${PANEL} .wb-rp-d[data-date="${iso(b)}"]`).click()
@@ -149,12 +156,14 @@ test.describe('R3 — Request panel', () => {
 // ============================================================
 test.describe('R3 — Sending a request', () => {
   test('T-R3-020: sends → toast → panel closes → shows under "En cours de validation"; days already booked are blocked', async ({ page }) => {
-    const a = weekdayAhead(14)
-    const b = weekdayAhead(15)
-    test.skip(!sameYear(a, b), 'end of year')
+    const min = weekdayAhead(14)
+    test.skip(!sameYear(min), 'end of year')
     await signIn(page, ACCOUNTS.employee1)
     await openPanel(page)
-    await pickRange(page, a, b)
+    const day = await firstFreeDay(page, min)
+    test.skip(!day || !day.startsWith(String(new Date().getFullYear())), 'no free day left this year')
+    await page.locator(`${PANEL} .wb-rp-d[data-date="${day}"]`).click()
+    await page.locator(`${PANEL} .wb-rp-d[data-date="${day}"]`).click()
     await page.locator(`${PANEL} textarea`).fill('E2E refonte')
     await page.getByRole('button', { name: 'Envoyer la demande' }).click()
     await expect(page.locator(PANEL)).toHaveCount(0)
@@ -162,7 +171,7 @@ test.describe('R3 — Sending a request', () => {
 
     await page.goto('/leave-requests?tab=pending')
     await expect(page.locator('.wb-tabs [aria-selected="true"]')).toContainText('En cours de validation')
-    const card = page.locator(`.wb-lc[data-start="${iso(a)}"]`)
+    const card = page.locator(`.wb-lc[data-start="${day}"]`).first()
     await expect(card).toContainText('Congé payé')
     await expect(card).toContainText('En attente')
 
@@ -174,7 +183,7 @@ test.describe('R3 — Sending a request', () => {
 
     // The same days can no longer be picked
     await openPanel(page)
-    await expect(page.locator(`${PANEL} .wb-rp-d[data-date="${iso(a)}"]`)).toBeDisabled()
+    await expect(page.locator(`${PANEL} .wb-rp-d[data-date="${day}"]`)).toBeDisabled()
   })
 })
 
@@ -226,17 +235,19 @@ test.describe('Security — R3', () => {
   })
 
   test('S-R3-003: an XSS payload in the comment is rendered as text', async ({ page }) => {
-    const a = weekdayAhead(21)
-    test.skip(!sameYear(a), 'end of year')
+    const min = weekdayAhead(21)
+    test.skip(!sameYear(min), 'end of year')
     await signIn(page, ACCOUNTS.employee1)
     await openPanel(page)
-    await pickRange(page, a, a)
+    const day = await firstFreeDay(page, min)
+    test.skip(!day || !day.startsWith(String(new Date().getFullYear())), 'no free day left this year')
+    await page.locator(`${PANEL} .wb-rp-d[data-date="${day}"]`).click()
     const xss = '<img src=x onerror="window.__xss=1">'
     await page.locator(`${PANEL} textarea`).fill(xss)
     await page.getByRole('button', { name: 'Envoyer la demande' }).click()
     await expect(page.locator(PANEL)).toHaveCount(0)
     await page.goto('/leave-requests?tab=pending')
-    await page.locator(`.wb-lc[data-start="${iso(a)}"] .wb-lc-open`).click()
+    await page.locator(`.wb-lc[data-start="${day}"] .wb-lc-open`).first().click()
     await expect(page.locator(PANEL).getByText(xss)).toBeVisible()
     expect(await page.evaluate(() => (window as unknown as Record<string, unknown>).__xss)).toBeUndefined()
   })

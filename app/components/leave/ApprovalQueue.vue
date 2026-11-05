@@ -30,12 +30,17 @@ const planning = computed<PlanPerson[]>(() => members.value
 // Decisions
 const busy = ref<string | null>(null)
 const refusing = ref<LeaveRequestWithRelations | null>(null)
+const reason = ref('')
+const reasonError = ref<string | null>(null)
+const refusingCancellation = computed(() => refusing.value?.status === 'cancel_requested')
+watch(refusing, () => { reason.value = ''; reasonError.value = null })
 
 async function approve(r: LeaveRequestWithRelations) {
   busy.value = r.id
   try {
+    const wasCancellation = r.status === 'cancel_requested'
     await decide(r.id, 'approve')
-    toast.add(t('approvals.approved', { who: r.profiles.first_name }))
+    toast.add(wasCancellation ? t('approvals.cancelAccepted', { who: r.profiles.first_name }) : t('approvals.approved', { who: r.profiles.first_name }))
     selected.value = selected.value.filter(id => id !== r.id)
   }
   catch (e) {
@@ -49,10 +54,15 @@ async function approve(r: LeaveRequestWithRelations) {
 async function confirmRefuse() {
   const r = refusing.value
   if (!r) return
+  // A reason is mandatory to refuse a leave request (not to keep a leave after a cancellation request)
+  if (!refusingCancellation.value && !reason.value.trim()) {
+    reasonError.value = t('approvals.reasonRequired')
+    return
+  }
   busy.value = r.id
   try {
-    await decide(r.id, 'reject')
-    toast.add(t('approvals.refused', { who: r.profiles.first_name }))
+    await decide(r.id, 'reject', refusingCancellation.value ? undefined : reason.value.trim())
+    toast.add(refusingCancellation.value ? t('approvals.cancelRefused', { who: r.profiles.first_name }) : t('approvals.refused', { who: r.profiles.first_name }))
     selected.value = selected.value.filter(id => id !== r.id)
   }
   catch (e) {
@@ -94,14 +104,14 @@ async function approveSelected() {
 </script>
 
 <template>
-  <div class="wb-stack">
-    <div v-if="bulk && isAdmin" class="wb-row-b wb-card wb-card-b wb-wrap">
+  <div class="wb-stack wb-aq">
+    <div v-if="bulk && isAdmin" class="wb-row-b wb-card wb-wrap wb-aq-bar" :class="{ 'is-on': selected.length }">
       <WbCheckbox
         v-model="allSelected"
         :indeterminate="someSelected"
         :label="selected.length ? t('approvals.selected', { n: selected.length }, selected.length) : t('approvals.selectAll')"
       />
-      <WbButton icon="check" :disabled="!selected.length" :loading="bulkBusy" @click="approveSelected">{{ t('approvals.approveSelection') }}</WbButton>
+      <WbButton icon="check" size="sm" :disabled="!selected.length" :loading="bulkBusy" @click="approveSelected">{{ t('approvals.approveSelection') }}</WbButton>
     </div>
     <ApprovalCard
       v-for="r in items"
@@ -123,15 +133,24 @@ async function approveSelected() {
     <WbModal
       v-if="refusing"
       tone="danger"
-      :title="t('approvals.refuseTitle', { who: fullName(refusing.profiles) })"
-      :description="t('approvals.refuseText', { who: refusing.profiles.first_name })"
+      :title="refusingCancellation ? t('approvals.keepTitle', { who: fullName(refusing.profiles) }) : t('approvals.refuseTitle', { who: fullName(refusing.profiles) })"
+      :description="refusingCancellation ? t('approvals.keepText', { who: refusing.profiles.first_name }) : t('approvals.refuseText', { who: refusing.profiles.first_name })"
       @close="refusing = null"
     >
       <p class="small">{{ refusing.leave_types?.name }} · {{ formatPeriod(refusing.start_date, refusing.end_date, tag) }}</p>
+      <WbTextarea v-if="!refusingCancellation" id="refuse-reason" v-model="reason" :label="t('approvals.reason')" :max="500" :error="reasonError" required />
       <template #footer>
         <WbButton variant="secondary" @click="refusing = null">{{ t('approvals.cancel') }}</WbButton>
-        <WbButton variant="danger" :loading="busy === refusing.id" @click="confirmRefuse">{{ t('approvals.refuseConfirm') }}</WbButton>
+        <WbButton variant="danger" :loading="busy === refusing.id" @click="confirmRefuse">{{ refusingCancellation ? t('approvals.keepLeave') : t('approvals.refuseConfirm') }}</WbButton>
       </template>
     </WbModal>
   </div>
 </template>
+
+<style scoped>
+.wb-aq { gap: var(--space-2); }
+/* Bulk bar stays under the header while scrolling a long queue */
+.wb-aq-bar { position: sticky; top: 64px; z-index: 4; padding: var(--space-2) var(--space-4); }
+.wb-aq-bar.is-on { border-color: var(--brand); background: var(--brand-tint); }
+.wb-aq-bar :deep(.wb-btn) { margin: 0; }
+</style>
