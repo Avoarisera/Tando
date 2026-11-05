@@ -584,7 +584,7 @@ const adminTestRestores = []
   const { client, userId: adminId } = sessions.admin
   const { error } = await client.rpc('review_leave_request', {
     p_request_id: '00000000-0000-0000-0000-000000000042',
-    p_decision: 'reject',
+    p_decision: 'reject', p_comment: 'Test : motif obligatoire depuis le lot R8',
   })
 
   if (!error) adminTestRestores.push('00000000-0000-0000-0000-000000000042')
