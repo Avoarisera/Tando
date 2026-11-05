@@ -144,7 +144,7 @@ const people = computed<PlanPerson[]>(() => members.value
     id: m.id,
     name: fullName(m),
     group: teamNameOf(m.team_id),
-    spans: visible.value.filter(e => e.userId === m.id).map(e => ({ id: e.id, from: e.startDate, to: e.endDate, label: e.isOwn && e.state === 'rejected' ? `${e.leaveTypeName} · ${t('tnd23.state.rejected')}` : e.review ? `${e.leaveTypeName} · ${t('tnd25.toReview')}` : e.leaveTypeName, color: e.leaveTypeColor, pending: e.status !== 'approved', state: e.isOwn ? e.state : undefined, review: e.review })),
+    spans: visible.value.filter(e => e.userId === m.id).map(e => ({ id: e.id, from: e.startDate, to: e.endDate, label: e.isOwn && e.state === 'rejected' ? `${e.leaveTypeName} · ${t('tnd23.state.rejected')}` : e.review ? `${e.leaveTypeName} · ${t('tnd25.toReview')}` : e.leaveTypeName, shortLabel: e.leaveTypeName, color: e.leaveTypeColor, pending: e.status !== 'approved', state: e.isOwn ? e.state : undefined, review: e.review })),
   }))
   .filter(p => !onlyMe.value || p.spans.length)
   .sort((a, b) => (a.group === t('r8a.people.noTeam') ? 1 : 0) - (b.group === t('r8a.people.noTeam') ? 1 : 0) || (a.group ?? '').localeCompare(b.group ?? '') || a.name.localeCompare(b.name)))
@@ -282,6 +282,8 @@ function goToday() {
 .wb-cal-nav { gap: 4px; }
 .wb-cal-nav .h2 { margin-left: var(--space-2); white-space: nowrap; }
 .wb-cal-filters { gap: var(--space-2); margin-left: auto; }
+/* the two groups wrap onto two lines instead of overlapping (long planning title, admin team filter) */
+.wb-cal-nav, .wb-cal-filters { flex: 0 1 auto; min-width: min-content; }
 .wb-cal-filters :deep(.wb-field) { flex: 0 0 auto; }
 /* A long type name must not stretch the filter */
 .wb-cal-filters :deep(.wb-input), .wb-cal-jump :deep(.wb-input) { max-width: 220px; }

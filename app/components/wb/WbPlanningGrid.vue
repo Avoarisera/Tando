@@ -1,5 +1,5 @@
 <script setup lang="ts">
-export interface PlanSpan { id: string, from: string, to: string, label: string, color: string, pending?: boolean, /** own requests: 'rejected' | 'cancel_requested' styling (TND-23) */ state?: string, /** a request I can approve (TND-25) */ review?: boolean }
+export interface PlanSpan { id: string, from: string, to: string, label: string, color: string, pending?: boolean, /** own requests: 'rejected' | 'cancel_requested' styling (TND-23) */ state?: string, /** a request I can approve (TND-25) */ review?: boolean, /** label for short bars (e.g. the type without « à valider ») */ shortLabel?: string }
 export interface PlanPerson { id: string, name: string, spans: PlanSpan[], /** optional section (team) — a header row is shown when it changes */ group?: string }
 
 const props = withDefaults(defineProps<{
@@ -95,7 +95,7 @@ const presence = computed(() => props.days.map((d) => {
             :style="{ ...leaveVars(s.color), left: `calc(${s.a} * var(--c) + 2px)`, width: `calc(${s.z - s.a + 1} * var(--c) - 4px)` }"
             @click="interactive && $emit('open', s.id)"
           >
-            <span>{{ s.z - s.a > 0 ? s.label : '' }}</span>
+            <span>{{ (s.z - s.a + 1) * col >= 130 ? s.label : (s.z - s.a + 1) * col >= 56 ? (s.shortLabel ?? s.label) : '' }}</span>
           </component>
         </div>
       </div>
