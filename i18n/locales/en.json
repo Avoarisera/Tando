@@ -888,7 +888,7 @@
     "pagination": "Pagination"
   },
   "teams": {
-    "editTitle": "Team {name}",
+    "editTitle": "Edit “{name}”",
     "hint": "Pick the members, then their manager. The manager validates the team’s requests before the admin.",
     "members": "No members | {n} member | {n} members",
     "movesFrom": "will leave {team}",
