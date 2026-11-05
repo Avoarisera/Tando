@@ -50,7 +50,8 @@ function go(path: string) {
       <button type="button" role="menuitem" @click="go('/profile')">
         <WbIcon name="circle-user-round" :size="16" /><span>{{ t('nav.myProfile') }}</span>
       </button>
-      <button type="button" role="menuitem" @click="go('/reset-password')">
+      <!-- signed in: change the password on the profile (the reset page is for the e-mail link) -->
+      <button type="button" role="menuitem" data-action="menu-password" @click="go('/profile#security')">
         <WbIcon name="key-round" :size="16" /><span>{{ t('nav.password') }}</span>
       </button>
       <hr>

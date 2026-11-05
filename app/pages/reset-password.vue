@@ -35,6 +35,14 @@ const passwordError = computed(() =>
 const confirmError = computed(() =>
   submitted.value && confirm.value !== password.value ? t('auth.reset.mismatch') : null)
 
+// Leave without changing the password: close the recovery session the e-mail link opened
+const leaving = ref(false)
+async function backToLogin() {
+  leaving.value = true
+  try { await supabase.auth.signOut() }
+  finally { await navigateTo('/login') }
+}
+
 async function handleSubmit() {
   submitted.value = true
   hasError.value = false
@@ -58,6 +66,7 @@ async function handleSubmit() {
     <template v-if="hasSession === false">
       <WbBanner tone="warning">{{ t('auth.reset.expired') }}</WbBanner>
       <WbButton to="/forgot-password" block>{{ t('auth.reset.newLink') }}</WbButton>
+      <WbButton variant="ghost" block icon="arrow-left" to="/login">{{ t('auth.forgot.back') }}</WbButton>
     </template>
 
     <form v-else method="post" class="wb-stack" novalidate @submit.prevent="handleSubmit">
@@ -90,6 +99,7 @@ async function handleSubmit() {
       <WbButton type="submit" block :loading="isLoading" :disabled="hasSession !== true">
         {{ t('auth.reset.submit') }}
       </WbButton>
+      <WbButton variant="ghost" block icon="arrow-left" :loading="leaving" data-action="back-to-login" @click="backToLogin">{{ t('auth.forgot.back') }}</WbButton>
     </form>
   </WbAuthShell>
 </template>

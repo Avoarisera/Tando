@@ -1,4 +1,5 @@
 import { serverSupabaseClient } from '#supabase/server'
+import { fetchAllRows } from '../utils/paginate'
 
 // UX Validation excluded — UX team isn't part of dev velocity tracking
 const ACTIVE_QA_STATES = ['In Review', 'Code Review', 'Review', 'Q/A Check', 'QA', 'Pending', 'PO Check']
@@ -59,15 +60,19 @@ export default defineEventHandler(async (event) => {
   const supabase = await serverSupabaseClient(event)
   const months = new Set(computeSelectionMonths(Number(year), Number(range)))
 
-  // Fetch all issues for the team — one query
-  const { data: issues, error } = await supabase
+  // Only tickets that can be blocked or over their estimate (in progress / in review),
+  // every page: the whole team was read before (2,300+ rows, cut at 1000 by the API) — TND-24
+  const statusFilter = [...IN_PROGRESS_STATES, ...ACTIVE_QA_STATES].map(st => `status.ilike."*${st}*"`).join(',')
+  type InsightIssue = { id: string, identifier: string | null, title: string | null, assignee_id: string | null, status: string | null, estimate: number | null, started_at: string | null, qa_started_at: string | null, completed_at: string | null, updated_at: string | null, labels: unknown }
+  const issues = await fetchAllRows<InsightIssue>((from, to) => supabase
     .from('linear_issues')
     .select('id, identifier, title, assignee_id, status, estimate, started_at, qa_started_at, completed_at, updated_at, labels')
     .eq('workspace_id', workspaceId as string)
     .eq('team_id', teamId as string)
-
-  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-  if (!issues?.length) return { problematic: [], blocked: [] }
+    .or(statusFilter)
+    .order('id')
+    .range(from, to))
+  if (!issues.length) return { problematic: [], blocked: [] }
 
   function hasExcludedLabel(labels: unknown): boolean {
     if (!Array.isArray(labels)) return false

@@ -882,7 +882,7 @@
       "point1": "Poser et valider un congé en quelques secondes",
       "point2": "Un calendrier d’équipe clair, jours fériés compris",
       "point3": "La vélocité Linear, pour comprendre sans classer",
-      "footer": "WakaBods · conçu pour les équipes européennes"
+      "footer": "WakaBods · les congés et la vélocité, simplement"
     },
     "inv": {
       "details": "Détails de la facture",
@@ -947,5 +947,25 @@
   "header": {
     "toLight": "Passer en mode clair",
     "toDark": "Passer en mode sombre"
+  },
+  "tnd24": {
+    "intro": "Vos équipes Linear : cliquez sur une équipe pour voir sa vélocité.",
+    "workspaces": "Workspaces Linear",
+    "teams": "Équipes",
+    "search": "Rechercher une équipe",
+    "noTeams": "Aucune équipe synchronisée pour l’instant : lancez une synchronisation dans « Workspaces Linear ».",
+    "blocked": "{n} bloqué | {n} bloqué | {n} bloqués",
+    "recent": "Récemment consultée",
+    "thisMonth": "Livrés ce mois-ci",
+    "vsLast": "vs même période le mois dernier",
+    "lastMonth": "{n} le mois dernier",
+    "cycle": "Cycle médian (3 mois)",
+    "open": "Voir l’équipe",
+    "switch": "Changer d’équipe",
+    "unlinked": "{n} personne Linear non reliée à un compte WakaBods | {n} personnes Linear non reliées à un compte WakaBods",
+    "unlinkedShow": "Voir qui",
+    "unlinkedHide": "Masquer",
+    "unlinkedHint": "Un dev est relié quand son e-mail Linear est celui de son compte WakaBods.",
+    "linkPeople": "Gérer les personnes"
   }
 }

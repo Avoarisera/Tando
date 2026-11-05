@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { VELOCITE_RANGES, getAvailableYears, isValidRange, isValidYear, computeSelectionMonths } from '~/utils/velocite-periods'
 
-definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'admin-only' })
+// key: switching team (same page, other param) remounts the page with the new team
+definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'admin-only', key: r => String(r.params.teamId) })
 
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
@@ -13,7 +14,16 @@ const workspaceId = route.query.workspaceId as string
 
 const { data, isLoading, error, fetchMetrics } = useMetrics()
 const { teams, fetchTeams } = useLinearTeams()
-const teamName = computed(() => teams.value.find(t => t.id === teamId)?.name ?? null)
+// the overview passes the name in the link: shown at once, before anything loads (TND-24)
+const teamName = computed(() => teams.value.find(t => t.id === teamId)?.name ?? (route.query.name as string | undefined) ?? null)
+const teamOptions = computed(() => teams.value.map(x => ({ value: x.id, label: x.name ?? x.id })))
+const teamModel = computed({
+  get: () => teamId,
+  set: (id: string) => {
+    const name = teams.value.find(x => x.id === id)?.name ?? undefined
+    navigateTo({ path: `/velocite/teams/${id}`, query: { workspaceId, name, year: String(selectedYear.value), range: String(selectedRange.value) } })
+  },
+})
 const { problematic, blocked, fetchInsights } = useTeamInsights()
 
 
@@ -41,6 +51,9 @@ const displayMonths = computed(() => data.value?.months ?? [])
 onMounted(() => {
   load()
   fetchTeams(workspaceId)
+  // remembered for the overview ("Récemment consultée")
+  try { localStorage.setItem('wb_vel_last', teamId) }
+  catch { /* private mode */ }
 })
 watch([selectedYear, selectedRange], load)
 
@@ -112,8 +125,8 @@ const teamCurrent = computed(() => aggregateTeamMetrics(displayMonths.value))
 
 usePageHeader(() => ({
   crumbs: [
-    { label: t('nav.velocity'), to: '/velocite' },
-    ...(workspaceId ? [{ label: t('velocityB.workspace'), to: `/velocite/workspaces/${workspaceId}` }] : []),
+    // ?all=1: the overview, even when there is a single team
+    { label: t('nav.velocity'), to: '/velocite?all=1' },
     { label: teamName.value ?? t('velocityB.team') },
   ],
 }))
@@ -141,12 +154,14 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
         <p class="small wb-mut">{{ periodLabel }} · {{ t('velocityB.teamHint') }}</p>
       </div>
       <div class="wb-row wb-wrap wb-period-row">
+        <WbSelect v-if="teamOptions.length > 1" v-model="teamModel" :options="teamOptions" :aria-label="t('tnd24.switch')" data-action="switch-team" />
         <WbSelect v-model="yearModel" :options="yearOptions" :aria-label="t('velocityB.period.year')" />
         <div class="wb-period"><WbSegmented v-model="rangeModel" :options="rangeOptions" :label="t('velocityB.period.label')" /></div>
       </div>
     </div>
 
-    <WbSkeleton v-if="isLoading" variant="metric" :count="4" />
+    <!-- loading until the first answer: never a false "no data yet" (TND-24) -->
+    <WbSkeleton v-if="isLoading || (!data && !error)" variant="metric" :count="4" />
     <WbErrorState v-else-if="error" :message="readableApiError(error)" @retry="load" />
     <div v-else-if="!data || data.devs.length === 0" class="wb-card">
       <WbEmptyState art="link" :title="t('velocityB.empty.title')">{{ t('velocityB.empty.text') }}</WbEmptyState>
@@ -162,7 +177,7 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
 
       <!-- Delivery: team throughput next to deliveries per person and month -->
       <div class="wb-vel-pair">
-        <WbCard :title="t('velocityB.throughput.title')">
+        <WbCard class="wb-vel-tp" :title="t('velocityB.throughput.title')">
         <p v-if="teamThroughput.every(m => m.total === 0)" class="wb-mut">{{ t('velocityB.empty.period') }}</p>
         <WbChartFrame v-else :title="t('velocityB.throughput.chart')" :legend="[{ label: t('velocityB.charts.delivered'), color: '--chart-1' }]">
           <WbLineChart
@@ -215,6 +230,9 @@ const throughputLabels = computed(() => teamThroughput.value.map(m => velociteMo
 /* Two charts per row on wide screens */
 .wb-vel-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: stretch; }
 .wb-vel-pair > * { min-width: 0; }
+/* Throughput: the chart sits at the bottom of its card, level with the grid next to it */
+.wb-vel-tp { display: flex; flex-direction: column; }
+.wb-vel-tp :deep(> div:last-child) { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
 /* the heatmap and the distribution need room: one per row below 1440 px */
 @container wbapp (max-width: 1439px) { .wb-vel-pair { grid-template-columns: minmax(0, 1fr); } }
 /* The period switch never widens the page (TND-09): it scrolls inside on small screens */

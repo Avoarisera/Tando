@@ -1,4 +1,5 @@
 import { serverSupabaseClient } from '#supabase/server'
+import { fetchAllByIds, fetchAllRows, periodStart } from '../utils/paginate'
 
 const STATE_LEVELS: string[][] = [
   ['backlog', 'todo', 'triage'],
@@ -58,16 +59,19 @@ export default defineEventHandler(async (event) => {
 
   const supabase = await serverSupabaseClient(event)
 
-  let query = supabase
-    .from('linear_issues')
-    .select('id, identifier, title, assignee_id, status, estimate, started_at, qa_started_at, completed_at, updated_at')
-    .eq('workspace_id', workspaceId as string)
-
-  if (teamId) query = query.eq('team_id', teamId as string)
-  if (assigneeId) query = query.eq('assignee_id', assigneeId as string)
-
-  const { data: issues, error } = await query
-  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+  // period only, every page (the API stops at 1000 rows) — TND-24
+  const since = periodStart([...targetMonths])
+  type TicketIssue = { id: string, identifier: string | null, title: string | null, assignee_id: string | null, status: string | null, estimate: number | null, started_at: string | null, qa_started_at: string | null, completed_at: string | null, updated_at: string | null }
+  const issues = await fetchAllRows<TicketIssue>((from, to) => {
+    let q = supabase
+      .from('linear_issues')
+      .select('id, identifier, title, assignee_id, status, estimate, started_at, qa_started_at, completed_at, updated_at')
+      .eq('workspace_id', workspaceId as string)
+    if (teamId) q = q.eq('team_id', teamId as string)
+    if (assigneeId) q = q.eq('assignee_id', assigneeId as string)
+    if (since) q = q.gte('updated_at', since)
+    return q.order('id').range(from, to)
+  })
 
   const { isDevDelivered, devDeliveredAt } = await import('../utils/metrics')
 
@@ -81,11 +85,15 @@ export default defineEventHandler(async (event) => {
   if (!filtered.length) return []
 
   const issueIds = filtered.map(i => i.id)
-  const { data: historyRows } = await supabase
-    .from('issue_history')
-    .select('issue_id, from_status, to_status, changed_at')
-    .in('issue_id', issueIds)
-    .limit(10000)
+  // by id chunks and every page (a single call with 10,000 ids was cut at 1000 rows)
+  const historyRows = issueIds.length
+    ? await fetchAllByIds<{ issue_id: string, from_status: string | null, to_status: string | null, changed_at: string }>(issueIds, (chunk, from, to) => supabase
+      .from('issue_history')
+      .select('issue_id, from_status, to_status, changed_at')
+      .in('issue_id', chunk)
+      .order('id')
+      .range(from, to))
+    : []
 
   const reworkedIds = new Set<string>()
   const historyByIssue = new Map<string, { from_status: string | null; to_status: string | null; changed_at: string }[]>()

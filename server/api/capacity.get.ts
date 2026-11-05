@@ -1,4 +1,14 @@
 import { capacityOf, type CapacityLeave } from '../utils/capacity'
+import { fetchAllRows } from '../utils/paginate'
+
+// e-mail → account id, shared by every capacity call for 5 minutes (listing all users is slow)
+let emailCache: { at: number, map: Map<string, string> } | null = null
+async function emailMap(load: () => Promise<Map<string, string>>): Promise<Map<string, string>> {
+  if (emailCache && Date.now() - emailCache.at < 5 * 60 * 1000) return emailCache.map
+  const map = await load()
+  emailCache = { at: Date.now(), map }
+  return map
+}
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/
 const MAX_DAYS = 92
@@ -33,17 +43,22 @@ export default defineEventHandler(async (event) => {
   if (!ws) throw createError({ statusCode: 404, statusMessage: 'Workspace introuvable' })
 
   // Devs of the team = assignees of its issues
-  const { data: issues, error: issuesError } = await supabase
-    .from('linear_issues').select('assignee_id').eq('workspace_id', workspaceId).eq('team_id', teamId).not('assignee_id', 'is', null)
-  if (issuesError) throw createError({ statusCode: 500, statusMessage: issuesError.message })
-  const devIds = [...new Set((issues ?? []).map(i => i.assignee_id as string))]
+  // Devs active in the last 120 days only (people who left long ago are not capacity),
+  // every page of it (the API stops at 1000 rows) — TND-24
+  const activeSince = new Date(Date.now() - 120 * 86_400_000).toISOString()
+  const issues = await fetchAllRows<{ assignee_id: string | null }>((from, to) => supabase
+    .from('linear_issues').select('assignee_id').eq('workspace_id', workspaceId).eq('team_id', teamId)
+    .not('assignee_id', 'is', null).gte('updated_at', activeSince).order('id').range(from, to))
+  const devIds = [...new Set(issues.map(i => i.assignee_id as string))]
   if (!devIds.length) return { from, to, devs: [] }
 
   const { data: linearUsers, error: luError } = await supabase
     .from('linear_users').select('id, email, display_name').eq('workspace_id', workspaceId).in('id', devIds)
   if (luError) throw createError({ statusCode: 500, statusMessage: luError.message })
 
-  // e-mail → WakaBods account (paginated listing of auth users)
+  // e-mail → WakaBods account (paginated listing of auth users), kept 5 minutes:
+  // it is the same for every team and every period
+  const byEmail = await emailMap(async () => {
   const byEmail = new Map<string, string>()
   for (let page = 1; page <= 50; page++) {
     const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 })
@@ -51,6 +66,8 @@ export default defineEventHandler(async (event) => {
     for (const u of data.users) if (u.email) byEmail.set(u.email.toLowerCase(), u.id)
     if (data.users.length < 200) break
   }
+  return byEmail
+  })
 
   const matched = (linearUsers ?? []).map(lu => ({ lu, profileId: lu.email ? byEmail.get(lu.email.toLowerCase()) : undefined }))
   const profileIds = matched.map(m => m.profileId).filter((x): x is string => !!x)
