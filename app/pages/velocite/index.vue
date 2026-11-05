@@ -43,7 +43,27 @@ const editingWorkspace = ref<Workspace | null>(null)
 // ── Delete ────────────────────────────────────────────────────────────────
 const pendingDelete = ref<Workspace | null>(null)
 
-onMounted(fetchWorkspaces)
+// Teams of every workspace, so a team is one click away from this page (feedback 05/11)
+const supabase = useSupabaseClient()
+const wsTeams = ref<Record<string, { id: string, name: string }[]>>({})
+async function loadWsTeams() {
+  const { data } = await supabase.from('linear_teams').select('id, name, workspace_id').order('name')
+  const map: Record<string, { id: string, name: string }[]> = {}
+  for (const r of (data ?? []) as { id: string, name: string | null, workspace_id: string }[]) {
+    (map[r.workspace_id] ??= []).push({ id: r.id, name: r.name ?? r.id })
+  }
+  wsTeams.value = map
+}
+function teamsOf(ws: Workspace) {
+  const all = wsTeams.value[ws.id] ?? []
+  const picked = ws.selected_teams?.map(x => x.id)
+  if (all.length) return picked?.length ? all.filter(x => picked.includes(x.id)) : all
+  return (ws.selected_teams ?? []).map(x => ({ id: x.id, name: x.name }))
+}
+onMounted(async () => {
+  await fetchWorkspaces()
+  await loadWsTeams().catch(() => undefined)
+})
 
 // ─── Step 1 : create workspace ───────────────────────────────────────────
 async function handleAddWorkspace() {
@@ -278,12 +298,14 @@ function cardSubtitle(ws: Workspace): string {
 
           <div class="wb-row wb-wrap">
             <WbBadge :tone="statusBadge(ws).tone" :icon="statusBadge(ws).icon">{{ statusBadge(ws).label }}</WbBadge>
-            <template v-if="ws.selected_teams?.length">
-              <WbBadge v-for="tm in ws.selected_teams" :key="tm.id" tone="info">{{ tm.name }}</WbBadge>
-            </template>
-            <span v-else class="small wb-mut">{{ t('velocityA.allTeams') }}</span>
+            <span v-if="!teamsOf(ws).length" class="small wb-mut">{{ t('velocityA.allTeams') }}</span>
           </div>
 
+          <nav v-if="teamsOf(ws).length" class="wb-ws-teams" :aria-label="t('velocityA.seeTeams')">
+            <NuxtLink v-for="tm in teamsOf(ws)" :key="tm.id" class="wb-ws-team" :to="`/velocite/teams/${tm.id}?workspaceId=${ws.id}`" :data-team="tm.name">
+              <WbIcon name="users" :size="16" /><span class="wb-grow">{{ tm.name }}</span><WbIcon name="chevron-right" :size="16" />
+            </NuxtLink>
+          </nav>
           <div v-if="wsSyncing(ws) || ws.sync_status === 'done'" class="wb-stack-s" style="gap: 4px">
             <div
               class="wb-gauge-t"
@@ -395,6 +417,11 @@ function cardSubtitle(ws: Workspace): string {
 </template>
 
 <style scoped>
+/* Teams straight from the workspace card: one click to a team */
+.wb-ws-teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-2); }
+.wb-ws-team { display: flex; align-items: center; gap: var(--space-2); padding: 10px var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--ink); text-decoration: none; font-weight: 600; font-size: 14px; background: var(--surface); }
+.wb-ws-team:hover { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-text); }
+.wb-ws-team:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .row-lock { display: flex; gap: 6px; align-items: center; }
 .wb-fill-info { background: var(--info-solid); }
 </style>

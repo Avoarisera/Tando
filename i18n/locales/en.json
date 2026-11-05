@@ -331,7 +331,11 @@
     "departuresSub": "No departure in 14 days | {n} departure in 14 days | {n} departures in 14 days",
     "noDepartures": "No departure in the next 14 days.",
     "tomorrow": "tomorrow",
-    "inDaysShort": "in {n} d"
+    "inDaysShort": "in {n} d",
+    "next14Title": "Absences over the next 14 days",
+    "next14Summary": "Peak: {n} away on {day} · {avg} on average per working day · hover a bar to see who | Peak: {n} away on {day} · {avg} on average per working day · hover a bar to see who",
+    "next14None": "No approved leave in the next 14 days.",
+    "andMore": "and {n} more"
   },
   "rules": {
     "tabTypes": "Leave types",
@@ -939,5 +943,9 @@
       "rejected": "Refused (only you see it)"
     },
     "loadingMore": "Loading… {n} more request | Loading… {n} more requests"
+  },
+  "header": {
+    "toLight": "Switch to light mode",
+    "toDark": "Switch to dark mode"
   }
 }

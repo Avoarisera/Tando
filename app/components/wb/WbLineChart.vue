@@ -18,12 +18,16 @@ const palette = ref<string[]>([])
 const custom = ref<Record<string, string>>({})
 const ink = ref('#3f4a63')
 const grid = ref('#d8deea')
-onMounted(() => {
+function readColours() {
   palette.value = chartSeries()
   ink.value = cssVar('--ink-2', ink.value)
   grid.value = cssVar('--border', grid.value)
   for (const s of props.series) if (s.color) custom.value[s.color] = cssVar(s.color)
-})
+}
+onMounted(readColours)
+// re-read the tokens when the theme switches (the header toggle)
+const { resolved: theme } = useTheme()
+watch(theme, () => nextTick(readColours))
 
 const color = (s: WbSeries, i: number) => (s.color && custom.value[s.color]) || palette.value[i % 6] || '#86adff'
 const data = computed(() => ({
@@ -63,11 +67,12 @@ const options = computed(() => ({
         <Line :data="data" :options="options" :aria-label="title" role="img" />
       </ClientOnly>
     </div>
-    <table class="wb-sr">
+    <!-- wrapped: a <caption> escapes the clip of a visually-hidden table and was drawn over the chart -->
+    <div class="wb-sr">    <table>
       <caption>{{ title }}</caption>
       <tbody>
         <tr v-for="(l, i) in labels" :key="l"><th scope="row">{{ l }}</th><td v-for="s in series" :key="s.label">{{ s.data[i] }}</td></tr>
       </tbody>
-    </table>
+    </table></div>
   </figure>
 </template>

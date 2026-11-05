@@ -71,7 +71,7 @@ test.describe('R5 — Tableau de bord', () => {
     await expect(page.locator('.wb-metric').first()).toContainText('Effectif')
     await expect(page.locator('.wb-metric').first().locator('.display')).toHaveText(/^\d+$/)
     await expect(page.getByRole('link', { name: /Voir tout \(\d+\)/ })).toHaveAttribute('href', '/approvals')
-    await expect(page.getByRole('heading', { name: '14 prochains jours' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Absences des 14 prochains jours' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Départs à venir' })).toBeVisible()
   })
 

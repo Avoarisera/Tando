@@ -9,6 +9,9 @@ const { open } = useLeavePanel()
 const { items, unread, markRead, startPolling } = useNotifications()
 startPolling()
 const notifOpen = ref(false)
+// Quick light / dark switch next to the bell (the profile keeps the "Système" choice)
+const { choice: themeChoice, resolved: theme } = useTheme()
+function toggleTheme() { themeChoice.value = theme.value === 'dark' ? 'light' : 'dark' }
 const route = useRoute()
 watch(() => route.fullPath, () => { notifOpen.value = false })
 
@@ -45,6 +48,16 @@ function openNotification(n: AppNotification) {
       <WbButton v-if="role !== 'admin'" class="wb-hide-m" icon="plus" aria-haspopup="dialog" @click="open()">{{ t('nav.leave') }}</WbButton>
       <button
         type="button"
+        class="wb-theme-t"
+        data-action="toggle-theme"
+        :aria-label="theme === 'dark' ? t('header.toLight') : t('header.toDark')"
+        :title="theme === 'dark' ? t('header.toLight') : t('header.toDark')"
+        @click="toggleTheme"
+      >
+        <WbIcon :name="theme === 'dark' ? 'sun' : 'moon'" :size="20" />
+      </button>
+      <button
+        type="button"
         class="wb-bell"
         :aria-label="t('r8a.notif.bell', { n: unread }, unread)"
         aria-haspopup="dialog"
@@ -69,5 +82,8 @@ function openNotification(n: AppNotification) {
 
 <style scoped>
 .wb-bell { border: 0; background: none; cursor: pointer; }
+.wb-theme-t { border: 0; background: none; cursor: pointer; display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: var(--radius-md); color: var(--ink-2); }
+.wb-theme-t:hover { background: var(--surface-2); color: var(--ink); }
+.wb-theme-t:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .wb-head-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

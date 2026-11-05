@@ -24,7 +24,8 @@ function overrunTone(stuck: number, expected: number): WbBadgeTone {
 <template>
   <div class="wb-grid wb-cols-2">
     <WbCard :title="t('velocityB.insights.blockedTitle')" :subtitle="t('velocityB.insights.blockedHint')">
-      <WbEmptyState v-if="blocked.length === 0" art="sun" :title="t('velocityB.insights.noBlocked')" />
+      <!-- compact empty state: this card sits right under the numbers -->
+      <p v-if="blocked.length === 0" class="small wb-c-success wb-row" style="gap: 6px"><WbIcon name="circle-check" :size="16" />{{ t('velocityB.insights.noBlocked') }}</p>
       <template v-else>
         <ul class="wb-list">
           <li v-for="tk in blocked.slice(0, 8)" :key="tk.id" class="small">

@@ -131,3 +131,14 @@ export function shortNames(fullNames: readonly string[]): (full: string) => stri
     return (count.get(first) ?? 0) > 1 && last ? `${first} ${last.charAt(0)}.` : first
   }
 }
+
+/** Lower-case text without accents, for searching ("Éloïse" → "eloise") */
+export function foldText(s: string | null | undefined): string {
+  return (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+}
+
+/** Accent- and case-insensitive "contains": a search for "emma" finds "Emma Employée", "eloise" finds "Éloïse" */
+export function textMatch(haystack: string | null | undefined, query: string | null | undefined): boolean {
+  const q = foldText(query)
+  return !q || foldText(haystack).includes(q)
+}

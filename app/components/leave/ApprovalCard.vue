@@ -159,9 +159,15 @@ const planDays = computed(() => {
 .wb-acx-a :deep(.wb-btn) { margin: 0; flex: none; }
 /* Compact card (grid of cards): content on top, actions on a bottom row */
 .wb-acx.is-compact { display: flex; flex-direction: column; height: 100%; padding: var(--space-3); gap: var(--space-2); }
-.wb-acx.is-compact .wb-acx-row { flex-wrap: wrap; flex: 1; align-content: flex-start; gap: var(--space-2) var(--space-3); }
-.wb-acx.is-compact .wb-acx-main { flex: 1 1 0; min-width: 0; }
-.wb-acx.is-compact .wb-acx-a { flex-basis: 100%; }
+.wb-acx.is-compact .wb-acx-row {
+  /* checkbox · avatar · content on top, actions pinned to the bottom of every card */
+  display: grid; grid-template-columns: auto auto minmax(0, 1fr); grid-template-rows: 1fr auto;
+  flex: 1; gap: var(--space-2) var(--space-3); align-items: start;
+}
+.wb-acx.is-compact .wb-acx-main { min-width: 0; grid-column: 3; grid-row: 1; }
+.wb-acx.is-compact .wb-acx-chk { grid-column: 1; grid-row: 1; }
+.wb-acx.is-compact :deep(.wb-av) { grid-column: 2; grid-row: 1; }
+.wb-acx.is-compact .wb-acx-a { grid-column: 1 / -1; grid-row: 2; align-self: end; }
 .wb-acx.is-compact .wb-quote { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wb-acx.is-compact .wb-acx-a { width: 100%; justify-content: flex-end; flex-wrap: wrap; margin-top: auto; padding-top: var(--space-2); border-top: 1px solid var(--border); }
 .wb-acx.is-compact .wb-acx-a :deep(.wb-btn) { flex: 1 1 auto; }

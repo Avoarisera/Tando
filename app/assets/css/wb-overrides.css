@@ -15,15 +15,20 @@
   --ink: #0f172a;
   --ink-2: #334155;
   --ink-3: #5b6779;
-  --brand: #2563eb;
-  --brand-hover: #1d4ed8;
-  --brand-tint: #eef3ff;
-  --brand-text: #1d4ed8;
-  --focus: #2563eb;
-  --success-tint: #dcfce7; --success-border: #a7e3bd; --success-text: #166534;
-  --warning-tint: #fef3c7; --warning-border: #f3d58b; --warning-text: #8a3b06;
-  --danger-tint: #fee2e2;  --danger-border: #f8b4b4;  --danger-text: #991b1b;
-  --info-tint: #e0f2fe;    --info-border: #a5d3f5;    --info-text: #075985;
+  /* soft, not washed out (feedback 05/11: "pas des couleurs pétantes") */
+  --brand: #4565cf;
+  --brand-hover: #3753b4;
+  --brand-tint: #eef2fb;
+  --brand-text: #33509f;
+  --focus: #4565cf;
+  --success-tint: #ebf6ef; --success-border: #c3e2cf; --success-text: #2d6a45;
+  --warning-tint: #fcf4e4; --warning-border: #eed9ad; --warning-text: #84591a;
+  --danger-tint: #fbeeed;  --danger-border: #efc7c4;  --danger-text: #9e3b36;
+  --info-tint: #ebf3fa;    --info-border: #c2dbee;    --info-text: #2f6388;
+  --indigo-tint: #f0f0fb;  --indigo-border: #d3d3f2;  --indigo-text: #4f4791;
+  --chart-1: #6f8fe0;
+  --chart-2: #e3a46b;
+  --chart-3: #5fa89f;
   --shadow-1: 0 1px 2px rgba(15, 23, 42, .05), 0 1px 3px rgba(15, 23, 42, .06);
   --shadow-2: 0 6px 18px rgba(15, 23, 42, .10);
   --shadow-3: 0 18px 44px rgba(15, 23, 42, .18);
@@ -134,3 +139,14 @@
 .wb-bar.is-canc { box-shadow: inset 3px 0 0 var(--ls), inset 0 0 0 2px var(--indigo-text); }
 .wb-bar { font-weight: 650; }
 .wb-bar.is-pend { color: var(--ink); }
+
+/* Scroll areas are positioned, so visually-hidden labels (position:absolute)
+   inside wide tables stay clipped instead of widening the page on phones */
+.wb-scroll { position: relative; }
+
+/* Card header with an action (segmented period, link): the title keeps its
+   width and the action drops under it when space runs out */
+.wb-card-h { flex-wrap: wrap; }
+.wb-card-h > :first-child { flex: 1 1 200px; min-width: 0; }
+.wb-card-h .wb-seg { flex: 0 0 auto; max-width: 100%; }
+.wb-seg button, .wb-seg label { white-space: nowrap; }

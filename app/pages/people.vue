@@ -50,9 +50,8 @@ const teamName = (id: string | null) => teams.value.find(x => x.id === id)?.name
 const onLeave = (id: string) => snapshot.value?.employees.find(e => e.id === id)
 
 const rows = computed(() => {
-  const q = search.value.trim().toLowerCase()
   return people.value.filter(p =>
-    (!q || fullName(p).toLowerCase().includes(q))
+    textMatch(fullName(p), search.value)
     && (teamFilter.value === 'all' || p.team_id === teamFilter.value)
     && (roleFilter.value === 'all' || p.role === roleFilter.value))
 })
@@ -140,9 +139,8 @@ const memberSearch = ref('')
 /** Admins validate every team: they are never members */
 const assignable = computed(() => people.value.filter(p => p.role !== 'admin'))
 const memberList = computed(() => {
-  const q = memberSearch.value.trim().toLowerCase()
   return assignable.value
-    .filter(p => !q || fullName(p).toLowerCase().includes(q))
+    .filter(p => textMatch(fullName(p), memberSearch.value))
     .sort((a, b) => Number(teamMembers.value.includes(b.id)) - Number(teamMembers.value.includes(a.id)) || fullName(a).localeCompare(fullName(b)))
 })
 const managerChoices = computed(() => [
