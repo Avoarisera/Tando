@@ -326,7 +326,12 @@
       "end": "End",
       "days": "Days"
     },
-    "alertUnderstaffed": "{team} team: {n} of {of} present on {day}"
+    "alertUnderstaffed": "{team} team: {n} of {of} present on {day}",
+    "departuresTitle": "Upcoming departures",
+    "departuresSub": "No departure in 14 days | {n} departure in 14 days | {n} departures in 14 days",
+    "noDepartures": "No departure in the next 14 days.",
+    "tomorrow": "tomorrow",
+    "inDaysShort": "in {n} d"
   },
   "rules": {
     "tabTypes": "Leave types",
@@ -864,7 +869,8 @@
     "members": "Members",
     "manager": "Manager",
     "typesHint": "Active types are offered when requesting leave.",
-    "settingsSaveHint": "Changes apply to the next invoices and invitations."
+    "settingsSaveHint": "Changes apply to the next invoices and invitations.",
+    "awayTodayCount": "Nobody | {n} away | {n} away"
   },
   "v3": {
     "auth": {

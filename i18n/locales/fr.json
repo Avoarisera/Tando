@@ -326,7 +326,12 @@
       "end": "Fin",
       "days": "Jours"
     },
-    "alertUnderstaffed": "Équipe {team} : {n} présent(s) sur {of} le {day}"
+    "alertUnderstaffed": "Équipe {team} : {n} présent(s) sur {of} le {day}",
+    "departuresTitle": "Départs à venir",
+    "departuresSub": "Aucun départ sur 14 jours | {n} départ sur 14 jours | {n} départs sur 14 jours",
+    "noDepartures": "Aucun départ prévu dans les 14 prochains jours.",
+    "tomorrow": "demain",
+    "inDaysShort": "J-{n}"
   },
   "rules": {
     "tabTypes": "Types de congé",
@@ -864,7 +869,8 @@
     "members": "Membres",
     "manager": "Manager",
     "typesHint": "Les types actifs sont proposés à la pose d’un congé.",
-    "settingsSaveHint": "Les modifications s’appliquent aux prochaines factures et invitations."
+    "settingsSaveHint": "Les modifications s’appliquent aux prochaines factures et invitations.",
+    "awayTodayCount": "Personne | {n} absent | {n} absents"
   },
   "v3": {
     "auth": {

@@ -57,10 +57,29 @@ const approved = computed(() => events.value.filter(e => e.status === 'approved'
 const next14 = computed(() => Array.from({ length: 14 }, (_, i) => addDays(today, i)))
 const next14Labels = computed(() => next14.value.map(d => fmtDate(d, tag.value, { weekday: 'short', day: 'numeric' })))
 const next14Counts = computed(() => next14.value.map(d => approved.value.filter(e => e.startDate <= d && e.endDate >= d).length))
-const departures = computed(() => approved.value
-  .filter(e => e.startDate > today && e.startDate <= next14.value.at(-1)!)
-  .sort((a, b) => a.startDate.localeCompare(b.startDate))
-  .map(e => t('dashboard.departure', { who: e.employeeName, date: fmtDate(e.startDate, tag.value, { day: 'numeric', month: 'long' }) })))
+// Upcoming departures (next 14 days), grouped by start day — the "who leaves when" view
+const departureDays = computed(() => {
+  const list = approved.value
+    .filter(e => e.startDate > today && e.startDate <= next14.value.at(-1)!)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.employeeName.localeCompare(b.employeeName))
+  const map = new Map<string, typeof list>()
+  for (const e of list) map.set(e.startDate, [...(map.get(e.startDate) ?? []), e])
+  return [...map].map(([day, people]) => ({
+    day,
+    num: Number(day.slice(8)),
+    dow: fmtDate(day, tag.value, { weekday: 'short' }),
+    month: fmtDate(day, tag.value, { month: 'short' }),
+    inDays: calendarDays(today, day) - 1,
+    people,
+  }))
+})
+const departuresCount = computed(() => departureDays.value.reduce((n, d) => n + d.people.length, 0))
+// back on the next working day after the leave (not on a Sunday)
+const backOn = (end: string) => {
+  let d = addDays(end, 1)
+  while (isWeekend(d)) d = addDays(d, 1)
+  return fmtDate(d, tag.value, { weekday: 'short', day: 'numeric', month: 'short' })
+}
 
 // Alerts: requests waiting for more than 3 days, balances that would go negative
 // Teams under half of their headcount on a working day of the next 14 days
@@ -150,29 +169,44 @@ function exportMonth() {
         </div>
       </section>
 
-      <div class="wb-split">
-        <div class="wb-stack">
-          <WbCard :title="t('nav.approvals')" :link-label="toReview.length ? t('dashboard.seeAll', { n: toReview.length }) : undefined" link-to="/approvals">
-            <ApprovalQueue v-if="toReview.length" :items="toReview.slice(0, 3)" is-admin />
+      <div class="wb-dash-grid">
+        <!-- 1. Decisions and load -->
+        <div class="wb-dash-col">
+          <WbCard class="wb-dash-c wb-dash-queue" :title="t('nav.approvals')" :link-label="toReview.length ? t('dashboard.seeAll', { n: toReview.length }) : undefined" link-to="/approvals">
+            <ul v-if="toReview.length" class="wb-dash-rows">
+              <li v-for="r in toReview" :key="r.id">
+                <NuxtLink to="/approvals" class="wb-dash-row">
+                  <WbAvatar :name="fullName(r.profiles)" :size="28" />
+                  <span class="wb-grow wb-dash-row-t">
+                    <b class="small">{{ fullName(r.profiles) }}</b>
+                    <span class="caption wb-mut2">{{ r.leave_types?.name }} · {{ formatPeriod(r.start_date, r.end_date, tag) }} · {{ t('leave.workingDays', { n: fmtDays(Number(r.days_count), tag) }, Number(r.days_count)) }}</span>
+                  </span>
+                  <WbBadge v-if="(balanceAfter(r) ?? 0) < 0" tone="danger" size="sm" icon="wallet">{{ t('tnd23.overFilter') }}</WbBadge>
+                  <WbBadge :tone="r.status === 'manager_approved' ? 'success' : r.status === 'cancel_requested' ? 'indigo' : 'warning'" size="sm">
+                    {{ r.status === 'manager_approved' ? t('approvals.stepManagerOk') : r.status === 'cancel_requested' ? t('leave.status.cancel_requested') : t('approvals.level1') }}
+                  </WbBadge>
+                </NuxtLink>
+              </li>
+            </ul>
             <p v-else class="wb-mut">{{ t('home.nothingToApprove') }}</p>
           </WbCard>
 
-          <WbCard :title="t('dashboard.next14')" :subtitle="t('dashboard.next14Hint')">
-            <div class="wb-stack-s wb-dash-chart">
-              <WbBarChart :title="t('dashboard.next14Hint')" :labels="next14Labels" :series="[{ label: t('dashboard.away'), data: next14Counts }]" :height="'max(240px, calc(100dvh - 540px))'" />
-              <p v-if="departures.length" class="small wb-mut2">{{ t('dashboard.departures') }} {{ departures.join(', ') }}.</p>
+          <WbCard class="wb-dash-c wb-dash-chartc" :title="t('dashboard.next14')" :subtitle="t('dashboard.next14Hint')">
+            <div class="wb-dash-chart">
+              <WbBarChart :title="t('dashboard.next14Hint')" :labels="next14Labels" :series="[{ label: t('dashboard.away'), data: next14Counts }]" height="100%" />
             </div>
           </WbCard>
         </div>
 
-        <div class="wb-stack">
-          <WbCard :title="t('calendar.today')">
+        <!-- 2. Who is away, who leaves next -->
+        <div class="wb-dash-col">
+          <WbCard class="wb-dash-c wb-dash-today" :title="t('calendar.today')" :subtitle="awayToday.length ? t('v2.awayTodayCount', { n: awayToday.length }, awayToday.length) : undefined">
             <ul v-if="awayToday.length" class="wb-list wb-dash-list">
               <li v-for="e in awayToday" :key="e.id">
                 <WbAvatar :name="`${e.first_name} ${e.last_name}`" :size="28" />
                 <span class="wb-grow small">
                   <b>{{ e.first_name }} {{ e.last_name }}</b>
-                  <template v-if="e.leave_end_date"><br><span class="wb-mut">{{ t('dashboard.backOn', { date: fmtDate(addDays(e.leave_end_date, 1), tag, { weekday: 'short', day: 'numeric', month: 'short' }) }) }}</span></template>
+                  <template v-if="e.leave_end_date"><br><span class="wb-mut">{{ t('dashboard.backOn', { date: backOn(e.leave_end_date) }) }}</span></template>
                 </span>
                 <WbBadge v-if="e.leave_type_name" size="sm">{{ e.leave_type_name }}</WbBadge>
               </li>
@@ -180,7 +214,34 @@ function exportMonth() {
             <p v-else class="small wb-mut">{{ t('dashboard.allHere') }}</p>
           </WbCard>
 
-          <WbCard :title="t('dashboard.alerts')">
+          <WbCard class="wb-dash-c wb-dash-dep" :title="t('dashboard.departuresTitle')" :subtitle="t('dashboard.departuresSub', { n: departuresCount }, departuresCount)" link-to="/calendar" :link-label="t('nav.calendar')">
+            <ol v-if="departureDays.length" class="wb-dep">
+              <li v-for="d in departureDays" :key="d.day" class="wb-dep-day">
+                <div class="wb-dep-date" :aria-label="fmtDate(d.day, tag, { weekday: 'long', day: 'numeric', month: 'long' })">
+                  <span class="caption2">{{ d.dow }}</span>
+                  <b class="wb-num">{{ d.num }}</b>
+                  <span class="caption2">{{ d.month }}</span>
+                  <span class="wb-dep-in">{{ d.inDays <= 1 ? t('dashboard.tomorrow') : t('dashboard.inDaysShort', { n: d.inDays }) }}</span>
+                </div>
+                <ul class="wb-dep-people">
+                  <li v-for="e in d.people" :key="e.id">
+                    <WbAvatar :name="e.employeeName" :size="26" />
+                    <span class="wb-grow wb-dep-who">
+                      <b class="small">{{ e.employeeName }}</b>
+                      <span class="caption wb-mut2">{{ e.teamName ? `${e.teamName} · ` : '' }}{{ t('dashboard.backOn', { date: backOn(e.endDate) }) }}</span>
+                    </span>
+                    <WbTypeBadge :name="e.leaveTypeName" :color="e.leaveTypeColor" />
+                  </li>
+                </ul>
+              </li>
+            </ol>
+            <p v-else class="small wb-mut">{{ t('dashboard.noDepartures') }}</p>
+          </WbCard>
+        </div>
+
+        <!-- 3. What needs attention -->
+        <div class="wb-dash-col">
+          <WbCard class="wb-dash-c wb-dash-alerts" :title="t('dashboard.alerts')">
             <ul v-if="alerts.length" class="wb-list wb-dash-list">
               <li v-for="(a, i) in alerts" :key="i" :class="['small', `wb-c-${a.tone}`]">
                 <WbIcon :name="a.icon" :size="16" /><NuxtLink class="wb-grow" :to="a.to">{{ a.text }}</NuxtLink>
@@ -189,7 +250,7 @@ function exportMonth() {
             <p v-else class="small wb-mut">{{ t('dashboard.noAlerts') }}</p>
           </WbCard>
 
-          <WbCard :title="t('nav.velocity')" :link-label="t('dashboard.seeVelocity')" link-to="/velocite">
+          <WbCard class="wb-dash-c wb-dash-vel" :title="t('nav.velocity')" :link-label="t('dashboard.seeVelocity')" link-to="/velocite">
             <ul v-if="wsRows.length" class="wb-list wb-dash-list wb-dash-ws">
               <li v-for="w in wsRows" :key="w.id">
                 <NuxtLink class="wb-grow wb-dash-ws-l" :to="`/velocite/workspaces/${w.id}`">
@@ -222,8 +283,59 @@ function exportMonth() {
 .wb-dash-ws li + li { border-top: 1px solid var(--border); }
 .wb-dash-ws-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: inherit; text-decoration: none; }
 .wb-dash-ws-l:hover b { color: var(--brand-text); }
-/* Chart: clear space under the card subtitle */
-.wb-dash-chart { padding-top: var(--space-2); }
+/* Chart: clear space under the card subtitle; it takes the card's height */
+.wb-dash-chart { padding-top: var(--space-2); height: 220px; }
+.wb-dash-chart :deep(.wb-cf) { height: 100%; margin: 0; }
+
+/* 3 columns; on a desktop screen the whole board fits the window (no page
+   scroll) and long cards scroll inside */
+.wb-dash-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); }
+.wb-dash-col { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; min-width: 0; }
+.wb-dash-c { display: flex; flex-direction: column; min-height: 0; }
+.wb-dash-c :deep(> div) { min-height: 0; }
+
+.wb-dash-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.wb-dash-rows li + li { border-top: 1px solid var(--border); }
+.wb-dash-row { display: flex; align-items: center; gap: var(--space-2); padding: 8px 0; color: inherit; text-decoration: none; }
+.wb-dash-row:hover b { color: var(--brand-text); }
+.wb-dash-row-t { display: flex; flex-direction: column; min-width: 0; }
+.wb-dash-row-t > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Upcoming departures: a date tile per day, the people leaving that day */
+.wb-dep { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.wb-dep-day { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--space-3); align-items: start; position: relative; }
+.wb-dep-date { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 0; border-radius: var(--radius-md); background: var(--brand-tint); color: var(--brand-text); line-height: 1.1; text-transform: capitalize; }
+.wb-dep-date b { font-size: 20px; line-height: 24px; }
+.wb-dep-people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.wb-dep-people li { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.wb-dep-who { display: flex; flex-direction: column; min-width: 0; }
+.wb-dep-who > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-dep-in { margin-top: 4px; padding: 1px 6px; border-radius: 999px; background: var(--surface); color: var(--ink-2); font-size: 10px; font-weight: 650; text-transform: none; white-space: nowrap; }
+
+@container wbapp (min-width: 1024px) {
+  /* header 56 + page paddings: the board is exactly one screen high */
+  .wb-dash { height: calc(100dvh - 56px - var(--space-5) - var(--space-8) - 8px); min-height: 600px; }
+  .wb-dash-grid { flex: 1 1 0; min-height: 0; }
+  .wb-dash-col { overflow: hidden; }
+  .wb-dash-queue { flex: 0 1 auto; max-height: 46%; }
+  .wb-dash-chartc { flex: 1 1 0; }
+  .wb-dash-chartc :deep(> div) { flex: 1; display: flex; }
+  .wb-dash-chart { flex: 1; height: auto; min-height: 140px; position: relative; }
+  .wb-dash-chart :deep(.wb-cf) { position: absolute; inset: var(--space-2) 0 0; margin: 0; }
+  .wb-dash-today { flex: 0 1 auto; max-height: 42%; }
+  .wb-dash-dep, .wb-dash-alerts { flex: 1 1 0; }
+  .wb-dash-vel { flex: 0 1 auto; max-height: 45%; }
+  .wb-dash-c :deep(> div:last-child) { overflow-y: auto; }
+}
+@container wbapp (max-width: 1279px) {
+  .wb-dash-grid { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }
+  .wb-dash-col:nth-child(3) { grid-column: 1 / -1; flex-direction: row; }
+  .wb-dash-col:nth-child(3) > * { flex: 1 1 0; }
+}
+@container wbapp (max-width: 1023px) {
+  .wb-dash-grid { grid-template-columns: minmax(0, 1fr); }
+  .wb-dash-col:nth-child(3) { flex-direction: column; }
+}
 @container wbapp (max-width: 1023px) {
   .wb-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wb-kpi:nth-child(3) { border-left: 0; }
