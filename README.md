@@ -29,7 +29,7 @@ POC livré en 3 sprints (15 jours). Langue produit : **français**.
 | Backend / Auth / DB | Supabase (Auth, PostgreSQL 15, RLS, RPC, triggers) |
 | State management | Composables Nuxt (`useState`) — pas de Pinia |
 | Tests | Playwright (E2E) + analyse statique |
-| Déploiement | Vercel (SSR) |
+| Déploiement | Coolify sur le VPS (Docker, SSR) via GitHub Actions — voir « Déploiement » |
 | Package manager | Yarn |
 
 ---
@@ -148,3 +148,27 @@ waka-bods/
 | Sprint 3 — Calendrier & Polish | RFC-010 à RFC-013 | ⬜ À faire |
 
 Voir [`knowledge/backlog.md`](knowledge/backlog.md) pour le détail RFC par RFC.
+
+---
+
+## Déploiement
+
+La production (`https://tando.aivinow.com`) tourne sur le VPS, dans **Coolify** (app `tando`, build `Dockerfile`).
+
+Le pipeline `.github/workflows/deploy.yml` :
+1. sur chaque PR vers `main` : tests unitaires + build de production ;
+2. sur chaque push sur `main` : les mêmes contrôles, puis appel de l'API Coolify pour redéployer, attente du résultat et smoke test (`/login`, `/forgot-password`).
+
+Configuration GitHub (Settings › Secrets and variables › Actions) :
+
+| Type | Nom | Valeur |
+|---|---|---|
+| Secret | `COOLIFY_TOKEN` | Jeton API Coolify (Keys & Tokens), droit « deploy » |
+| Variable | `COOLIFY_URL` | `https://coolify-deploy.aivinow.com` |
+| Variable | `COOLIFY_APP_UUID` | `plhw8yw4poeyicqecscvlrhb` |
+| Variable | `PUBLIC_URL` | `https://tando.aivinow.com` |
+
+Redéploiement manuel : onglet *Actions* › *CI / Deploy* › *Run workflow*, ou bouton *Redeploy* dans Coolify.
+
+La synchro Linear planifiée tourne avec un timer systemd sur le VPS : voir `deploy/systemd/README.md`.
+

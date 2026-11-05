@@ -1,0 +1,104 @@
+# Tando — CI and deployment
+#
+# Every pull request to main: unit tests + production build.
+# Every push to main (merged PR): same checks, then Coolify redeploys the app
+# on the VPS (https://tando.aivinow.com) and the pipeline waits for the result.
+#
+# Required in GitHub › Settings › Secrets and variables › Actions:
+#   secret   COOLIFY_TOKEN     Coolify API token (Keys & Tokens, "deploy" permission)
+#   variable COOLIFY_URL       https://coolify-deploy.aivinow.com
+#   variable COOLIFY_APP_UUID  plhw8yw4poeyicqecscvlrhb
+#   variable PUBLIC_URL        https://tando.aivinow.com
+name: CI / Deploy
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deployment at a time; a newer push waits for the running one
+concurrency:
+  group: tando-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # @nuxtjs/supabase validates these during `nuxt prepare` and the build.
+      # Placeholders are enough here: nothing talks to Supabase in this job.
+      SUPABASE_URL: https://placeholder.supabase.co
+      SUPABASE_KEY: placeholder-publishable-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - name: Unit tests
+        run: yarn test:unit
+      - name: Production build
+        run: yarn build
+
+  deploy:
+    name: Deploy to Coolify
+    needs: checks
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ vars.PUBLIC_URL }}
+    env:
+      COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+      APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
+      PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+      COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+    steps:
+      - name: Check configuration
+        run: |
+          for v in COOLIFY_URL APP_UUID PUBLIC_URL COOLIFY_TOKEN; do
+            if [ -z "${!v}" ]; then echo "::error::$v is not set (see the header of this workflow)"; exit 1; fi
+          done
+
+      - name: Trigger the deployment
+        id: trigger
+        run: |
+          res=$(curl -fsS -H "Authorization: Bearer $COOLIFY_TOKEN" \
+            "$COOLIFY_URL/api/v1/deploy?uuid=$APP_UUID&force=false")
+          dep=$(echo "$res" | jq -r '.deployments[0].deployment_uuid // empty')
+          if [ -z "$dep" ]; then echo "::error::Coolify did not start a deployment: $res"; exit 1; fi
+          echo "Deployment $dep started for ${GITHUB_SHA::7}"
+          echo "uuid=$dep" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Coolify
+        run: |
+          for i in $(seq 1 120); do
+            status=$(curl -fsS -H "Authorization: Bearer $COOLIFY_TOKEN" \
+              "$COOLIFY_URL/api/v1/deployments/${{ steps.trigger.outputs.uuid }}" | jq -r '.status')
+            echo "[$i] $status"
+            case "$status" in
+              finished) exit 0 ;;
+              failed|cancelled*|error) echo "::error::Coolify deployment $status — see Deployment Logs in Coolify"; exit 1 ;;
+            esac
+            sleep 15
+          done
+          echo "::error::Deployment still running after 30 min"; exit 1
+
+      - name: Smoke test
+        run: |
+          for path in /login /forgot-password; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_URL$path")
+            echo "$path → $code"
+            [ "$code" = "200" ] || { echo "::error::$PUBLIC_URL$path answered $code"; exit 1; }
+          done
+          # the new build is served (redesign markup)
+          curl -fsS "$PUBLIC_URL/login" | grep -q 'wb-' || { echo "::error::the redesign is not served"; exit 1; }
