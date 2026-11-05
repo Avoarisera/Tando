@@ -8,12 +8,30 @@ const { toReview, requests, fetchAll } = useApprovals()
 const { events, fetchEvents } = useCalendar()
 const { fetchMembers } = useTeamMembers()
 const { balanceAfter } = useApprovals()
+const { workspaces, fetchWorkspaces } = useLinearWorkspace()
 
 const today = todayIso()
 
 async function load() {
-  await Promise.all([fetchSnapshot(), fetchAll(), fetchEvents(), fetchMembers()])
+  // Vélocité is optional: a Linear error must not break the dashboard
+  await Promise.all([fetchSnapshot(), fetchAll(), fetchEvents(), fetchMembers(), fetchWorkspaces().catch(() => undefined)])
 }
+
+// Vélocité card: one line per connected Linear workspace
+const wsRows = computed(() => workspaces.value.map((ws) => {
+  const status = ws.sync_status === 'running'
+    ? { tone: 'info' as const, label: t('velocityA.status.running') }
+    : ws.sync_status === 'error'
+      ? { tone: 'danger' as const, label: t('velocityA.status.error') }
+      : ws.last_synced_at
+        ? { tone: 'success' as const, label: t('velocityA.status.ok') }
+        : { tone: 'neutral' as const, label: t('velocityA.status.idle') }
+  const when = ws.last_synced_at
+    ? new Intl.DateTimeFormat(tag.value, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(ws.last_synced_at))
+    : t('velocityA.never')
+  const teams = ws.selected_teams?.length ? ws.selected_teams.map(x => x.name).join(', ') : t('velocityA.allTeams')
+  return { id: ws.id, name: ws.name, status, when, teams, tickets: ws.sync_issues_done }
+}))
 onMounted(load)
 
 const kpis = computed(() => {
@@ -112,7 +130,7 @@ function exportMonth() {
           </WbCard>
 
           <WbCard :title="t('dashboard.next14')" :subtitle="t('dashboard.next14Hint')">
-            <div class="wb-stack-s">
+            <div class="wb-stack-s wb-dash-chart">
               <WbBarChart :title="t('dashboard.next14Hint')" :labels="next14Labels" :series="[{ label: t('dashboard.away'), data: next14Counts }]" :height="'max(240px, calc(100dvh - 540px))'" />
               <p v-if="departures.length" class="small wb-mut2">{{ t('dashboard.departures') }} {{ departures.join(', ') }}.</p>
             </div>
@@ -144,7 +162,20 @@ function exportMonth() {
           </WbCard>
 
           <WbCard :title="t('nav.velocity')" :link-label="t('dashboard.seeVelocity')" link-to="/velocite">
-            <p class="small wb-mut">{{ t('dashboard.velocityHint') }}</p>
+            <ul v-if="wsRows.length" class="wb-list wb-dash-list wb-dash-ws">
+              <li v-for="w in wsRows" :key="w.id">
+                <NuxtLink class="wb-grow wb-dash-ws-l" :to="`/velocite/workspaces/${w.id}`">
+                  <b class="small">{{ w.name }}</b>
+                  <span class="caption wb-mut2">{{ w.teams }}</span>
+                  <span class="caption wb-mut wb-num">{{ t('velocityA.lastSync', { date: w.when }) }}<template v-if="w.tickets"> · {{ t('velocityA.tickets', { n: w.tickets }, w.tickets) }}</template></span>
+                </NuxtLink>
+                <WbBadge :tone="w.status.tone" size="sm">{{ w.status.label }}</WbBadge>
+              </li>
+            </ul>
+            <div v-else class="wb-stack-s">
+              <p class="small wb-mut">{{ t('velocityA.emptyText') }}</p>
+              <div><WbButton variant="secondary" size="sm" icon="plus" to="/velocite">{{ t('velocityA.connect') }}</WbButton></div>
+            </div>
           </WbCard>
         </div>
       </div>
@@ -160,6 +191,11 @@ function exportMonth() {
 .wb-kpi-i { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: var(--radius-md); background: var(--brand-tint); color: var(--brand-text); }
 .wb-kpi-v { line-height: 1; margin: 2px 0; }
 .wb-dash-list li { padding-block: 6px; }
+.wb-dash-ws li + li { border-top: 1px solid var(--border); }
+.wb-dash-ws-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: inherit; text-decoration: none; }
+.wb-dash-ws-l:hover b { color: var(--brand-text); }
+/* Chart: clear space under the card subtitle */
+.wb-dash-chart { padding-top: var(--space-2); }
 @container wbapp (max-width: 1023px) {
   .wb-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wb-kpi:nth-child(3) { border-left: 0; }
