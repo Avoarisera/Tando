@@ -157,6 +157,10 @@ const teamCards = computed(() => teams.value.map((tm) => {
   const members = people.value.filter(p => p.team_id === tm.id)
   return { ...tm, members, managers: members.filter(m => m.role === 'manager') }
 }))
+
+// Tables: 20 rows per page, count and pages under the table
+const rowsPager = usePagination(computed(() => rows.value))
+const teamsPager = usePagination(computed(() => teamCards.value))
 </script>
 
 <template>
@@ -172,7 +176,6 @@ const teamCards = computed(() => teams.value.map((tm) => {
           <div class="wb-fb-s"><WbInput v-model="search" icon="search" type="search" :aria-label="t('approvals.search')" :placeholder="t('approvals.search')" /></div>
           <WbSelect v-model="teamFilter" :options="teamOptions" :aria-label="t('calendar.team')" />
           <WbSelect v-model="roleFilter" :options="roleOptions" :aria-label="t('people.role')" />
-          <span class="small wb-mut2 wb-num">{{ t('v2.resultCount', { n: rows.length }, rows.length) }}</span>
         </div>
         <WbButton size="sm" icon="user-plus" aria-haspopup="dialog" data-action="invite-person" @click="openInvite">{{ t('r8a.people.invite') }}</WbButton>
       </div>
@@ -193,7 +196,7 @@ const teamCards = computed(() => teams.value.map((tm) => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="p in rows" :key="p.id" :data-person="fullName(p)">
+              <tr v-for="p in rowsPager.items.value" :key="p.id" :data-person="fullName(p)">
                 <td><span class="wb-cp"><WbAvatar :name="fullName(p)" :size="28" /><b class="small">{{ fullName(p) }}</b></span></td>
                 <td>{{ teamName(p.team_id) }}</td>
                 <td><WbBadge :tone="ROLE_TONE[p.role]">{{ t(`roles.${p.role}`) }}</WbBadge></td>
@@ -208,12 +211,12 @@ const teamCards = computed(() => teams.value.map((tm) => {
             </tbody>
           </table>
         </div>
+        <WbTableFooter v-model:page="rowsPager.page.value" :total="rowsPager.total.value" :page-size="rowsPager.pageSize.value" />
       </WbCard>
     </template>
 
     <template v-else>
-      <div class="wb-adm-bar">
-        <span class="small wb-mut2 wb-num">{{ t('v2.teamCount', { n: teamCards.length }, teamCards.length) }}</span>
+      <div class="wb-adm-bar wb-adm-bar-end">
         <WbButton size="sm" icon="plus" aria-haspopup="dialog" data-action="new-team" @click="openTeam(null)">{{ t('r8a.people.newTeam') }}</WbButton>
       </div>
       <WbCard :pad="false">
@@ -229,7 +232,7 @@ const teamCards = computed(() => teams.value.map((tm) => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="tm in teamCards" :key="tm.id" :data-team="tm.name">
+              <tr v-for="tm in teamsPager.items.value" :key="tm.id" :data-team="tm.name">
                 <td><b class="small">{{ tm.name }}</b><br><span class="caption wb-mut">{{ t('people.members', { n: tm.members.length }, tm.members.length) }}</span></td>
                 <td><span class="wb-avg"><WbAvatar v-for="m in tm.members.slice(0, 8)" :key="m.id" :name="fullName(m)" :size="26" /></span></td>
                 <td>
@@ -241,6 +244,7 @@ const teamCards = computed(() => teams.value.map((tm) => {
             </tbody>
           </table>
         </div>
+        <WbTableFooter v-model:page="teamsPager.page.value" :total="teamsPager.total.value" :page-size="teamsPager.pageSize.value" />
       </WbCard>
     </template>
 
@@ -282,4 +286,5 @@ const teamCards = computed(() => teams.value.map((tm) => {
 .wb-adm-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); }
 .wb-adm-f { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); flex: 1; min-width: 0; }
 .wb-adm-bar :deep(.wb-btn) { margin: 0; }
+.wb-adm-bar-end { justify-content: flex-end; }
 </style>

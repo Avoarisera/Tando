@@ -46,7 +46,8 @@
 .wb-main { padding: var(--space-5) var(--space-6) var(--space-8); }
 
 /* ── Density: tighter rhythm, wider pages (less empty space on large screens) ── */
-.wb-page { max-width: 1440px; }
+/* Full width: content starts right after the sidebar, no centred column (feedback 05/11) */
+.wb-page { max-width: none; margin-inline: 0; }
 .wb-stack { gap: var(--space-4); }
 .wb-grid, .wb-split { gap: var(--space-4); }
 .wb-card { border: 1px solid var(--border); box-shadow: var(--shadow-1); }
@@ -80,3 +81,31 @@
   /* bundle.css stretches and spaces every button under 768 px: keep that for forms only */
   .wb-toolbar .wb-btn, .wb-row .wb-btn, .wb-row-b .wb-btn, .wb-ph-a .wb-btn, .wb-card-h .wb-btn { margin-top: 0; flex: 0 0 auto; }
 }
+
+/* ── Fill the screen (feedback 05/11: "beaucoup d'espace gâché") ──
+ * Desktop only. The page takes the full height under the header; two-column
+ * layouts get columns of equal height; an empty state fills the remaining space. */
+@container wbapp (min-width: 1024px) {
+  .wb-main { flex: 1 0 auto; display: flex; flex-direction: column; }
+  .wb-main > .wb-page { flex: 1 0 auto; display: flex; flex-direction: column; }
+  .wb-split { align-items: stretch; }
+  .wb-split > .wb-stack > :last-child { flex: 1 0 auto; }
+  .wb-main > .wb-page > :last-child:has(.wb-empty),
+  .wb-main > .wb-page > .wb-fill { flex: 1 0 auto; }
+  .wb-main > .wb-page > .wb-card:last-child:has(.wb-empty) { display: flex; flex-direction: column; justify-content: center; }
+}
+
+/* ── Tabs: no scrollbar (the -1px underline made the strip overflow vertically) ── */
+.wb-tabs { border-bottom: 0; box-shadow: inset 0 -1px 0 var(--border); overflow-y: hidden; scrollbar-width: none; }
+.wb-tabs::-webkit-scrollbar { display: none; }
+.wb-tabs button { margin-bottom: 0; }
+
+/* ── Filters in harmony: chips, selects, search and buttons share height and radius ── */
+.wb-chip { min-height: 40px; border-radius: var(--radius-md); font-size: 14px; padding: 0 var(--space-3); }
+.wb-chip-n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--surface-2); font-size: 12px; font-weight: 600; }
+.wb-chip.is-on .wb-chip-n { background: color-mix(in srgb, var(--brand) 16%, transparent); }
+.wb-select select, .wb-input input { font-size: 14px; }
+@container wbapp (max-width: 767px) { .wb-chip { min-height: 44px; } }
+
+/* ── Count badges: digits optically centred (sidebar, chips) ── */
+.wb-nav-n, .wb-chip-n { line-height: 1; font-variant-numeric: tabular-nums; }

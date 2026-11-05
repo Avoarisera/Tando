@@ -91,13 +91,13 @@ async function changePassword() {
         <div><dt class="wb-mut">{{ t('v1.email') }}</dt><dd>{{ email }}</dd></div>
         <div v-if="joined"><dt class="wb-mut">{{ t('v1.joined') }}</dt><dd class="wb-num">{{ joined }}</dd></div>
       </dl>
-      <p class="caption wb-mut wb-prof-hint">{{ t('profile.identityHint') }}</p>
+      <p class="caption wb-mut wb-prof-hint">{{ t('profile.identityHint') }}{{ isAdmin ? ` ${t('v1.adminNoBalance')}` : '' }}</p>
     </section>
 
-    <div class="wb-split wb-prof-grid">
+    <div :class="['wb-split wb-prof-grid', { 'is-admin': isAdmin }]">
 
-    <div class="wb-stack">
-    <WbCard v-if="!isAdmin" :title="t('profile.balances', { year })" :pad="false">
+    <div v-if="!isAdmin" class="wb-stack">
+    <WbCard :title="t('profile.balances', { year })" :pad="false">
       <div v-if="balancesError" class="wb-card-b"><WbErrorState :message="balancesError" @retry="loadBalances" /></div>
       <div v-else-if="balancesLoading && !rows.length" class="wb-card-b"><WbSkeleton variant="table" :count="3" /></div>
       <p v-else-if="!rows.length" class="wb-card-b wb-mut">{{ t('home.welcomeText') }}</p>
@@ -125,7 +125,6 @@ async function changePassword() {
         </table>
       </div>
     </WbCard>
-    <p v-if="isAdmin" class="wb-card wb-card-b small wb-mut">{{ t('v1.adminNoBalance') }}</p>
     </div>
 
     <div class="wb-stack">
@@ -158,5 +157,9 @@ async function changePassword() {
 .wb-prof-kv { display: flex; gap: var(--space-6); margin: 0; flex-wrap: wrap; }
 .wb-prof-kv dd { margin: 2px 0 0; color: var(--ink); }
 .wb-prof-hint { flex-basis: 100%; margin-top: calc(-1 * var(--space-2)); }
-.wb-prof-grid { align-items: start; }
+/* Admin: no balance column, preferences and security side by side */
+.wb-prof-grid.is-admin { grid-template-columns: minmax(0, 1fr); }
+@container wbapp (min-width: 1024px) {
+  .wb-prof-grid.is-admin > .wb-stack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+}
 </style>

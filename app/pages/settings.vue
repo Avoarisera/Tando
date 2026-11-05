@@ -139,6 +139,13 @@ async function save() {
 /* Save bar stays visible at the bottom of long forms */
 .wb-set-bar { position: sticky; bottom: 0; z-index: 4; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); }
 .wb-set-bar :deep(.wb-btn) { margin: 0; flex: none; }
+/* Wide screens: two columns of cards instead of one long form */
+@container wbapp (min-width: 1280px) {
+  .wb-set { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: stretch; }
+  .wb-set-s { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-content: start; }
+  .wb-set-s:first-child { grid-row: span 2; }
+  .wb-set-bar { grid-column: 1 / -1; }
+}
 @container wbapp (max-width: 1023px) {
   .wb-set-s { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
 }

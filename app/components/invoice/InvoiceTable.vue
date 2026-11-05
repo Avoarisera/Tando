@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { Invoice, InvoiceStatus } from '~/types/index'
 
-defineProps<{ invoices: ReadonlyArray<Invoice>, uploadingId: string | null }>()
+const props = defineProps<{ invoices: ReadonlyArray<Invoice>, uploadingId: string | null }>()
+const pager = usePagination(toRef(props, 'invoices'))
 const emit = defineEmits<{
   'status-change': [id: string, status: InvoiceStatus]
   'upload': [id: string, file: File]
@@ -46,7 +47,7 @@ function onFile(id: string, e: Event) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="inv in invoices" :key="inv.id" :data-ref="inv.reference">
+          <tr v-for="inv in pager.items.value" :key="inv.id" :data-ref="inv.reference">
             <td><span class="wb-mono">{{ inv.reference }}</span></td>
             <td>{{ inv.client }}</td>
             <td class="wb-num">{{ date(inv.invoice_date) }}</td>
@@ -77,7 +78,7 @@ function onFile(id: string, e: Event) {
 
     <!-- Mobile cards -->
     <ul class="wb-inv-cards wb-hide-d">
-      <li v-for="inv in invoices" :key="inv.id" class="wb-card wb-card-b wb-stack-s" :data-ref="inv.reference">
+      <li v-for="inv in pager.items.value" :key="inv.id" class="wb-card wb-card-b wb-stack-s" :data-ref="inv.reference">
         <div class="wb-row-b">
           <span class="wb-mono">{{ inv.reference }}</span>
           <InvoiceStatusBadge :status="inv.status" />
@@ -95,6 +96,7 @@ function onFile(id: string, e: Event) {
         </div>
       </li>
     </ul>
+    <WbTableFooter v-model:page="pager.page.value" :total="pager.total.value" :page-size="pager.pageSize.value" />
   </div>
 </template>
 

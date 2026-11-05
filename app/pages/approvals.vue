@@ -53,6 +53,7 @@ function matches(r: LeaveRequestWithRelations) {
 }
 const shown = computed(() => (isAdmin.value ? toReview.value.filter(matches) : toReview.value))
 const shownDone = computed(() => (isAdmin.value ? reviewed.value.filter(matches) : reviewed.value))
+const donePager = usePagination(shownDone)
 
 function resetFilters() {
   search.value = ''
@@ -106,7 +107,7 @@ function resetFilters() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in shownDone" :key="r.id">
+              <tr v-for="r in donePager.items.value" :key="r.id">
                 <td><span class="wb-cp"><WbAvatar :name="fullName(r.profiles)" :size="28" /><b class="small">{{ fullName(r.profiles) }}</b></span></td>
                 <td><WbTypeBadge :name="r.leave_types?.name ?? ''" :color="r.leave_types?.color" /></td>
                 <td class="wb-num">{{ formatPeriod(r.start_date, r.end_date, tag) }}</td>
@@ -116,6 +117,7 @@ function resetFilters() {
             </tbody>
           </table>
         </div>
+        <WbTableFooter v-model:page="donePager.page.value" :total="donePager.total.value" :page-size="donePager.pageSize.value" />
       </WbCard>
     </template>
 

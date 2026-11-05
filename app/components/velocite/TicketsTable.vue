@@ -18,11 +18,8 @@ const emit = defineEmits<{ 'ticket-click': [id: string] }>()
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 
-const PAGE_SIZE = 10
-const page = ref(1)
-watch(() => props.tickets, () => { page.value = 1 })
-const totalPages = computed(() => Math.max(1, Math.ceil(props.tickets.length / PAGE_SIZE)))
-const paginated = computed(() => props.tickets.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
+const pager = usePagination(toRef(props, 'tickets'), 10)
+watch(() => props.tickets, () => { pager.page.value = 1 })
 
 function linearUrl(identifier: string | null): string {
   return identifier ? `https://linear.app/issue/${identifier}` : '#'
@@ -48,7 +45,7 @@ function linearUrl(identifier: string | null): string {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="tk in paginated" :key="tk.id" class="wb-tk-row" @click="emit('ticket-click', tk.id)">
+            <tr v-for="tk in pager.items.value" :key="tk.id" class="wb-tk-row" @click="emit('ticket-click', tk.id)">
               <td>
                 <a :href="linearUrl(tk.identifier)" target="_blank" rel="noopener noreferrer" class="wb-mono" @click.stop>{{ tk.identifier ?? '—' }}</a>
               </td>
@@ -67,13 +64,7 @@ function linearUrl(identifier: string | null): string {
           </tbody>
         </table>
       </div>
-      <div v-if="totalPages > 1" class="wb-pg small wb-mut2">
-        <span class="wb-num">{{ t('velocityB.tickets.page', { n: tickets.length, page, pages: totalPages }) }}</span>
-        <div class="wb-row" style="gap: 4px">
-          <WbButton variant="ghost" size="sm" icon="chevron-left" :disabled="page === 1" @click="page--">{{ t('velocityB.tickets.prev') }}</WbButton>
-          <WbButton variant="ghost" size="sm" icon-right="chevron-right" :disabled="page === totalPages" @click="page++">{{ t('velocityB.tickets.next') }}</WbButton>
-        </div>
-      </div>
+      <WbTableFooter v-model:page="pager.page.value" :total="pager.total.value" :page-size="pager.pageSize.value" />
     </template>
   </div>
 </template>

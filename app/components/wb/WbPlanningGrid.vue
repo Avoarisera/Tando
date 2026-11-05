@@ -14,7 +14,26 @@ const props = withDefaults(defineProps<{
 }>(), { holidays: () => ({}) })
 const { locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
-const col = computed(() => (props.dense ? 28 : 36))
+// Columns stretch to the available width (never narrower than the base size)
+const base = computed(() => (props.dense ? 28 : 36))
+const wrap = ref<HTMLElement | null>(null)
+const avail = ref(0)
+let ro: ResizeObserver | undefined
+function measure() {
+  const el = wrap.value
+  if (!el) return
+  const name = el.querySelector<HTMLElement>('.wb-plan-n')?.offsetWidth ?? 200
+  avail.value = Math.max(0, el.clientWidth - name)
+}
+onMounted(() => {
+  measure()
+  if (typeof ResizeObserver !== 'undefined' && wrap.value) {
+    ro = new ResizeObserver(measure)
+    ro.observe(wrap.value)
+  }
+})
+onBeforeUnmount(() => ro?.disconnect())
+const col = computed(() => Math.max(base.value, Math.floor(avail.value / Math.max(props.days.length, 1))))
 
 function visibleSpans(p: PlanPerson) {
   const first = props.days[0]!
@@ -37,7 +56,7 @@ const presence = computed(() => props.days.map((d) => {
 </script>
 
 <template>
-  <div class="wb-scroll">
+  <div ref="wrap" class="wb-scroll">
     <div class="wb-plan" :class="{ 'is-dense': dense }" role="table" :style="{ '--n': days.length, '--c': `${col}px` }">
       <div class="wb-plan-r wb-plan-hd" role="row">
         <span class="wb-plan-n" />

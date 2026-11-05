@@ -46,7 +46,6 @@ const list = computed(() => grouped.value[tab.value])
   <div class="wb-page wb-stack wb-leaves">
     <div class="wb-leaves-bar">
       <WbTabs v-model="tab" :tabs="tabs" :label="t('nav.leaves')" />
-      <WbButton class="wb-hide-m" size="sm" variant="secondary" icon="plus" aria-haspopup="dialog" @click="openLeave()">{{ t('nav.leave') }}</WbButton>
     </div>
 
     <WbErrorState v-if="error" :message="error" @retry="fetchMine" />
@@ -71,7 +70,7 @@ const list = computed(() => grouped.value[tab.value])
 <style scoped>
 .wb-leaves { gap: var(--space-3); }
 .wb-leaves-bar { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3); border-bottom: 1px solid var(--border); }
-.wb-leaves-bar :deep(.wb-tabs) { border-bottom: 0; flex: 1; min-width: 0; }
+.wb-leaves-bar :deep(.wb-tabs) { border-bottom: 0; box-shadow: none; flex: 1; min-width: 0; }
 .wb-leaves-bar > .wb-btn { margin-bottom: 6px; }
 .wb-lc-list { display: flex; flex-direction: column; gap: var(--space-2); }
 </style>

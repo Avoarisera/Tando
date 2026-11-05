@@ -123,11 +123,13 @@ async function saveHoliday() {
   }
   hFormError.value = null
   try {
-    await addHoliday(hCountry.value, newDay.value, newName.value.trim())
+    const added = newDay.value
+    await addHoliday(hCountry.value, added, newName.value.trim())
     toast.add(t('rules.holidayAdded'))
     newDay.value = ''
     newName.value = ''
     await loadHolidays()
+    holidaysPager.showIndex(holidays.value.findIndex(h => h.day === added))
   }
   catch (e) { hFormError.value = e instanceof Error ? e.message : t('rules.saveError') }
 }
@@ -156,6 +158,11 @@ const rows = computed(() => adminBalances.value
   .filter(b => b.leave_type_id === typeId.value)
   .map(b => ({ ...b, name: fullName(b.profiles), left: b.allocated_days - b.used_days }))
   .sort((a, b) => a.name.localeCompare(b.name)))
+
+// Tables: 20 rows per page, count and pages under each table
+const typesPager = usePagination(leaveTypes)
+const holidaysPager = usePagination(holidays)
+const balancesPager = usePagination(rows)
 
 function validDays(v: string): number | null {
   if (!/^\d+$/.test(v.trim())) return null
@@ -240,7 +247,7 @@ async function applyAll() {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="lt in leaveTypes" :key="lt.id" :class="{ 'is-sel': editing?.id === lt.id }" :data-type="lt.name">
+                <tr v-for="lt in typesPager.items.value" :key="lt.id" :class="{ 'is-sel': editing?.id === lt.id }" :data-type="lt.name">
                   <td><WbTypeBadge :name="lt.name" :color="lt.color" /></td>
                   <td>
                     <WbBadge :tone="lt.is_active ? 'success' : 'neutral'" :icon="lt.is_active ? 'circle-check' : 'ban'">
@@ -259,6 +266,7 @@ async function applyAll() {
               </tbody>
             </table>
           </div>
+          <WbTableFooter v-model:page="typesPager.page.value" :total="typesPager.total.value" :page-size="typesPager.pageSize.value" />
         </WbCard>
 
         <WbCard v-if="editing || creating" :title="editing ? t('rules.editTitle', { name: editing.name }) : t('rules.addType')">
@@ -298,7 +306,7 @@ async function applyAll() {
             <caption class="wb-sr">{{ t('rules.tabHolidays') }}</caption>
             <thead><tr><th scope="col">{{ t('rules.holidayDate') }}</th><th scope="col">{{ t('rules.holidayName') }}</th><th scope="col" class="is-r">{{ t('rules.actions') }}</th></tr></thead>
             <tbody>
-              <tr v-for="h in holidays" :key="h.day" :data-day="h.day">
+              <tr v-for="h in holidaysPager.items.value" :key="h.day" :data-day="h.day">
                 <td class="wb-num">{{ fmtDate(h.day, htag, { weekday: 'short', day: 'numeric', month: 'long' }) }}</td>
                 <td>{{ h.name }}</td>
                 <td class="is-r"><WbButton variant="ghost" size="sm" icon="trash-2" @click="deleteHoliday(h.day)">{{ t('rules.remove') }}</WbButton></td>
@@ -306,6 +314,7 @@ async function applyAll() {
             </tbody>
           </table>
         </div>
+        <WbTableFooter v-model:page="holidaysPager.page.value" :total="holidaysPager.total.value" :page-size="holidaysPager.pageSize.value" />
       </WbCard>
     </template>
 
@@ -338,7 +347,7 @@ async function applyAll() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="b in rows" :key="b.id" :data-person="b.name">
+              <tr v-for="b in balancesPager.items.value" :key="b.id" :data-person="b.name">
                 <td><span class="wb-cp"><WbAvatar :name="b.name" :size="32" /><b class="small">{{ b.name }}</b></span></td>
                 <td class="is-r">
                   <form v-if="drafts[b.id] !== undefined" class="wb-row" style="justify-content: flex-end; gap: 4px" novalidate @submit.prevent="saveRow(b.id)">
@@ -356,6 +365,7 @@ async function applyAll() {
             </tbody>
           </table>
         </div>
+        <WbTableFooter v-model:page="balancesPager.page.value" :total="balancesPager.total.value" :page-size="balancesPager.pageSize.value" />
       </WbCard>
     </template>
   </div>

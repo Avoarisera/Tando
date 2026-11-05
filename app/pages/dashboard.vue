@@ -113,7 +113,7 @@ function exportMonth() {
 
           <WbCard :title="t('dashboard.next14')" :subtitle="t('dashboard.next14Hint')">
             <div class="wb-stack-s">
-              <WbBarChart :title="t('dashboard.next14Hint')" :labels="next14Labels" :series="[{ label: t('dashboard.away'), data: next14Counts }]" :height="180" />
+              <WbBarChart :title="t('dashboard.next14Hint')" :labels="next14Labels" :series="[{ label: t('dashboard.away'), data: next14Counts }]" :height="'max(240px, calc(100dvh - 540px))'" />
               <p v-if="departures.length" class="small wb-mut2">{{ t('dashboard.departures') }} {{ departures.join(', ') }}.</p>
             </div>
           </WbCard>

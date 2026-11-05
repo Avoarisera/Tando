@@ -12,7 +12,8 @@ const props = withDefaults(defineProps<{
   series: readonly WbSeries[]
   title: string
   stacked?: boolean
-  height?: number
+  /** px, or any CSS length (e.g. to fill the screen) */
+  height?: number | string
   /** Show Chart.js' own legend (off when a WbChartFrame legend is used) */
   legend?: boolean
 }>(), { height: 220, legend: undefined })
@@ -57,7 +58,7 @@ const options = computed(() => ({
 
 <template>
   <figure class="wb-cf">
-    <div :style="{ height: `${height}px`, position: 'relative' }">
+    <div :style="{ height: typeof height === 'number' ? `${height}px` : height, position: 'relative' }">
       <ClientOnly>
         <Bar :data="data" :options="options" :aria-label="title" role="img" />
       </ClientOnly>

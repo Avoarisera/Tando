@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { PlanPerson } from '~/components/wb/WbPlanningGrid.vue'
+
 definePageMeta({ titleKey: 'nav.home', layout: 'private' })
 
 const { t, locale } = useI18n()
@@ -20,7 +22,7 @@ const today = todayIso()
 const year = Number(today.slice(0, 4))
 
 async function load() {
-  await Promise.all([fetchMine(), fetchBalances(), fetchEvents(), fetchMembers(), isManager.value ? fetchApprovals() : Promise.resolve()])
+  await Promise.all([fetchMine(), fetchBalances(), fetchEvents(), fetchMembers(), fetchCountry(profile.value?.country ?? 'FR'), isManager.value ? fetchApprovals() : Promise.resolve()])
 }
 onMounted(load)
 
@@ -63,6 +65,19 @@ const teamWeek = computed(() => events.value
     color: e.leaveTypeColor,
     when: formatPeriod(e.startDate < monday ? monday : e.startDate, e.endDate > sunday ? sunday : e.endDate, tag.value),
   })))
+// Team planning: two weeks from Monday, one row per teammate (own row first)
+const { fetchCountry, holidaysOf } = useHolidays()
+const holidays = computed(() => holidaysOf(profile.value?.country ?? 'FR'))
+const teamDays = Array.from({ length: 14 }, (_, i) => addDays(monday, i))
+const teamPeople = computed<PlanPerson[]>(() => members.value
+  .filter(m => m.role !== 'admin' && (m.id === profile.value?.id || (m.team_id && m.team_id === profile.value?.team_id)))
+  .sort((a, b) => (a.id === profile.value?.id ? -1 : b.id === profile.value?.id ? 1 : 0))
+  .map(m => ({
+    id: m.id,
+    name: fullName(m),
+    spans: events.value.filter(e => e.userId === m.id && (e.status === 'approved' || e.isOwn)).map(e => ({ id: e.id, from: e.startDate, to: e.endDate, label: e.leaveTypeName, color: e.leaveTypeColor, pending: e.status !== 'approved' })),
+  })))
+
 const presentToday = computed(() => {
   const team = members.value.filter(m => m.team_id && m.team_id === profile.value?.team_id)
   const away = events.value.filter(e => e.status === 'approved' && e.startDate <= today && e.endDate >= today && team.some(m => m.id === e.userId)).length
@@ -138,7 +153,8 @@ const pct = (b: { allocated: number, used: number, reserved: number }) => {
           </WbCard>
 
           <WbCard :title="t('home.teamTitle')" :subtitle="presentToday.of ? t('home.presentToday', { n: presentToday.n, of: presentToday.of }) : undefined">
-            <ul v-if="teamWeek.length" class="wb-list wb-list-dense">
+            <WbPlanningGrid v-if="teamPeople.length > 1" class="wb-home-plan" :days="teamDays" :people="teamPeople" :today="today" :holidays="holidays" dense :presence-label="t('calendar.present')" />
+            <ul v-else-if="teamWeek.length" class="wb-list wb-list-dense">
               <li v-for="p in teamWeek" :key="p.id">
                 <WbAvatar :name="p.name" :size="28" />
                 <span class="wb-grow small"><b>{{ p.name }}</b> <span class="wb-mut2">· {{ p.when }}</span></span>
@@ -175,6 +191,7 @@ const pct = (b: { allocated: number, used: number, reserved: number }) => {
 .wb-kpi-text { margin-top: 4px; }
 .wb-lc-list { display: flex; flex-direction: column; gap: var(--space-2); }
 .wb-list-dense { gap: var(--space-2); }
+.wb-home-plan { margin-inline: calc(-1 * var(--space-5)); }
 .wb-bal { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .wb-bal li { display: flex; flex-direction: column; gap: 6px; }
 .wb-bal-bar { display: flex; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }

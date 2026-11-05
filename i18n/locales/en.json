@@ -167,7 +167,7 @@
     "pendingTitle": "My open requests",
     "seeMine": "See my leave",
     "noPending": "No pending request.",
-    "teamTitle": "My team this week",
+    "teamTitle": "My team over 2 weeks",
     "presentToday": "{n} of {of} in today",
     "teamAllHere": "The whole team is in this week.",
     "balancesTitle": "My balances",
@@ -201,6 +201,8 @@
     }
   },
   "calendar": {
+    "pickMonth": "Pick a month",
+    "pickYear": "Pick a year",
     "view": "View",
     "month": "Month",
     "plan": "Planning",
@@ -643,10 +645,7 @@
       "points": "Pts",
       "status": "Status",
       "cycle": "Dev cycle",
-      "reworkTip": "This ticket went back at least once from Review or QA",
-      "page": "{n} tickets · page {page} / {pages}",
-      "prev": "Previous",
-      "next": "Next"
+      "reworkTip": "This ticket went back at least once from Review or QA"
     },
     "transitions": {
       "backTo": "back to {to}"
@@ -870,5 +869,13 @@
       "count": "{n} invoice | {n} invoices",
       "otherCurrencies": "+ other currencies"
     }
+  },
+  "table": {
+    "range": "No results | {from}–{to} of {n} result | {from}–{to} of {n} results",
+    "count": "No results | {n} result | {n} results",
+    "prev": "Previous page",
+    "next": "Next page",
+    "page": "Page {n}",
+    "pagination": "Pagination"
   }
 }

@@ -167,7 +167,7 @@
     "pendingTitle": "Mes demandes en cours",
     "seeMine": "Voir mes congés",
     "noPending": "Aucune demande en attente.",
-    "teamTitle": "Mon équipe cette semaine",
+    "teamTitle": "Mon équipe sur 2 semaines",
     "presentToday": "{n} présents sur {of} aujourd’hui",
     "teamAllHere": "Toute l’équipe est là cette semaine.",
     "balancesTitle": "Mes soldes",
@@ -201,6 +201,8 @@
     }
   },
   "calendar": {
+    "pickMonth": "Choisir le mois",
+    "pickYear": "Choisir l’année",
     "view": "Vue",
     "month": "Mois",
     "plan": "Planning",
@@ -643,10 +645,7 @@
       "points": "Pts",
       "status": "Statut",
       "cycle": "Cycle dev",
-      "reworkTip": "Ce ticket est revenu en arrière au moins une fois depuis Review ou QA",
-      "page": "{n} tickets · page {page} / {pages}",
-      "prev": "Précédent",
-      "next": "Suivant"
+      "reworkTip": "Ce ticket est revenu en arrière au moins une fois depuis Review ou QA"
     },
     "transitions": {
       "backTo": "retour vers {to}"
@@ -870,5 +869,13 @@
       "count": "{n} facture | {n} factures",
       "otherCurrencies": "+ autres devises"
     }
+  },
+  "table": {
+    "range": "Aucun résultat | {from}–{to} sur {n} résultat | {from}–{to} sur {n} résultats",
+    "count": "Aucun résultat | {n} résultat | {n} résultats",
+    "prev": "Page précédente",
+    "next": "Page suivante",
+    "page": "Page {n}",
+    "pagination": "Pagination"
   }
 }

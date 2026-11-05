@@ -93,6 +93,32 @@ const monthTitle = computed(() => {
 })
 const planTitle = computed(() => formatPeriod(planDays.value[0]!, planDays.value.at(-1)!, tag.value))
 
+// Jump to any month / year (no need to click month after month)
+const monthOptions = computed(() => Array.from({ length: 12 }, (_, i) => {
+  const m = `${String(i + 1).padStart(2, '0')}`
+  const l = new Date(2026, i, 1).toLocaleDateString(tag.value, { month: 'long' })
+  return { value: m, label: l.charAt(0).toUpperCase() + l.slice(1) }
+}))
+const yearOptions = computed(() => {
+  const y = Number(today.slice(0, 4))
+  const shown = Number(month.value.slice(0, 4))
+  const ys = new Set<number>([y - 2, y - 1, y, y + 1, y + 2, shown])
+  return [...ys].sort((a, b) => a - b).map(v => ({ value: String(v), label: String(v) }))
+})
+function jumpTo(ym: string) {
+  month.value = ym
+  const first = `${ym}-01`
+  planStart.value = addDays(first, -dayOfWeek(first))
+}
+const pickMonth = computed({
+  get: () => (mode.value === 'plan' ? addDays(planStart.value, 3) : month.value).slice(5, 7),
+  set: (m: string) => jumpTo(`${pickYear.value}-${m}`),
+})
+const pickYear = computed<string>({
+  get: () => (mode.value === 'plan' ? addDays(planStart.value, 3) : month.value).slice(0, 4),
+  set: (y: string) => jumpTo(`${y}-${pickMonth.value}`),
+})
+
 function prev() {
   if (mode.value === 'plan') planStart.value = addDays(planStart.value, -7)
   else month.value = shiftMonth(month.value, -1)
@@ -116,7 +142,11 @@ function goToday() {
           <WbButton variant="ghost" size="sm" icon="chevron-left" icon-only @click="prev">{{ t('picker.prev') }}</WbButton>
           <WbButton variant="secondary" size="sm" @click="goToday">{{ t('calendar.today') }}</WbButton>
           <WbButton variant="ghost" size="sm" icon="chevron-right" icon-only @click="next">{{ t('picker.next') }}</WbButton>
-          <h2 class="h2">{{ mode === 'plan' ? planTitle : monthTitle }}</h2>
+          <h2 :class="['h2', { 'wb-sr': mode !== 'plan' }]">{{ mode === 'plan' ? planTitle : monthTitle }}</h2>
+          <div class="wb-row wb-cal-jump">
+            <WbSelect v-model="pickMonth" :options="monthOptions" :aria-label="t('calendar.pickMonth')" />
+            <WbSelect v-model="pickYear" :options="yearOptions" :aria-label="t('calendar.pickYear')" />
+          </div>
         </div>
         <div class="wb-row wb-wrap wb-cal-filters">
           <WbSegmented v-model="mode" :options="modes" :label="t('calendar.view')" />
@@ -141,7 +171,7 @@ function goToday() {
         <WbSkeleton v-else-if="isLoading && !events.length" variant="table" />
         <template v-else>
           <WbMonthCalendar v-if="mode === 'month'" :month="month" :events="bars" :today="today" :holidays="holidays" />
-          <WbPlanningGrid v-else-if="mode === 'plan'" :days="planDays" :people="people" :today="today" :holidays="holidays" :presence-label="t('calendar.present')" />
+          <WbPlanningGrid v-else-if="mode === 'plan'" :style="{ '--rows': Math.max(people.length, 1) }" :days="planDays" :people="people" :today="today" :holidays="holidays" :presence-label="t('calendar.present')" />
           <div v-else class="wb-stack-s">
             <p v-if="!weeks.length" class="wb-mut">{{ t('calendar.emptyMonth') }}</p>
             <div v-for="w in weeks" :key="w.wk" class="wb-stack-s">
@@ -173,6 +203,11 @@ function goToday() {
 .wb-cal-nav .h2 { margin-left: var(--space-2); white-space: nowrap; }
 .wb-cal-filters { gap: var(--space-2); margin-left: auto; }
 .wb-cal-filters :deep(.wb-field) { flex: 0 0 auto; }
+/* A long type name must not stretch the filter */
+.wb-cal-filters :deep(.wb-input), .wb-cal-jump :deep(.wb-input) { max-width: 220px; }
+.wb-cal-filters :deep(select), .wb-cal-jump :deep(select) { text-overflow: ellipsis; min-width: 0; }
+.wb-cal-jump { gap: var(--space-2); margin-left: var(--space-2); }
+.wb-cal-jump :deep(.wb-field) { flex: 0 0 auto; }
 .wb-cal-away { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); padding: var(--space-2) var(--space-5); background: var(--surface-2); border-bottom: 1px solid var(--border); }
 .wb-cal-away-p { display: inline-flex; align-items: center; gap: 6px; }
 .wb-cal-wk { text-transform: none; margin-top: var(--space-2); }
@@ -181,6 +216,15 @@ function goToday() {
 /* Denser month grid: shorter weeks, bars on 22 px lanes */
 .wb-cal-card :deep(.wb-cal-w) { grid-template-rows: calc(28px + var(--lanes) * 22px); }
 .wb-cal-card :deep(.wb-cal .wb-bar) { top: calc(27px + var(--l) * 22px); height: 20px; }
+/* Desktop: the month grid fills the screen height (6 weeks under the toolbar) */
+@container wbapp (min-width: 1024px) {
+  .wb-cal-card { flex: 1 0 auto; }
+  /* Planning: taller rows and readable day headers */
+  .wb-cal-card :deep(.wb-plan-cells) { min-height: clamp(56px, calc((100dvh - 420px) / var(--rows, 6)), 88px); }
+  .wb-cal-card :deep(.wb-plan .wb-bar) { height: 28px; margin-top: -14px; font-size: 13px; }
+  .wb-cal-card :deep(.wb-plan-hd) { font-size: 13px; }
+  .wb-cal-card :deep(.wb-cal-w) { grid-template-rows: max(calc(28px + var(--lanes) * 22px), calc((100dvh - 330px) / 6)); }
+}
 @container wbapp (max-width: 767px) {
   .wb-cal-nav { flex-wrap: wrap; min-width: 0; }
   .wb-cal-nav .h2 { white-space: normal; margin-left: 0; flex-basis: 100%; }
