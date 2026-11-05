@@ -4,7 +4,7 @@ import type { PlanPerson } from '~/components/wb/WbPlanningGrid.vue'
 
 // Approval cards with their decisions: approve, refuse (confirmation modal),
 // and for the admin a bulk approval of the selected requests.
-const props = defineProps<{ items: LeaveRequestWithRelations[], isAdmin: boolean, bulk?: boolean, withPlanning?: boolean }>()
+const props = defineProps<{ items: LeaveRequestWithRelations[], isAdmin: boolean, bulk?: boolean, withPlanning?: boolean, /** cards side by side, rendered as you scroll */ grid?: boolean }>()
 
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
@@ -109,6 +109,23 @@ async function confirmException() {
 }
 const overOf = (r: LeaveRequestWithRelations) => { const b = balanceAfter(r); return b !== null && b < 0 ? -b : 0 }
 
+// Grid mode: render a first batch, add more when the end of the list comes into view
+const STEP = 24
+const limit = ref(STEP)
+watch(() => props.items.length, () => { limit.value = STEP })
+const rendered = computed(() => (props.grid ? props.items.slice(0, limit.value) : props.items))
+const sentinel = ref<HTMLElement | null>(null)
+let io: IntersectionObserver | undefined
+watch(sentinel, (el) => {
+  io?.disconnect()
+  if (!el || typeof IntersectionObserver === 'undefined') return
+  io = new IntersectionObserver((entries) => {
+    if (entries.some(e => e.isIntersecting) && limit.value < props.items.length) limit.value += STEP
+  }, { rootMargin: '400px' })
+  io.observe(el)
+})
+onBeforeUnmount(() => io?.disconnect())
+
 // Bulk approval (admin)
 const selected = ref<string[]>([])
 const allSelected = computed({
@@ -153,8 +170,9 @@ async function approveSelected() {
       />
       <WbButton icon="check" size="sm" :disabled="!selected.length" :loading="bulkBusy" @click="approveSelected">{{ t('approvals.approveSelection') }}</WbButton>
     </div>
+    <div :class="{ 'wb-aq-grid': grid }">
     <ApprovalCard
-      v-for="r in items"
+      v-for="r in rendered"
       :key="r.id"
       :request="r"
       :events="events"
@@ -170,7 +188,10 @@ async function approveSelected() {
       @approve="approve(r)"
       @refuse="refusing = r"
       @exception="excepting = r"
+      :compact="grid"
     />
+    </div>
+    <div v-if="grid && limit < items.length" ref="sentinel" class="wb-aq-more caption wb-mut2">{{ t('tnd23.loadingMore', { n: items.length - limit }, items.length - limit) }}</div>
 
     <WbModal
       v-if="excepting"
@@ -206,6 +227,9 @@ async function approveSelected() {
 
 <style scoped>
 .wb-aq { gap: var(--space-2); }
+/* Grid of short cards that adapts to the width */
+.wb-aq-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: var(--space-3); align-items: stretch; }
+.wb-aq-more { text-align: center; padding: var(--space-3); }
 /* Bulk bar stays under the header while scrolling a long queue */
 .wb-aq-bar { position: sticky; top: 64px; z-index: 4; padding: var(--space-2) var(--space-4); }
 .wb-aq-bar.is-on { border-color: var(--brand); background: var(--brand-tint); }

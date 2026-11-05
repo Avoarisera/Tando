@@ -16,6 +16,8 @@ const props = defineProps<{
   busy?: boolean
   /** Dense team planning around the request (manager view) */
   planning?: PlanPerson[]
+  /** Short card for a grid of cards: actions at the bottom */
+  compact?: boolean
 }>()
 const selected = defineModel<boolean>('selected', { default: false })
 defineEmits<{ approve: [], refuse: [], exception: [] }>()
@@ -89,7 +91,7 @@ const planDays = computed(() => {
 </script>
 
 <template>
-  <article class="wb-ac wb-acx" :class="{ 'is-sel': selected }" :data-id="r.id">
+  <article class="wb-ac wb-acx" :class="{ 'is-sel': selected, 'is-compact': compact }" :data-id="r.id">
     <div class="wb-acx-row">
       <WbCheckbox v-if="selectable" v-model="selected" class="wb-acx-chk" :aria-label="t('approvals.select', { who })" />
       <WbAvatar :name="who" :size="36" />
@@ -155,6 +157,15 @@ const planDays = computed(() => {
 .wb-acx-warn { display: inline-flex; gap: 4px; align-items: center; }
 .wb-acx-a { display: flex; gap: var(--space-2); align-items: center; flex: none; }
 .wb-acx-a :deep(.wb-btn) { margin: 0; flex: none; }
+/* Compact card (grid of cards): content on top, actions on a bottom row */
+.wb-acx.is-compact { display: flex; flex-direction: column; height: 100%; padding: var(--space-3); gap: var(--space-2); }
+.wb-acx.is-compact .wb-acx-row { flex-wrap: wrap; flex: 1; align-content: flex-start; gap: var(--space-2) var(--space-3); }
+.wb-acx.is-compact .wb-acx-main { flex: 1 1 0; min-width: 0; }
+.wb-acx.is-compact .wb-acx-a { flex-basis: 100%; }
+.wb-acx.is-compact .wb-quote { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-acx.is-compact .wb-acx-a { width: 100%; justify-content: flex-end; flex-wrap: wrap; margin-top: auto; padding-top: var(--space-2); border-top: 1px solid var(--border); }
+.wb-acx.is-compact .wb-acx-a :deep(.wb-btn) { flex: 1 1 auto; }
+.wb-acx.is-compact .wb-acx-a :deep(.wb-btn-ghost) { flex: 0 0 auto; }
 @container wbapp (max-width: 767px) {
   .wb-acx-row { flex-wrap: wrap; }
   .wb-acx-main { flex-basis: calc(100% - 80px); }

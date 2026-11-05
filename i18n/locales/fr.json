@@ -937,6 +937,7 @@
       "pending": "En attente",
       "approved": "Approuvé",
       "rejected": "Refusé (visible par vous seul)"
-    }
+    },
+    "loadingMore": "Chargement… encore {n} demande | Chargement… encore {n} demandes"
   }
 }
