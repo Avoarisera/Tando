@@ -72,7 +72,8 @@ jobs:
       - name: Trigger the deployment
         id: trigger
         run: |
-          res=$(curl -fsS -H "Authorization: Bearer $COOLIFY_TOKEN" \
+          # Coolify 4.6: POST (GET answers 405)
+          res=$(curl -fsS -X POST -H "Authorization: Bearer $COOLIFY_TOKEN" -H "Accept: application/json" \
             "$COOLIFY_URL/api/v1/deploy?uuid=$APP_UUID&force=false")
           dep=$(echo "$res" | jq -r '.deployments[0].deployment_uuid // empty')
           if [ -z "$dep" ]; then echo "::error::Coolify did not start a deployment: $res"; exit 1; fi
