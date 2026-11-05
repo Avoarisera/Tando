@@ -56,7 +56,21 @@ const awayToday = computed(() => (snapshot.value?.employees ?? []).filter(e => e
 const approved = computed(() => events.value.filter(e => e.status === 'approved'))
 const next14 = computed(() => Array.from({ length: 14 }, (_, i) => addDays(today, i)))
 const next14Labels = computed(() => next14.value.map(d => fmtDate(d, tag.value, { weekday: 'short', day: 'numeric' })))
-const next14Counts = computed(() => next14.value.map(d => approved.value.filter(e => e.startDate <= d && e.endDate >= d).length))
+const awayOn = (d: string) => approved.value.filter(e => e.startDate <= d && e.endDate >= d)
+const next14Counts = computed(() => next14.value.map(d => awayOn(d).length))
+// tooltip: who is away that day (8 names max)
+const next14Who = computed(() => next14.value.map((d) => {
+  const names = awayOn(d).map(e => e.employeeName)
+  return names.length > 8 ? [...names.slice(0, 8), t('dashboard.andMore', { n: names.length - 8 })] : names
+}))
+// summary under the title: busiest working day and average per working day
+const next14Summary = computed(() => {
+  const work = next14.value.map((d, i) => ({ d, n: next14Counts.value[i] ?? 0 })).filter(x => !isWeekend(x.d))
+  if (!work.length || work.every(x => !x.n)) return t('dashboard.next14None')
+  const peak = work.reduce((a, b) => (b.n > a.n ? b : a))
+  const avg = work.reduce((n, x) => n + x.n, 0) / work.length
+  return t('dashboard.next14Summary', { n: peak.n, day: fmtDate(peak.d, tag.value, { weekday: 'short', day: 'numeric', month: 'short' }), avg: avg.toLocaleString(tag.value, { maximumFractionDigits: 1 }) }, peak.n)
+})
 // Upcoming departures (next 14 days), grouped by start day — the "who leaves when" view
 const departureDays = computed(() => {
   const list = approved.value
@@ -191,9 +205,9 @@ function exportMonth() {
             <p v-else class="wb-mut">{{ t('home.nothingToApprove') }}</p>
           </WbCard>
 
-          <WbCard class="wb-dash-c wb-dash-chartc" :title="t('dashboard.next14')" :subtitle="t('dashboard.next14Hint')">
+          <WbCard class="wb-dash-c wb-dash-chartc" :title="t('dashboard.next14Title')" :subtitle="next14Summary">
             <div class="wb-dash-chart">
-              <WbBarChart :title="t('dashboard.next14Hint')" :labels="next14Labels" :series="[{ label: t('dashboard.away'), data: next14Counts }]" height="100%" />
+              <WbBarChart :title="t('dashboard.next14Hint')" :labels="next14Labels" :series="[{ label: t('dashboard.away'), data: next14Counts }]" :details="next14Who" height="100%" />
             </div>
           </WbCard>
         </div>

@@ -28,7 +28,8 @@ type Role = 'employee' | 'manager' | 'admin'
 const NAV: Record<Role, [NavSection['key'], NavKey[]][]> = {
   employee: [['me', ['home', 'leaves']], ['team', ['calendar']]],
   manager:  [['me', ['home', 'leaves']], ['team', ['calendar', 'approvals']]],
-  admin:    [['team', ['calendar', 'approvals']], ['steer', ['dashboard', 'velocity']], ['admin', ['people', 'rules', 'invoices', 'settings']]],
+  // admin: the dashboard comes first (feedback 05/11)
+  admin:    [['team', ['dashboard', 'calendar', 'approvals']], ['steer', ['velocity']], ['admin', ['people', 'rules', 'invoices', 'settings']]],
 }
 
 /** Pages not built yet: hidden from the menu until their lot ships. */

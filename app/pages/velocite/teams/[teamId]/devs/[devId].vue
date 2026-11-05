@@ -251,7 +251,9 @@ function mom(metric: 'ticketsCount' | 'pointsSum'): string {
 <template>
   <div class="wb-page wb-stack">
     <div class="wb-row-b wb-wrap">
+      <!-- back to the team sits with the person, on the left (feedback 05/11) -->
       <div class="wb-row" style="gap: 12px">
+        <WbButton variant="secondary" size="sm" icon="arrow-left" data-action="back-team" @click="goBack">{{ t('velocityB.team') }}</WbButton>
         <WbAvatar :name="devInfo?.display_name ?? devId" :size="48" />
         <div>
           <h2 class="h1">{{ devInfo?.display_name ?? devId }}</h2>
@@ -259,7 +261,6 @@ function mom(metric: 'ticketsCount' | 'pointsSum'): string {
         </div>
       </div>
       <div class="wb-row wb-wrap wb-period-row">
-        <WbButton variant="ghost" size="sm" icon="arrow-left" @click="goBack">{{ t('velocityB.team') }}</WbButton>
         <WbSelect v-model="yearModel" :options="yearOptions" :aria-label="t('velocityB.period.year')" />
         <div class="wb-period"><WbSegmented v-model="rangeModel" :options="rangeOptions" :label="t('velocityB.period.label')" /></div>
       </div>

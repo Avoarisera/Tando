@@ -331,7 +331,11 @@
     "departuresSub": "Aucun départ sur 14 jours | {n} départ sur 14 jours | {n} départs sur 14 jours",
     "noDepartures": "Aucun départ prévu dans les 14 prochains jours.",
     "tomorrow": "demain",
-    "inDaysShort": "J-{n}"
+    "inDaysShort": "J-{n}",
+    "next14Title": "Absences des 14 prochains jours",
+    "next14Summary": "Pic : {n} absent le {day} · {avg} en moyenne par jour ouvré · survolez une barre pour voir qui | Pic : {n} absents le {day} · {avg} en moyenne par jour ouvré · survolez une barre pour voir qui",
+    "next14None": "Aucune absence approuvée sur les 14 prochains jours.",
+    "andMore": "et {n} autre(s)"
   },
   "rules": {
     "tabTypes": "Types de congé",
@@ -939,5 +943,9 @@
       "rejected": "Refusé (visible par vous seul)"
     },
     "loadingMore": "Chargement… encore {n} demande | Chargement… encore {n} demandes"
+  },
+  "header": {
+    "toLight": "Passer en mode clair",
+    "toDark": "Passer en mode sombre"
   }
 }
