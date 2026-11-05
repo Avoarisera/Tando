@@ -204,6 +204,8 @@ async function main() {
     check('R8-D2', 'on ne lit que ses notifications', (mine ?? []).every(x => x.user_id === IDS.emma))
     const { data: mgr } = await manager.from('notifications').select('kind, request_id').eq('request_id', r2)
     check('R8-D3', 'le manager est notifié de la nouvelle demande', (mgr ?? []).some(x => x.kind === 'request_submitted'))
+    const { data: adm } = await admin.from('notifications').select('kind').eq('request_id', r2)
+    check('R8-D6', 'l\'admin est notifié dès l\'envoi de la demande', (adm ?? []).some(x => x.kind === 'request_submitted'))
     const forge = await emma.from('notifications').insert({ user_id: IDS.manager, kind: 'approved' })
     check('R8-D4', 'personne ne crée de notification à la main', !!forge.error)
     const read = await emma.rpc('mark_notifications_read')
