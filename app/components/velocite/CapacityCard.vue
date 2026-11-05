@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // Capacity of the team over the coming weeks (R8-H, mockup V03): working days
-// of each dev minus their approved leave, from /api/capacity (admin only).
+// of each dev minus their approved leave, from /api/capacity (admin, or a manager of a linked team — TND-26).
 const props = defineProps<{ workspaceId: string, teamId: string }>()
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const supabase = useSupabaseClient()
+const { isAdmin } = useCurrentUser()
 
 interface CapacityDev { id: string, name: string, linked: boolean, working: number, leave: number, available: number, absences: { start: string, end: string, type: string }[] }
 
@@ -91,7 +92,7 @@ const period = computed(() => formatPeriod(from.value, to.value, tag.value))
           <span class="small"><WbIcon name="link" :size="14" /> {{ t('tnd24.unlinked', { n: unlinked.length }, unlinked.length) }}</span>
           <span class="wb-row" style="gap: 4px">
             <WbButton variant="ghost" size="sm" :aria-expanded="showUnlinked" data-action="toggle-unlinked" @click="showUnlinked = !showUnlinked">{{ showUnlinked ? t('tnd24.unlinkedHide') : t('tnd24.unlinkedShow') }}</WbButton>
-            <WbButton variant="ghost" size="sm" to="/people">{{ t('tnd24.linkPeople') }}</WbButton>
+            <WbButton v-if="isAdmin" variant="ghost" size="sm" to="/people">{{ t('tnd24.linkPeople') }}</WbButton>
           </span>
         </div>
         <p v-if="showUnlinked" class="caption wb-mut2 wb-cap-names">{{ unlinked.map(d => d.name).join(', ') }}</p>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ titleKey: 'nav.dashboard', middleware: 'admin-only', layout: 'private' })
+definePageMeta({ titleKey: 'nav.dashboard', middleware: 'manager-or-admin', layout: 'private' })
 
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
@@ -9,13 +9,24 @@ const { events, fetchEvents } = useCalendar()
 const { members, fetchMembers } = useTeamMembers()
 const { balanceAfter } = useApprovals()
 const { workspaces, fetchWorkspaces } = useLinearWorkspace()
+// TND-26: a manager gets the same board for their own team, plus the members tab
+const { isAdmin, profile } = useCurrentUser()
+const { velocityTeams, fetchVelocityTeams } = useVelocityTeams()
+const myTeam = computed(() => profile.value?.team_id ?? null)
+const tab = ref<'overview' | 'members'>('overview')
+const tabs = computed(() => [{ id: 'overview', label: t('tnd26.overview') }, { id: 'members', label: t('tnd26.members') }])
+// header title: « Mon équipe » for a manager
+usePageHeader(() => (isAdmin.value ? {} : { title: t('nav.myteam') }))
 
 const today = todayIso()
 
 async function load() {
   // Vélocité is optional: a Linear error must not break the dashboard
-  await Promise.all([fetchSnapshot(), fetchAll(), fetchEvents(), fetchMembers(), fetchWorkspaces().catch(() => undefined)])
+  await Promise.all([fetchSnapshot(), fetchAll(), fetchEvents(), fetchMembers(),
+    isAdmin.value ? fetchWorkspaces().catch(() => undefined) : fetchVelocityTeams(true).catch(() => undefined)])
 }
+// colleagues' leave: everyone for an admin, the own team for a manager
+const scoped = computed(() => (isAdmin.value ? events.value : events.value.filter(e => e.teamId === myTeam.value)))
 
 // Vélocité card: one line per connected Linear workspace
 const wsRows = computed(() => workspaces.value.map((ws) => {
@@ -53,7 +64,7 @@ const todayLabel = computed(() => {
 const awayToday = computed(() => (snapshot.value?.employees ?? []).filter(e => e.on_leave))
 
 // Absent people per day over the next 14 days (approved leave)
-const approved = computed(() => events.value.filter(e => e.status === 'approved'))
+const approved = computed(() => scoped.value.filter(e => e.status === 'approved'))
 const next14 = computed(() => Array.from({ length: 14 }, (_, i) => addDays(today, i)))
 const next14Labels = computed(() => next14.value.map(d => fmtDate(d, tag.value, { weekday: 'short', day: 'numeric' })))
 const awayOn = (d: string) => approved.value.filter(e => e.startDate <= d && e.endDate >= d)
@@ -103,7 +114,7 @@ const understaffed = computed(() => {
   const teams = new Map<string, { name: string, size: number }>()
   for (const m of members.value) {
     if (m.role === 'admin' || !m.team_id) continue
-    const e = events.value.find(x => x.teamId === m.team_id && x.teamName)
+    const e = scoped.value.find(x => x.teamId === m.team_id && x.teamName)
     const cur = teams.get(m.team_id) ?? { name: e?.teamName ?? '', size: 0 }
     cur.size++
     teams.set(m.team_id, cur)
@@ -114,7 +125,7 @@ const understaffed = computed(() => {
     for (let i = 0; i < 14; i++) {
       const day = addDays(today, i)
       if (isWeekend(day)) continue
-      const away = new Set(events.value.filter(x => x.teamId === id && x.status === 'approved' && x.startDate <= day && x.endDate >= day).map(x => x.userId)).size
+      const away = new Set(scoped.value.filter(x => x.teamId === id && x.status === 'approved' && x.startDate <= day && x.endDate >= day).map(x => x.userId)).size
       const n = tm.size - away
       if (n / tm.size < 0.5 && (!worst || n < worst.n)) worst = { day, n }
     }
@@ -161,12 +172,16 @@ function exportMonth() {
         <p class="h3">{{ todayLabel }}</p>
         <p class="small wb-mut2">{{ t('v2.toReviewCount', { n: toReview.length }, toReview.length) }}</p>
       </div>
+      <WbTabs v-if="!isAdmin" v-model="tab" class="wb-dash-tabs" :tabs="tabs" :label="t('nav.myteam')" />
       <div class="wb-row wb-wrap" style="gap: 8px">
         <WbButton variant="secondary" size="sm" icon="download" @click="exportMonth">{{ t('dashboard.export') }}</WbButton>
-        <WbButton variant="secondary" size="sm" icon="receipt-text" to="/invoices?new=1">{{ t('dashboard.newInvoice') }}</WbButton>
+        <WbButton v-if="isAdmin" variant="secondary" size="sm" icon="receipt-text" to="/invoices?new=1">{{ t('dashboard.newInvoice') }}</WbButton>
       </div>
     </div>
 
+    <TeamMembers v-if="!isAdmin && tab === 'members'" />
+
+    <template v-if="isAdmin || tab === 'overview'">
     <WbErrorState v-if="error" :message="error" @retry="load" />
     <WbSkeleton v-else-if="isLoading && !snapshot" variant="metric" :count="4" />
 
@@ -264,7 +279,19 @@ function exportMonth() {
             <p v-else class="small wb-mut">{{ t('dashboard.noAlerts') }}</p>
           </WbCard>
 
-          <WbCard class="wb-dash-c wb-dash-vel" :title="t('nav.velocity')" :link-label="t('dashboard.seeVelocity')" link-to="/velocite">
+          <WbCard v-if="!isAdmin" class="wb-dash-c wb-dash-vel" :title="t('nav.velocity')" :link-label="velocityTeams.length ? t('dashboard.seeVelocity') : undefined" link-to="/velocite">
+            <ul v-if="velocityTeams.length" class="wb-list wb-dash-list wb-dash-ws">
+              <li v-for="v in velocityTeams" :key="v.team_id">
+                <NuxtLink class="wb-grow wb-dash-ws-l" :to="{ path: `/velocite/teams/${v.team_id}`, query: { workspaceId: v.workspace_id, name: v.team_name ?? '' } }">
+                  <b class="small">{{ v.team_name }}</b>
+                  <span class="caption wb-mut2">{{ v.workspace_name }}</span>
+                </NuxtLink>
+                <WbIcon name="chevron-right" :size="16" class="wb-mut2" />
+              </li>
+            </ul>
+            <p v-else class="small wb-mut">{{ t('tnd26.noLinkText') }}</p>
+          </WbCard>
+          <WbCard v-else class="wb-dash-c wb-dash-vel" :title="t('nav.velocity')" :link-label="t('dashboard.seeVelocity')" link-to="/velocite">
             <ul v-if="wsRows.length" class="wb-list wb-dash-list wb-dash-ws">
               <li v-for="w in wsRows" :key="w.id">
                 <NuxtLink class="wb-grow wb-dash-ws-l" :to="`/velocite/workspaces/${w.id}`">
@@ -282,6 +309,7 @@ function exportMonth() {
           </WbCard>
         </div>
       </div>
+    </template>
     </template>
   </div>
 </template>
@@ -326,6 +354,8 @@ function exportMonth() {
 .wb-dep-who > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wb-dep-in { margin-top: 4px; padding: 1px 6px; border-radius: 999px; background: var(--surface); color: var(--ink-2); font-size: 10px; font-weight: 650; text-transform: none; white-space: nowrap; }
 
+.wb-dash-tabs { margin-left: auto; margin-right: var(--space-3); }
+.wb-dash-tabs :deep(.wb-tabs) { border-bottom: 0; }
 @container wbapp (min-width: 1024px) {
   /* header 56 + page paddings: the board is exactly one screen high */
   .wb-dash { height: calc(100dvh - 56px - var(--space-5) - var(--space-8) - 8px); min-height: 600px; }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Workspace, TeamRef } from '~/composables/useLinearWorkspace'
 
-definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'admin-only' })
+definePageMeta({ titleKey: 'nav.velocity', layout: 'private', middleware: 'velocity-access' })
 
 const {
   workspaces, isLoading, error,
@@ -9,6 +9,8 @@ const {
   fetchLinearTeams, saveTeamSelection, triggerSync,
 } = useLinearWorkspace()
 const toast = useToast()
+// managers see the Linear teams linked to their team, without workspace management (TND-26)
+const { isAdmin } = useCurrentUser()
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 
@@ -101,7 +103,9 @@ const wsBadge = computed(() => (workspaces.value.some(ws => ws.sync_status === '
 const route = useRoute()
 onMounted(async () => {
   lastTeam.value = typeof localStorage === 'undefined' ? null : localStorage.getItem('wb_vel_last')
-  await Promise.all([fetchWorkspaces(), loadOverview(), loadWsTeams().catch(() => undefined)])
+  await Promise.all(isAdmin.value
+    ? [fetchWorkspaces(), loadOverview(), loadWsTeams().catch(() => undefined)]
+    : [loadOverview()])
   if (wsAttention.value) showWs.value = true
   // a single team: open it straight away (the overview stays reachable with ?all=1)
   if (overview.value.length === 1 && route.query.all !== '1') await navigateTo(teamLink(overview.value[0]!), { replace: true })
@@ -310,8 +314,8 @@ function cardSubtitle(ws: Workspace): string {
 <template>
   <div class="wb-page wb-stack">
     <div class="wb-row-b wb-wrap">
-      <p class="wb-mut2">{{ workspaces.length ? t('tnd24.intro') : t('velocityA.intro') }}</p>
-      <div class="wb-row wb-wrap" style="gap: 8px">
+      <p class="wb-mut2">{{ !isAdmin ? t('tnd26.velIntro') : workspaces.length ? t('tnd24.intro') : t('velocityA.intro') }}</p>
+      <div v-if="isAdmin" class="wb-row wb-wrap" style="gap: 8px">
         <WbButton v-if="workspaces.length" variant="secondary" size="sm" icon="link" :aria-expanded="showWs" data-action="toggle-ws" @click="showWs = !showWs">
           {{ t('tnd24.workspaces') }} <WbBadge :tone="wsBadge.tone" size="sm">{{ wsBadge.label }}</WbBadge>
         </WbButton>
@@ -319,9 +323,9 @@ function cardSubtitle(ws: Workspace): string {
       </div>
     </div>
 
-    <WbErrorState v-if="error" :message="readableApiError(error)" @retry="fetchWorkspaces" />
-    <WbSkeleton v-else-if="isLoading && !workspaces.length" :count="2" />
-    <div v-else-if="workspaces.length === 0" class="wb-card">
+    <WbErrorState v-if="isAdmin && error" :message="readableApiError(error)" @retry="fetchWorkspaces" />
+    <WbSkeleton v-else-if="isAdmin && isLoading && !workspaces.length" :count="2" />
+    <div v-else-if="isAdmin && workspaces.length === 0" class="wb-card">
       <WbEmptyState art="link" :title="t('velocityA.emptyTitle')">
         {{ t('velocityA.emptyText') }}
         <template #action>
@@ -336,6 +340,9 @@ function cardSubtitle(ws: Workspace): string {
       <div v-if="overview.length > 3" class="wb-fb-s wb-vo-search"><WbInput v-model="teamSearch" icon="search" type="search" :aria-label="t('tnd24.search')" :placeholder="t('tnd24.search')" /></div>
       <WbErrorState v-if="overviewError" :message="overviewError" @retry="loadOverview(true)" />
       <WbSkeleton v-else-if="overviewLoading && !overview.length" variant="metric" :count="3" />
+      <div v-else-if="!overview.length && !isAdmin" class="wb-card">
+        <WbEmptyState art="link" :title="t('tnd26.noLinkTitle')">{{ t('tnd26.noLinkText') }}</WbEmptyState>
+      </div>
       <p v-else-if="!overview.length" class="wb-card wb-card-b wb-mut">{{ t('tnd24.noTeams') }}</p>
       <div v-else class="wb-vo-grid">
         <NuxtLink v-for="x in teamCards" :key="x.id" :to="teamLink(x)" class="wb-card wb-vo-card" :data-team="x.name">
@@ -366,7 +373,7 @@ function cardSubtitle(ws: Workspace): string {
     </section>
 
     <!-- Linear workspaces: sync and settings, folded by default -->
-    <section v-show="showWs" class="wb-stack-s" :aria-label="t('tnd24.workspaces')">
+    <section v-if="isAdmin" v-show="showWs" class="wb-stack-s" :aria-label="t('tnd24.workspaces')">
       <h2 class="h3">{{ t('tnd24.workspaces') }}</h2>
     <div class="wb-grid wb-cols-2">
       <WbCard v-for="ws in workspaces" :key="ws.id" :title="ws.name" :subtitle="cardSubtitle(ws)" :data-ws="ws.name">

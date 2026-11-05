@@ -142,7 +142,7 @@ const pct = (b: { allocated: number, used: number, reserved: number }) => {
       >
         <!-- never claim "nothing to approve" before the queue has loaded -->
         <WbSkeleton v-if="!approvalsLoaded" :count="2" />
-        <ApprovalQueue v-else-if="toReview.length" :items="toReview.slice(0, 2)" :is-admin="false" />
+        <ApprovalQueue v-else-if="toReview.length" :items="toReview.slice(0, 2)" :is-admin="false" plan-link />
         <p v-else class="wb-mut">{{ t('home.nothingToApprove') }}</p>
       </WbCard>
 

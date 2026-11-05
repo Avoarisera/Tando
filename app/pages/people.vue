@@ -8,7 +8,7 @@ const { teams, fetchTeams } = useTeams()
 const { snapshot, fetchSnapshot } = useDashboard()
 
 type Role = 'employee' | 'manager' | 'admin'
-interface Person { id: string, first_name: string, last_name: string, role: Role, team_id: string | null, joined_at: string, country: string }
+interface Person { id: string, first_name: string, last_name: string, role: Role, team_id: string | null, joined_at: string, country: string, linear_user_id: string | null }
 const people = ref<Person[]>([])
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -18,8 +18,9 @@ async function load() {
   error.value = null
   try {
     const [{ data, error: e }] = await Promise.all([
-      supabase.from('profiles').select('id, first_name, last_name, role, team_id, joined_at, country').order('last_name'),
+      supabase.from('profiles').select('id, first_name, last_name, role, team_id, joined_at, country, linear_user_id').order('last_name'),
       loadDefaultCountry(),
+      loadLinear(),
       fetchTeams(true),
       fetchSnapshot(),
     ])
@@ -34,6 +35,43 @@ async function load() {
   }
 }
 onMounted(load)
+
+// ── Linear links (TND-26): team ↔ Linear teams, person ↔ Linear user ─────────
+interface LinearTeamRow { id: string, name: string | null, workspace_id: string }
+interface LinearUserRow { id: string, display_name: string | null, email: string | null, is_active: boolean | null }
+const linearTeams = ref<LinearTeamRow[]>([])
+const linearUsers = ref<LinearUserRow[]>([])
+const links = ref<{ team_id: string, linear_team_id: string, workspace_id: string }[]>([])
+async function loadLinear() {
+  const [lt, lu, ln] = await Promise.all([
+    supabase.from('linear_teams').select('id, name, workspace_id').order('name'),
+    supabase.from('linear_users').select('id, display_name, email, is_active').order('display_name'),
+    supabase.from('team_linear_teams').select('team_id, linear_team_id, workspace_id'),
+  ])
+  linearTeams.value = (lt.data ?? []) as LinearTeamRow[]
+  linearUsers.value = (lu.data ?? []) as LinearUserRow[]
+  links.value = (ln.data ?? []) as typeof links.value
+}
+const linearUserChoices = computed(() => [{ value: '', label: t('tnd26.noLinear') },
+  ...[...linearUsers.value].sort((a, b) => Number(!!b.is_active) - Number(!!a.is_active) || (a.display_name ?? '').localeCompare(b.display_name ?? ''))
+    .map(u => ({ value: u.id, label: `${u.display_name ?? u.email ?? u.id}${u.is_active === false ? ` (${t('tnd26.inactive')})` : ''}` }))])
+const linearTeamsOf = (teamId: string) => links.value.filter(l => l.team_id === teamId)
+  .map(l => linearTeams.value.find(x => x.id === l.linear_team_id)?.name ?? l.linear_team_id)
+const teamLinear = ref<string[]>([])
+function toggleLinear(id: string, on: boolean) {
+  teamLinear.value = on ? [...new Set([...teamLinear.value, id])] : teamLinear.value.filter(x => x !== id)
+}
+async function saveTeamLinks(id: string) {
+  if (links.value.some(l => l.team_id === id)) {
+    const { error: e } = await supabase.from('team_linear_teams').delete().eq('team_id', id)
+    if (e) throw new Error(e.message)
+  }
+  const rows = teamLinear.value.map(lid => ({ team_id: id, linear_team_id: lid, workspace_id: linearTeams.value.find(x => x.id === lid)!.workspace_id }))
+  if (rows.length) {
+    const { error: e } = await supabase.from('team_linear_teams').insert(rows)
+    if (e) throw new Error(e.message)
+  }
+}
 
 const tab = ref<'people' | 'teams'>('people')
 const tabs = computed(() => [
@@ -69,21 +107,21 @@ async function loadDefaultCountry() {
 }
 
 // ── Invite / edit (one side panel) ───────────────────────────────────────────
-interface PersonForm { email: string, first_name: string, last_name: string, role: Role, team_id: string, country: string, joined_at: string }
+interface PersonForm { email: string, first_name: string, last_name: string, role: Role, team_id: string, country: string, joined_at: string, linear_user_id: string }
 const panel = ref<'invite' | 'edit' | null>(null)
 const editingId = ref<string | null>(null)
-const form = reactive<PersonForm>({ email: '', first_name: '', last_name: '', role: 'employee', team_id: '', country: 'FR', joined_at: '' })
+const form = reactive<PersonForm>({ email: '', first_name: '', last_name: '', role: 'employee', team_id: '', country: 'FR', joined_at: '', linear_user_id: '' })
 const formError = ref<string | null>(null)
 const saving = ref(false)
 
 function openInvite() {
-  Object.assign(form, { email: '', first_name: '', last_name: '', role: 'employee', team_id: '', country: defaultCountry.value, joined_at: todayIso() })
+  Object.assign(form, { email: '', first_name: '', last_name: '', role: 'employee', team_id: '', country: defaultCountry.value, joined_at: todayIso(), linear_user_id: '' })
   editingId.value = null
   formError.value = null
   panel.value = 'invite'
 }
 function openEdit(p: Person) {
-  Object.assign(form, { email: '', first_name: p.first_name, last_name: p.last_name, role: p.role, team_id: p.team_id ?? '', country: p.country, joined_at: p.joined_at })
+  Object.assign(form, { email: '', first_name: p.first_name, last_name: p.last_name, role: p.role, team_id: p.team_id ?? '', country: p.country, joined_at: p.joined_at, linear_user_id: p.linear_user_id ?? '' })
   editingId.value = p.id
   formError.value = null
   panel.value = 'edit'
@@ -102,7 +140,7 @@ async function savePerson() {
       await $fetch('/api/people/invite', {
         method: 'POST',
         headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
-        body: { ...form, team_id: form.team_id || null },
+        body: { email: form.email, first_name: form.first_name, last_name: form.last_name, role: form.role, team_id: form.team_id || null, country: form.country, joined_at: form.joined_at },
       })
       toast.add(t('r8a.people.invited', { email: form.email.trim() }))
     }
@@ -113,6 +151,9 @@ async function savePerson() {
         p_team_id: (form.team_id || null) as unknown as string, p_country: form.country, p_joined_at: (form.joined_at || null) as unknown as string,
       })
       if (e) throw new Error(e.message)
+      // Linear account used by Vélocité (capacity, per-dev figures) — TND-26
+      const { error: e2 } = await supabase.rpc('admin_set_linear_user', { p_id: editingId.value!, p_linear_user_id: form.linear_user_id })
+      if (e2) throw new Error(e2.message)
       toast.add(t('r8a.people.saved'))
     }
     panel.value = null
@@ -155,6 +196,7 @@ function openTeam(id: string | null, name = '') {
   teamNameDraft.value = name
   teamMembers.value = id ? people.value.filter(p => p.team_id === id && p.role !== 'admin').map(p => p.id) : []
   teamManager.value = id ? people.value.find(p => p.team_id === id && p.role === 'manager')?.id ?? '' : ''
+  teamLinear.value = id ? links.value.filter(l => l.team_id === id).map(l => l.linear_team_id) : []
   teamError.value = null
   memberSearch.value = ''
   confirmDelete.value = false
@@ -171,14 +213,21 @@ async function saveTeam() {
     return
   }
   saving.value = true
-  const { error: e } = await supabase.rpc('admin_save_team', {
+  const { data: savedId, error: e } = await supabase.rpc('admin_save_team', {
     p_id: teamId.value, p_name: teamNameDraft.value, p_manager_id: teamManager.value || null, p_member_ids: teamMembers.value,
   })
-  saving.value = false
   if (e) {
+    saving.value = false
     teamError.value = e.message
     return
   }
+  try { await saveTeamLinks((savedId as string | null) ?? teamId.value!) }
+  catch (err) {
+    saving.value = false
+    teamError.value = errorMessage(err)
+    return
+  }
+  saving.value = false
   toast.add(teamId.value ? t('teams.saved') : t('r8a.people.teamCreated'))
   teamPanel.value = false
   await Promise.all([fetchTeams(true), load()])
@@ -277,7 +326,7 @@ const teamsPager = usePagination(computed(() => teamCards.value))
             </thead>
             <tbody>
               <tr v-for="tm in teamsPager.items.value" :key="tm.id" :data-team="tm.name">
-                <td><b class="small">{{ tm.name }}</b><br><span class="caption wb-mut">{{ t('people.members', { n: tm.members.length }, tm.members.length) }}</span></td>
+                <td><b class="small">{{ tm.name }}</b><br><span class="caption wb-mut">{{ t('people.members', { n: tm.members.length }, tm.members.length) }}<template v-if="linearTeamsOf(tm.id).length"> · <WbIcon name="link" :size="12" /> {{ t('tnd26.linkedTo', { teams: linearTeamsOf(tm.id).join(', ') }) }}</template></span></td>
                 <td><span class="wb-avg"><WbAvatar v-for="m in tm.members.slice(0, 8)" :key="m.id" :name="fullName(m)" :size="26" /></span></td>
                 <td>
                   <span v-if="tm.managers.length" class="small">{{ t('people.managedBy', { who: tm.managers.map(fullName).join(', ') }) }}</span>
@@ -309,6 +358,7 @@ const teamsPager = usePagination(computed(() => teamCards.value))
           <WbSelect id="person-country" v-model="form.country" :label="t('r8a.people.country')" :options="countries" :hint="t('r8a.people.countryHint')" />
           <WbInput id="person-joined" v-model="form.joined_at" type="date" :label="t('people.joined')" />
         </div>
+        <WbSelect v-if="panel === 'edit' && linearUsers.length" id="person-linear" v-model="form.linear_user_id" :label="t('tnd26.linearUser')" :options="linearUserChoices" :hint="t('tnd26.linearUserHint')" />
         <div class="wb-panel-f">
           <WbButton type="submit" block size="lg" :loading="saving">{{ panel === 'invite' ? t('r8a.people.send') : t('rules.save') }}</WbButton>
         </div>
@@ -337,6 +387,17 @@ const teamsPager = usePagination(computed(() => teamCards.value))
         </fieldset>
 
         <WbSelect id="team-manager" v-model="teamManager" :options="managerChoices" :label="t('teams.manager')" :hint="t('teams.managerHint')" />
+
+        <fieldset v-if="linearTeams.length" class="wb-tm-f">
+          <legend class="wb-label">{{ t('tnd26.linearTeams') }}</legend>
+          <p class="caption wb-mut2">{{ t('tnd26.linearTeamsHint') }}</p>
+          <ul class="wb-tm-list">
+            <li v-for="lt in linearTeams" :key="lt.id">
+              <WbCheckbox :model-value="teamLinear.includes(lt.id)" :aria-label="lt.name ?? lt.id" @update:model-value="(v: boolean) => toggleLinear(lt.id, v)" />
+              <span class="wb-grow small"><b>{{ lt.name ?? lt.id }}</b></span>
+            </li>
+          </ul>
+        </fieldset>
 
         <div class="wb-panel-f">
           <WbButton type="submit" block :loading="saving">{{ t('rules.save') }}</WbButton>

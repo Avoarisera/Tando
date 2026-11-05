@@ -73,7 +73,8 @@
     "password": "Mot de passe",
     "signOut": "Déconnexion",
     "userMenu": "Menu du compte",
-    "leavesShort": "Congés"
+    "leavesShort": "Congés",
+    "myteam": "Mon équipe"
   },
   "roles": {
     "employee": "Employé",
@@ -859,8 +860,6 @@
     "adminNoBalance": "Les administrateurs n’ont pas de solde de congés."
   },
   "v2": {
-    "showPlanning": "Voir le planning",
-    "hidePlanning": "Masquer le planning",
     "period": "Période",
     "headcountSub": "Employés et managers",
     "presenceRate": "{n} % de présence",
@@ -967,5 +966,40 @@
     "unlinkedHide": "Masquer",
     "unlinkedHint": "Un dev est relié quand son e-mail Linear est celui de son compte WakaBods.",
     "linkPeople": "Gérer les personnes"
+  },
+  "tnd25": {
+    "seePlanning": "Voir dans le planning",
+    "toReview": "à valider",
+    "reviewTitle": "Demande à valider",
+    "team": "Équipe",
+    "period": "Période",
+    "days": "Durée",
+    "cancelAdminOnly": "Seul l'administrateur peut accepter ou refuser cette demande d'annulation.",
+    "waitAdmin": "Vous l'avez validée : elle attend maintenant l'accord de l'administrateur.",
+    "readOnly": "Congé approuvé d'un collègue, en lecture seule."
+  },
+  "tnd26": {
+    "velIntro": "Les équipes Linear reliées à votre équipe.",
+    "noLinkTitle": "Votre équipe n’est pas encore reliée à Linear",
+    "noLinkText": "Demandez à l’administrateur de relier votre équipe à ses équipes Linear (Personnes et équipes).",
+    "overview": "Vue d’ensemble",
+    "members": "Membres",
+    "membersSub": "{n} personne | {n} personnes",
+    "search": "Rechercher une personne",
+    "person": "Personne",
+    "today": "Aujourd’hui",
+    "nextLeave": "Prochain congé",
+    "awayUntil": "Absent jusqu’au {date}",
+    "noMember": "Aucun membre trouvé.",
+    "readOnlyHint": "Lecture seule : les invitations, rôles et soldes sont gérés par l’administrateur.",
+    "noHistory": "Aucune demande de congé.",
+    "noLinear": "Aucun compte Linear",
+    "inactive": "inactif",
+    "linearUser": "Compte Linear",
+    "linearUserHint": "Relie la personne à ses tickets dans Vélocité (capacité, chiffres par développeur).",
+    "linearTeams": "Équipes Linear",
+    "linearTeamsHint": "Le manager de l’équipe verra la Vélocité de ces équipes Linear.",
+    "linkedTo": "Linear : {teams}",
+    "present": "Présent"
   }
 }

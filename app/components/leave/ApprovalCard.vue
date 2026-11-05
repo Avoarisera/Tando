@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { LeaveRequestWithRelations } from '~/types/index'
-import type { PlanPerson } from '~/components/wb/WbPlanningGrid.vue'
 import type { CalendarEvent } from '~/types/index'
 
 const props = defineProps<{
@@ -14,8 +13,8 @@ const props = defineProps<{
   isAdmin: boolean
   selectable?: boolean
   busy?: boolean
-  /** Dense team planning around the request (manager view) */
-  planning?: PlanPerson[]
+  /** "Voir dans le planning" link to the calendar at the leave date (TND-25) */
+  planLink?: boolean
   /** Short card for a grid of cards: actions at the bottom */
   compact?: boolean
 }>()
@@ -82,12 +81,8 @@ const stepLabel = computed(() => {
   return props.managers?.length ? t('approvals.stepWaitManager', { who: managerNames.value }) : t('approvals.stepNoManager')
 })
 const stepTone = computed(() => (r.value.status === 'manager_approved' ? 'success' : props.managers?.length ? 'warning' : 'neutral'))
-const highlight = computed(() => ({ from: r.value.start_date, to: r.value.end_date }))
-const showPlan = ref(false)
-const planDays = computed(() => {
-  const start = addDays(r.value.start_date, -dayOfWeek(r.value.start_date) - 2)
-  return Array.from({ length: 14 }, (_, i) => addDays(start, i))
-})
+// Calendar, planning view, on the week the leave starts, the request highlighted (TND-25)
+const planTo = computed(() => ({ path: '/calendar', query: { view: 'plan', date: r.value.start_date, focus: r.value.id, ...(r.value.profiles.team_id ? { team: r.value.profiles.team_id } : {}) } }))
 </script>
 
 <template>
@@ -121,23 +116,12 @@ const planDays = computed(() => {
         <div v-if="skipsManager && !isCancellation" class="caption wb-c-warning wb-acx-warn"><WbIcon name="triangle-alert" :size="13" />{{ t('approvals.skipsManager', { who: managerNames }) }}</div>
       </div>
       <div class="wb-acx-a">
-        <WbButton v-if="planning?.length" variant="ghost" size="sm" icon="table" :aria-expanded="showPlan" @click="showPlan = !showPlan">
-          {{ showPlan ? t('v2.hidePlanning') : t('v2.showPlanning') }}
-        </WbButton>
+        <WbButton v-if="planLink" variant="ghost" size="sm" icon="calendar-days" :to="planTo" data-action="see-planning">{{ t('tnd25.seePlanning') }}</WbButton>
         <WbButton variant="secondary" size="sm" :disabled="busy" @click="$emit('refuse')">{{ isCancellation ? t('approvals.keepLeave') : t('approvals.refuse') }}</WbButton>
         <WbButton v-if="overBy && isAdmin" icon="shield" size="sm" :loading="busy" data-action="approve-exception" @click="$emit('exception')">{{ t('tnd23.approveException') }}</WbButton>
         <WbButton v-else icon="check" size="sm" :loading="busy" @click="$emit('approve')">{{ isCancellation ? t('approvals.acceptCancel') : t('approvals.approve') }}</WbButton>
       </div>
     </div>
-
-    <WbPlanningGrid
-      v-if="planning?.length && showPlan"
-      dense
-      :days="planDays"
-      :people="planning"
-      :today="todayIso()"
-      :highlight="highlight"
-    />
   </article>
 </template>
 

@@ -73,7 +73,8 @@
     "password": "Password",
     "signOut": "Sign out",
     "userMenu": "Account menu",
-    "leavesShort": "Leave"
+    "leavesShort": "Leave",
+    "myteam": "My team"
   },
   "roles": {
     "employee": "Employee",
@@ -859,8 +860,6 @@
     "adminNoBalance": "Administrators have no leave balance."
   },
   "v2": {
-    "showPlanning": "Show planning",
-    "hidePlanning": "Hide planning",
     "period": "Dates",
     "headcountSub": "Employees and managers",
     "presenceRate": "{n}% in",
@@ -967,5 +966,40 @@
     "unlinkedHide": "Hide",
     "unlinkedHint": "A dev is linked when their Linear e-mail is their WakaBods account e-mail.",
     "linkPeople": "Manage people"
+  },
+  "tnd25": {
+    "seePlanning": "See in the planning",
+    "toReview": "to review",
+    "reviewTitle": "Request to review",
+    "team": "Team",
+    "period": "Period",
+    "days": "Length",
+    "cancelAdminOnly": "Only the administrator can accept or refuse this cancellation request.",
+    "waitAdmin": "You approved it: it now waits for the administrator.",
+    "readOnly": "A colleague's approved leave, read-only."
+  },
+  "tnd26": {
+    "velIntro": "The Linear teams linked to your team.",
+    "noLinkTitle": "Your team is not linked to Linear yet",
+    "noLinkText": "Ask the administrator to link your team to its Linear teams (People and teams).",
+    "overview": "Overview",
+    "members": "Members",
+    "membersSub": "{n} person | {n} people",
+    "search": "Search a person",
+    "person": "Person",
+    "today": "Today",
+    "nextLeave": "Next leave",
+    "awayUntil": "Away until {date}",
+    "noMember": "No member found.",
+    "readOnlyHint": "Read-only: invitations, roles and balances are managed by the administrator.",
+    "noHistory": "No leave request.",
+    "noLinear": "No Linear account",
+    "inactive": "inactive",
+    "linearUser": "Linear account",
+    "linearUserHint": "Links the person to their tickets in Velocity (capacity, per-developer figures).",
+    "linearTeams": "Linear teams",
+    "linearTeamsHint": "The team's manager will see the Velocity of these Linear teams.",
+    "linkedTo": "Linear: {teams}",
+    "present": "Present"
   }
 }

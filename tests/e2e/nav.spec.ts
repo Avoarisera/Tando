@@ -58,8 +58,35 @@ test.describe('R2 — Sidebar (desktop)', () => {
 
   test('T-R2-002: manager menu has no admin entries', async ({ page }) => {
     await signIn(page, ACCOUNTS.manager)
-    await expect(page.locator(SIDE_LINKS)).toHaveText(['Accueil', 'Mes congés', 'Calendrier', 'À valider'])
+    // TND-26: « Mon équipe »; no Vélocité while the team is not linked to Linear
+    await expect(page.locator(SIDE_LINKS)).toHaveText(['Accueil', 'À valider', 'Mes congés', 'Mon équipe', 'Calendrier'])
     await expect(page.locator(`${SIDEBAR} a[href="/leave-types"]`)).toHaveCount(0)
+  })
+
+  test('T-TND26-001: manager « Mon équipe » shows the team board and its members, read-only', async ({ page }) => {
+    await signIn(page, ACCOUNTS.manager)
+    await page.locator(SIDEBAR).getByRole('link', { name: 'Mon équipe' }).click()
+    await expect(page).toHaveURL(/\/dashboard$/)
+    await expect(page.locator('h1.wb-head-title')).toHaveText('Mon équipe')
+    await expect(page.getByRole('link', { name: /Nouvelle facture/ })).toHaveCount(0)
+    await page.getByRole('tab', { name: 'Membres' }).click()
+    await expect(page.locator('.wb-tm tbody tr')).toHaveCount(3) // Équipe A: Emma, Eddy, Marc
+    await expect(page.locator('.wb-tm')).toContainText('Lecture seule')
+  })
+
+  test('T-TND26-002: manager without a Linear link gets the empty Vélocité state', async ({ page }) => {
+    await signIn(page, ACCOUNTS.manager)
+    await page.goto('/velocite')
+    await expect(page.getByText('Votre équipe n’est pas encore reliée à Linear')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Connecter un workspace' })).toHaveCount(0)
+  })
+
+  test('T-TND26-003: an employee cannot open Vélocité nor the team board', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee1)
+    for (const path of ['/velocite', '/dashboard']) {
+      await page.goto(path)
+      await expect(page.locator('body')).toContainText('403')
+    }
   })
 
   test('T-R2-003: admin menu groups Équipe, Pilotage, Administration', async ({ page }) => {

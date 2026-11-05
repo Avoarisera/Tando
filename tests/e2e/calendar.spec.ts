@@ -122,6 +122,47 @@ test.describe('R3 — Calendrier, planning et liste', () => {
   })
 })
 
+test.describe('TND-25 — Calendrier, clic sur un congé', () => {
+  const EMMA_PENDING = '[data-id="00000000-0000-0000-0000-000000000041"]'
+  const EMMA_APPROVED = '[data-id="00000000-0000-0000-0000-000000000043"]'
+  const PANEL = '.wb-panel'
+
+  test('T-TND25-001: manager sees the pending request of the team and can decide from the calendar', async ({ page }) => {
+    await signIn(page, ACCOUNTS.manager)
+    await goToMonth(page, 2026, 5)
+    const bar = page.locator(`${BAR}${EMMA_PENDING}`).first()
+    await expect(bar).toContainText('à valider')
+    await bar.click()
+    const panel = page.locator(PANEL)
+    await expect(panel).toContainText('Demande à valider')
+    await expect(panel.getByRole('button', { name: 'Approuver' })).toBeVisible()
+    await panel.getByRole('button', { name: 'Refuser' }).click()
+    await expect(page.getByLabel(/Motif/)).toBeVisible() // same refusal modal as « À valider »
+  })
+
+  test('T-TND25-002: employee opens her own request with its actions', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee1)
+    await goToMonth(page, 2026, 5)
+    await page.locator(`${BAR}${EMMA_PENDING}`).first().click()
+    await expect(page.locator(PANEL).getByRole('button', { name: 'Modifier' })).toBeVisible()
+  })
+
+  test('T-TND25-003: a colleague sees approved leave read-only', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee2)
+    await goToMonth(page, 2026, 4)
+    await page.locator(`${BAR}${EMMA_APPROVED}`).first().click()
+    const panel = page.locator(PANEL)
+    await expect(panel).toContainText('lecture seule')
+    await expect(panel.getByRole('button', { name: /Approuver|Refuser|Annuler/ })).toHaveCount(0)
+  })
+
+  test('T-TND25-004: an employee does not see colleagues\' requests to review', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee2)
+    await goToMonth(page, 2026, 5)
+    await expect(page.locator(`${BAR}${EMMA_PENDING}`)).toHaveCount(0)
+  })
+})
+
 test.describe('R3 — Calendrier, mobile et sécurité', () => {
   test('R-R3-001: no horizontal page scroll at 390 px, planning scrolls inside', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })

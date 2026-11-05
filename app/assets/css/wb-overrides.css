@@ -150,3 +150,12 @@
 .wb-card-h > :first-child { flex: 1 1 200px; min-width: 0; }
 .wb-card-h .wb-seg { flex: 0 0 auto; max-width: 100%; }
 .wb-seg button, .wb-seg label { white-space: nowrap; }
+
+/* TND-25: clickable leave bars (calendar) */
+button.wb-bar { border: 0; font-family: inherit; line-height: inherit; text-align: left; cursor: pointer; }
+button.wb-bar:hover { filter: brightness(.96); }
+[data-theme="dark"] button.wb-bar:hover { filter: brightness(1.12); }
+button.wb-bar:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; z-index: 3; }
+.wb-bar.is-focus { outline: 2px solid var(--brand); outline-offset: 1px; z-index: 3; animation: wb-bar-focus 1.2s ease-out 2; }
+@keyframes wb-bar-focus { 50% { outline-offset: 4px; } }
+@media (prefers-reduced-motion: reduce) { .wb-bar.is-focus { animation: none; } }

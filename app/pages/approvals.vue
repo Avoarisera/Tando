@@ -104,7 +104,7 @@ function resetFilters() {
       </div>
       <p v-else-if="!shown.length" class="wb-card wb-card-b wb-mut">{{ t('approvals.noMatch') }}</p>
       <div v-else class="wb-ap-scroll">
-        <ApprovalQueue role="tabpanel" :items="shown" :is-admin="isAdmin" bulk grid :with-planning="!isAdmin" />
+        <ApprovalQueue role="tabpanel" :items="shown" :is-admin="isAdmin" bulk grid plan-link />
       </div>
     </template>
 
