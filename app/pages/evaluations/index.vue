@@ -40,7 +40,7 @@ const tone = (s: ReviewCycle['status']) => (s === 'active' ? 'success' : s === '
 // New campaign
 const creating = ref(false)
 const year = new Date().getFullYear()
-const form = reactive({ name: `Revue annuelle ${year}`, period_start: `${year}-01-01`, period_end: `${year}-12-31`, template_id: '', self_due: '', manager_due: '', hr_due: '' })
+const form = reactive({ name: `Revue annuelle ${year}`, period_start: `${year}-01-01`, period_end: `${year}-12-31`, template_id: '', self_due: '', manager_due: '', hr_due: '', peers_enabled: true, peer_due: '' })
 const formError = ref<string | null>(null)
 const saving = ref(false)
 const templateOptions = computed(() => templates.value.map(x => ({ value: x.id, label: x.name })))
@@ -49,7 +49,7 @@ watch(templates, (list) => { if (!form.template_id && list[0]) form.template_id 
 function openNew() {
   form.template_id = templates.value[0]?.id ?? ''
   const d = (n: number) => addDays(todayIso(), n)
-  Object.assign(form, { self_due: d(14), manager_due: d(21), hr_due: d(30) })
+  Object.assign(form, { self_due: d(14), manager_due: d(21), hr_due: d(30), peer_due: d(18) })
   formError.value = null
   creating.value = true
 }
@@ -60,7 +60,7 @@ async function create() {
   if (form.period_end < form.period_start) { formError.value = t('tnd29.cycle.periodOrder'); return }
   saving.value = true
   try {
-    const id = await createCycle({ name: form.name.trim(), period_start: form.period_start, period_end: form.period_end, template_id: form.template_id, self_due: form.self_due || null, manager_due: form.manager_due || null, hr_due: form.hr_due || null }, profile.value!.id)
+    const id = await createCycle({ name: form.name.trim(), period_start: form.period_start, period_end: form.period_end, template_id: form.template_id, self_due: form.self_due || null, manager_due: form.manager_due || null, hr_due: form.hr_due || null, peers_enabled: form.peers_enabled, peer_due: form.peers_enabled ? (form.peer_due || null) : null }, profile.value!.id)
     toast.add(t('tnd29.cycle.created'))
     await navigateTo(`/evaluations/campagne/${id}`)
   }
@@ -125,6 +125,11 @@ const editingTemplates = ref(false)
           <WbInput id="cy-self" v-model="form.self_due" type="date" :label="t('tnd29.cycle.selfDue')" />
           <WbInput id="cy-mgr" v-model="form.manager_due" type="date" :label="t('tnd29.cycle.managerDue')" />
           <WbInput id="cy-hr" v-model="form.hr_due" type="date" :label="t('tnd29.cycle.hrDue')" />
+          <WbInput v-if="form.peers_enabled" id="cy-peer" v-model="form.peer_due" type="date" :label="t('tnd29.cycle.peerDue')" />
+        </div>
+        <div class="wb-stack-s">
+          <WbCheckbox v-model="form.peers_enabled" :label="t('tnd29.cycle.peers')" />
+          <p class="caption wb-mut">{{ t('tnd29.cycle.peersHint') }}</p>
         </div>
         <div class="wb-panel-f"><WbButton type="submit" block :loading="saving" data-action="create-cycle">{{ t('tnd29.cycle.create') }}</WbButton></div>
       </form>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { HrPacket, ReviewCycle } from '~/composables/useReviews'
-import type { ReviewResponse, TemplateContent } from '~/utils/reviews'
+import type { PeerFeedback, ReviewResponse, TemplateContent } from '~/utils/reviews'
 
 // HR — one review file (TND-29): side-by-side synthesis, HR conclusion, release
 // to the employee, acknowledgement; printable (PDF from the browser).
@@ -10,10 +10,13 @@ const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const toast = useToast()
 const route = useRoute()
 const id = String(route.params.id)
-const { getPacket, listResponses, conclude, share } = useReviews()
+const { getPacket, listResponses, conclude, share, peerStatus, peerFeedback } = useReviews()
 
 const packet = ref<(HrPacket & { review_cycles: ReviewCycle }) | null>(null)
 const responses = ref<ReviewResponse[]>([])
+// lot 2: who answered (names, never the content) and the anonymous aggregate
+const peerRows = ref<{ peer_id: string, peer_name: string, status: string, answered: boolean }[]>([])
+const peers = ref<PeerFeedback | null>(null)
 const error = ref<string | null>(null)
 const form = reactive({ rating: null as number | null, strengths: '', improvements: '', objectives: [] as { text: string }[] })
 async function load() {
@@ -23,6 +26,7 @@ async function load() {
     if (!p) throw new Error(t('tnd29.cycle.notFound'))
     packet.value = p
     responses.value = r
+    if (p.review_cycles.peers_enabled) [peerRows.value, peers.value] = await Promise.all([peerStatus(id), peerFeedback(id)])
     Object.assign(form, { rating: p.hr_rating, strengths: p.hr_strengths, improvements: p.hr_improvements, objectives: p.hr_objectives?.length ? [...p.hr_objectives] : [{ text: '' }] })
   }
   catch (e) { error.value = errorMessage(e) }
@@ -36,6 +40,10 @@ const self = computed(() => responses.value.find(r => r.role === 'self' && r.sub
 const manager = computed(() => responses.value.find(r => r.role === 'manager' && r.submitted_at) ?? null)
 const draftSelf = computed(() => responses.value.some(r => r.role === 'self' && !r.submitted_at))
 const shared = computed(() => !!packet.value?.shared_at)
+const peersOn = computed(() => !!packet.value?.review_cycles.peers_enabled)
+const peersOpen = computed(() => peersOn.value && packet.value?.review_cycles.status === 'active' && !shared.value)
+const approvedPeers = computed(() => peerRows.value.filter(p => p.status === 'approved'))
+const answered = computed(() => approvedPeers.value.filter(p => p.answered).length)
 
 const saving = ref(false)
 const formError = ref<string | null>(null)
@@ -92,9 +100,20 @@ const print = () => window.print()
         <WbBadge :tone="self ? 'success' : 'warning'" size="sm">{{ self ? t('tnd29.hr.selfDone') : draftSelf ? t('tnd29.hr.selfDraft') : t('tnd29.hr.selfTodo') }}</WbBadge>
         <WbBadge v-if="packet.manager_id" :tone="manager ? 'success' : 'warning'" size="sm">{{ manager ? t('tnd29.hr.managerDone') : t('tnd29.hr.managerTodo') }}</WbBadge>
         <WbBadge v-else size="sm">{{ t('tnd29.cycle.noManager') }}</WbBadge>
+        <WbBadge v-if="peersOn" :tone="approvedPeers.length && answered === approvedPeers.length ? 'success' : approvedPeers.length ? 'warning' : 'neutral'" size="sm" data-badge="peers">{{ approvedPeers.length ? t('tnd29.hr.peersAnswered', { n: answered, total: approvedPeers.length }) : t('tnd29.hr.peersNone') }}</WbBadge>
       </div>
 
-      <ReviewSynthesis :content="content" :self="self" :manager="manager" :has-manager="!!packet.manager_id" />
+      <!-- who answered: names only, to remind — HR never sees who wrote what -->
+      <section v-if="peersOn && approvedPeers.length" class="wb-card wb-dos-peers wb-no-print" data-section="peer-status">
+        <h2 class="h3">{{ t('tnd29.hr.peersTitle') }}</h2>
+        <ul class="wb-dos-pl">
+          <li v-for="p in approvedPeers" :key="p.peer_id" class="small" :data-peer="p.peer_name"><WbIcon :name="p.answered ? 'circle-check' : 'clock'" :size="14" :class="p.answered ? 'wb-c-success' : 'wb-mut'" /> {{ p.peer_name }}</li>
+        </ul>
+        <p class="caption wb-mut">{{ t('tnd29.hr.peersAnon') }}</p>
+      </section>
+      <PeerNomination v-if="peersOpen && (!packet.manager_id || !approvedPeers.length)" class="wb-no-print" :packet-id="packet.id" mode="hr" :peers-min="packet.review_cycles.peers_min" :peers-max="packet.review_cycles.peers_max" :open="peersOpen" :has-manager="!!packet.manager_id" @changed="load" />
+
+      <ReviewSynthesis :content="content" :self="self" :manager="manager" :has-manager="!!packet.manager_id" :peers="peersOn ? peers : null" />
 
       <!-- HR conclusion -->
       <section class="wb-card wb-dos-hr">
@@ -146,6 +165,10 @@ const print = () => window.print()
 .wb-dos h1 { margin: 0; }
 .wb-dos-h p { margin: 0; }
 .wb-dos-st { gap: var(--space-2); }
+.wb-dos-peers { padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--space-2); }
+.wb-dos-peers h2, .wb-dos-peers p { margin: 0; }
+.wb-dos-pl { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+.wb-dos-pl li { display: inline-flex; align-items: center; gap: 6px; }
 .wb-dos-hr { padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
 .wb-dos-hr h2 { margin: 0; }
 .wb-dos-rate { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); }

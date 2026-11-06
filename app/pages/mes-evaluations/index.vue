@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import type { MyPacket } from '~/composables/useReviews'
+import type { MyPacket, PeerRequest } from '~/composables/useReviews'
 
 // My reviews (TND-29): what I have to fill in (my self review, my team's reviews
 // as a manager) and the files shared with me.
 definePageMeta({ titleKey: 'nav.reviews', layout: 'private' })
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
-const { myPackets } = useReviews()
+const { myPackets, myPeerRequests } = useReviews()
 const items = ref<MyPacket[] | null>(null)
+const peerReqs = ref<PeerRequest[]>([])
 const error = ref<string | null>(null)
 async function load() {
   error.value = null
-  try { items.value = await myPackets() }
+  try { [items.value, peerReqs.value] = await Promise.all([myPackets(), myPeerRequests()]) }
   catch (e) { error.value = errorMessage(e) }
 }
 onMounted(load)
@@ -21,13 +22,15 @@ const waiting = computed(() => (items.value ?? []).filter(p => !p.shared_at && !
 const shared = computed(() => (items.value ?? []).filter(p => p.shared_at))
 const due = (p: MyPacket) => (p.my_role === 'self' ? p.self_due : p.manager_due)
 const late = (d: string | null) => !!d && d < todayIso()
+const peerTodo = computed(() => peerReqs.value.filter(r => r.open && !r.submitted))
+const peerDone = computed(() => peerReqs.value.filter(r => r.submitted))
 </script>
 
 <template>
   <div class="wb-page wb-stack">
     <WbErrorState v-if="error" :message="error" @retry="load" />
     <WbSkeleton v-else-if="!items" variant="metric" :count="2" />
-    <div v-else-if="!items.length" class="wb-card">
+    <div v-else-if="!items.length && !peerReqs.length" class="wb-card">
       <WbEmptyState art="inbox" :title="t('tnd29.mine.emptyTitle')">{{ t('tnd29.mine.emptyText') }}</WbEmptyState>
     </div>
     <template v-else>
@@ -47,7 +50,23 @@ const late = (d: string | null) => !!d && d < todayIso()
         </ul>
       </section>
 
-      <section v-if="waiting.length" class="wb-stack-s">
+      <section v-if="peerTodo.length" class="wb-stack-s" data-section="peer-requests">
+        <h2 class="h3">{{ t('tnd29.peer.requests', { n: peerTodo.length }, peerTodo.length) }}</h2>
+        <ul class="wb-me-list">
+          <li v-for="r in peerTodo" :key="r.packet_id">
+            <NuxtLink :to="`/mes-evaluations/collegue/${r.packet_id}`" class="wb-card wb-me-c is-todo" :data-peer-request="r.employee_name">
+              <WbAvatar :name="r.employee_name" :size="36" />
+              <div class="wb-grow">
+                <b class="small">{{ t('tnd29.peer.pageTitle', { who: r.employee_name }) }}</b>
+                <p class="caption wb-mut2">{{ r.cycle_name }}<template v-if="r.peer_due"> · <span :class="{ 'wb-c-danger': late(r.peer_due) }">{{ t('tnd29.list.due', { date: fmtShort(r.peer_due, tag) }) }}</span></template></p>
+              </div>
+              <WbButton size="sm" tabindex="-1">{{ t('tnd29.mine.fill') }}</WbButton>
+            </NuxtLink>
+          </li>
+        </ul>
+      </section>
+
+      <section v-if="waiting.length || peerDone.length" class="wb-stack-s">
         <h2 class="h3">{{ t('tnd29.mine.waiting') }}</h2>
         <ul class="wb-me-list">
           <li v-for="p in waiting" :key="p.id + p.my_role">
@@ -56,6 +75,15 @@ const late = (d: string | null) => !!d && d < todayIso()
               <div class="wb-grow">
                 <b class="small">{{ p.my_role === 'self' ? t('tnd29.mine.selfTitle') : p.employee_name }}</b>
                 <p class="caption wb-mut2">{{ p.cycle_name }} · {{ t('tnd29.mine.sent') }}</p>
+              </div>
+            </NuxtLink>
+          </li>
+          <li v-for="r in peerDone" :key="`peer-${r.packet_id}`">
+            <NuxtLink :to="`/mes-evaluations/collegue/${r.packet_id}`" class="wb-card wb-me-c">
+              <WbAvatar :name="r.employee_name" :size="32" />
+              <div class="wb-grow">
+                <b class="small">{{ t('tnd29.peer.pageTitle', { who: r.employee_name }) }}</b>
+                <p class="caption wb-mut2">{{ r.cycle_name }} · {{ t('tnd29.mine.sent') }}</p>
               </div>
             </NuxtLink>
           </li>

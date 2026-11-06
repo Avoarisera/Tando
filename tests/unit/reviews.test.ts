@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { averageRating, compareRatings, missingInResponse, packetStep, type TemplateContent } from '../../app/utils/reviews'
+import { averageRating, compareRatings, missingInResponse, packetStep, peerContent, type TemplateContent } from '../../app/utils/reviews'
 
 const content: TemplateContent = {
   objectives: true,
@@ -34,5 +34,22 @@ describe('averageRating / packetStep', () => {
     expect(packetStep({ ...base, self_submitted: true, has_manager: false })).toBe('hr')
     expect(packetStep({ ...base, self_submitted: true, manager_submitted: true, hr_done: true })).toBe('ready')
     expect(packetStep({ ...base, shared: true, acknowledged: true })).toBe('acknowledged')
+  })
+})
+
+describe('peerContent (lot 2)', () => {
+  const withPeer: TemplateContent = { ...content, peer: { competencies: ['c', 'gone'], questions: [{ id: 'keep', label: 'Continuer' }] } }
+  it('keeps only the competencies asked to colleagues, no objectives, peer questions', () => {
+    const p = peerContent(withPeer)
+    expect(p.objectives).toBe(false)
+    expect(p.competencies.map(c => c.id)).toEqual(['c'])
+    expect(p.questions).toEqual([{ id: 'keep', label: 'Continuer', roles: ['peer'] }])
+  })
+  it('a peer must rate the asked competencies and answer the peer questions', () => {
+    expect(missingInResponse(peerContent(withPeer), 'peer', { ratings: {}, answers: {} })).toEqual({ competencies: ['c'], questions: ['keep'] })
+    expect(missingInResponse(peerContent(withPeer), 'peer', { ratings: { c: 0 }, answers: { keep: 'ok' } })).toEqual({ competencies: [], questions: [] })
+  })
+  it('a template without a peer part gives an empty form', () => {
+    expect(peerContent(content)).toEqual({ objectives: false, competencies: [], questions: [] })
   })
 })

@@ -1,9 +1,10 @@
-import type { ObjectiveReview, ReviewResponse, TemplateContent } from '~/utils/reviews'
+import type { ObjectiveReview, PeerFeedback, ReviewResponse, TemplateContent } from '~/utils/reviews'
 
 export interface ReviewTemplate { id: string, name: string, kind: 'annual' | 'probation' | 'custom', content: TemplateContent, archived: boolean, updated_at: string }
 export interface ReviewCycle {
   id: string, name: string, period_start: string, period_end: string, template_id: string, content: TemplateContent | null
   self_due: string | null, manager_due: string | null, hr_due: string | null, status: 'draft' | 'active' | 'closed'
+  peers_enabled: boolean, peers_min: number, peers_max: number, peer_due: string | null
   launched_at: string | null, closed_at: string | null, created_at: string
 }
 export interface HrPacket {
@@ -21,7 +22,10 @@ export interface MyPacket {
   my_role: 'self' | 'manager', self_submitted: boolean, manager_submitted: boolean
   shared_at: string | null, acknowledged_at: string | null, employee_comment: string | null
   hr_rating: number | null, hr_strengths: string, hr_improvements: string, hr_objectives: { text: string }[]
+  peers_enabled: boolean, peers_min: number, peers_max: number, peer_due: string | null
 }
+export interface Nomination { peer_id: string, name: string, team_name: string | null, status: 'proposed' | 'approved' }
+export interface PeerRequest { packet_id: string, cycle_name: string, peer_due: string | null, employee_name: string, content: TemplateContent, submitted: boolean, open: boolean }
 
 /** TND-29 — performance reviews (RLS + RPCs do the access rules) */
 export function useReviews() {
@@ -47,7 +51,7 @@ export function useReviews() {
     if (error || e2 || e3) fail(error ?? e2 ?? e3)
     return { cycles: (cycles ?? []) as unknown as ReviewCycle[], packets: (packets ?? []) as { id: string, cycle_id: string, manager_id: string | null, hr_done_at: string | null, shared_at: string | null, acknowledged_at: string | null }[], submitted: (resp ?? []) as { packet_id: string, role: string }[] }
   }
-  async function createCycle(c: Pick<ReviewCycle, 'name' | 'period_start' | 'period_end' | 'template_id' | 'self_due' | 'manager_due' | 'hr_due'>, me: string) {
+  async function createCycle(c: Pick<ReviewCycle, 'name' | 'period_start' | 'period_end' | 'template_id' | 'self_due' | 'manager_due' | 'hr_due'> & Partial<Pick<ReviewCycle, 'peers_enabled' | 'peer_due'>>, me: string) {
     const { data, error } = await supabase.from('review_cycles').insert({ ...c, created_by: me }).select('id').single()
     if (error) fail(error)
     return (data as { id: string }).id
@@ -108,10 +112,52 @@ export function useReviews() {
       : await supabase.from('review_responses').insert(row)
     if (error) fail(error)
   }
+  // ── Peers (lot 2) ─────────────────────────────────────────────────────
+  async function listNominations(packetId: string) {
+    const { data, error } = await supabase.rpc('review_nomination_list', { p_packet: packetId })
+    if (error) fail(error)
+    return (data ?? []) as unknown as Nomination[]
+  }
+  /** colleagues one may nominate (all teams, own team first) */
+  async function peerCandidates(packetId: string) {
+    const { data, error } = await supabase.rpc('review_peer_candidates', { p_packet: packetId })
+    if (error) fail(error)
+    return (data ?? []) as unknown as { id: string, name: string, team_name: string | null }[]
+  }
+  async function proposePeers(packetId: string, peers: string[]) {
+    const { error } = await supabase.rpc('propose_peers', { p_packet: packetId, p_peers: peers })
+    if (error) fail(error)
+  }
+  async function approvePeers(packetId: string, peers: string[]) {
+    const { error } = await supabase.rpc('approve_peers', { p_packet: packetId, p_peers: peers })
+    if (error) fail(error)
+  }
+  async function myPeerRequests() {
+    const { data, error } = await supabase.rpc('my_peer_requests')
+    if (error) fail(error)
+    return (data ?? []) as unknown as PeerRequest[]
+  }
+  async function peerStatus(packetId: string) {
+    const { data, error } = await supabase.rpc('peer_status', { p_packet: packetId })
+    if (error) fail(error)
+    return (data ?? []) as unknown as { peer_id: string, peer_name: string, status: string, answered: boolean }[]
+  }
+  async function peerFeedback(packetId: string) {
+    const { data, error } = await supabase.rpc('peer_feedback', { p_packet: packetId })
+    if (error) fail(error)
+    return data as unknown as PeerFeedback | null
+  }
+  /** HR: in-app + e-mail reminder to everyone late in a campaign */
+  async function remind(cycleId: string) {
+    const { data: { session } } = await supabase.auth.getSession()
+    return await $fetch<{ people: number, emailed: number }>(`/api/reviews/cycles/${cycleId}/remind`, { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token ?? ''}` } })
+  }
+
   async function acknowledge(packetId: string, comment: string) {
     const { error } = await supabase.rpc('acknowledge_review', { p_packet: packetId, p_comment: comment })
     if (error) fail(error)
   }
 
-  return { listTemplates, saveTemplate, listCycles, createCycle, updateCycle, deleteCycle, launchCycle, getCycle, getPacket, conclude, share, myPackets, listResponses, saveResponse, acknowledge }
+  return { listTemplates, saveTemplate, listCycles, createCycle, updateCycle, deleteCycle, launchCycle, getCycle, getPacket, conclude, share, myPackets, listResponses, saveResponse, acknowledge,
+    listNominations, peerCandidates, proposePeers, approvePeers, myPeerRequests, peerStatus, peerFeedback, remind }
 }

@@ -2,6 +2,7 @@ export type NotificationKind =
   | 'request_submitted' | 'manager_approved' | 'approved' | 'rejected'
   | 'cancel_requested' | 'cancel_approved' | 'cancel_refused'
   | 'application_received' | 'interview_scheduled' | 'review_requested' | 'review_shared'
+  | 'review_peers_proposed' | 'review_peer_requested' | 'review_reminder'
 
 export interface AppNotification {
   id: string

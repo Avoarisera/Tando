@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { MyPacket } from '~/composables/useReviews'
-import type { ReviewResponse } from '~/utils/reviews'
+import type { PeerFeedback, ReviewResponse } from '~/utils/reviews'
 
 // One review, seen by the employee or their manager (TND-29): the form to fill
 // in, then — once shared — the whole file with the HR conclusion and, for the
@@ -12,10 +12,11 @@ const toast = useToast()
 const route = useRoute()
 const id = String(route.params.id)
 const { profile } = useCurrentUser()
-const { myPackets, listResponses, acknowledge } = useReviews()
+const { myPackets, listResponses, acknowledge, peerFeedback } = useReviews()
 
 const packet = ref<MyPacket | null>(null)
 const responses = ref<ReviewResponse[]>([])
+const peers = ref<PeerFeedback | null>(null)
 const error = ref<string | null>(null)
 const loaded = ref(false)
 async function load() {
@@ -25,6 +26,8 @@ async function load() {
     packet.value = all.find(p => p.id === id) ?? null
     responses.value = r
     if (!packet.value) throw new Error(t('tnd29.cycle.notFound'))
+    // the colleagues' anonymous aggregate, once the file is shared
+    peers.value = packet.value.peers_enabled && packet.value.shared_at ? await peerFeedback(id) : null
   }
   catch (e) { error.value = errorMessage(e) }
   finally { loaded.value = true }
@@ -38,6 +41,7 @@ const self = computed(() => responses.value.find(r => r.role === 'self' && r.sub
 const manager = computed(() => responses.value.find(r => r.role === 'manager' && r.submitted_at) ?? null)
 const canWrite = computed(() => !!packet.value && packet.value.cycle_status === 'active' && !packet.value.shared_at && !mine.value?.submitted_at)
 const subject = computed(() => packet.value?.employee_name ?? '')
+const peersOpen = computed(() => !!packet.value && packet.value.peers_enabled && packet.value.cycle_status === 'active' && !packet.value.shared_at)
 
 // acknowledgement (employee, once shared)
 const comment = ref('')
@@ -62,6 +66,8 @@ const fmtTime = (iso: string) => new Intl.DateTimeFormat(tag.value, { day: 'nume
         <p class="small wb-mut2">{{ packet.cycle_name }} · {{ formatPeriod(packet.period_start, packet.period_end, tag) }}<template v-if="role === 'self' && packet.manager_name"> · {{ t('tnd29.syn.manager') }} : {{ packet.manager_name }}</template></p>
       </header>
 
+      <PeerNomination v-if="peersOpen" :packet-id="packet.id" :mode="role" :peers-min="packet.peers_min" :peers-max="packet.peers_max" :open="peersOpen" :has-manager="!!packet.manager_id" />
+
       <!-- to fill in -->
       <ReviewForm v-if="canWrite" :content="packet.content" :role="role" :packet-id="packet.id" :author-id="profile.id" :initial="mine" :subject="subject" @submitted="load" />
 
@@ -75,7 +81,7 @@ const fmtTime = (iso: string) => new Intl.DateTimeFormat(tag.value, { day: 'nume
 
       <!-- shared: the whole file -->
       <template v-else>
-        <ReviewSynthesis :content="packet.content" :self="self" :manager="manager" :has-manager="!!packet.manager_id" />
+        <ReviewSynthesis :content="packet.content" :self="self" :manager="manager" :has-manager="!!packet.manager_id" :peers="peers" />
         <section class="wb-card wb-my-hr">
           <h2 class="h2">{{ t('tnd29.hr.title') }}</h2>
           <p v-if="packet.hr_rating" class="h3 wb-my-rate">{{ t(`tnd29.overall.${packet.hr_rating}`) }} <span class="small wb-mut2">— {{ t(`tnd29.overallHint.${packet.hr_rating}`) }}</span></p>

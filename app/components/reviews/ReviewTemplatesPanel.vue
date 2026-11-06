@@ -5,7 +5,8 @@ import type { TemplateContent } from '~/utils/reviews'
 /**
  * TND-29 — edit the review templates: competencies with their 4 behaviours,
  * open questions and who answers them. A running campaign keeps the copy taken
- * at launch: edits apply to the next campaigns.
+ * at launch: edits apply to the next campaigns. Lot 2: the short form asked to
+ * colleagues (which competencies, their own questions).
  */
 const props = defineProps<{ templates: ReviewTemplate[] }>()
 const emit = defineEmits<{ close: [], saved: [] }>()
@@ -15,7 +16,15 @@ const { saveTemplate } = useReviews()
 
 const id = ref(props.templates[0]?.id ?? '')
 const drafts = reactive<Record<string, { name: string, content: TemplateContent }>>(Object.fromEntries(props.templates.map(x => [x.id, { name: x.name, content: JSON.parse(JSON.stringify(x.content)) as TemplateContent }])))
+for (const d of Object.values(drafts)) d.content.peer ??= { competencies: [], questions: [] }
 const cur = computed(() => drafts[id.value])
+const peer = computed(() => cur.value!.content.peer!)
+function togglePeer(cid: string, on: boolean) {
+  peer.value.competencies = on ? [...new Set([...peer.value.competencies, cid])] : peer.value.competencies.filter(x => x !== cid)
+}
+function addPeerQuestion() {
+  if (peer.value.questions.length < 4) peer.value.questions.push({ id: `p${Date.now().toString(36)}`, label: '' })
+}
 const tabs = computed(() => props.templates.map(x => ({ id: x.id, label: x.name })))
 const LEVELS = [1, 2, 3, 4] as const
 function addCompetency() {
@@ -40,7 +49,9 @@ async function save() {
   if (comps.some(c => c.levels.some(l => !l.trim()))) { error.value = t('tnd29.tpl.needLevels'); return }
   saving.value = true
   try {
-    await saveTemplate({ id: id.value, name: d.name.trim() || 'Modèle', content: { ...d.content, competencies: comps, questions: d.content.questions.filter(q => q.label.trim() && q.roles.length) } })
+    const p = d.content.peer ?? { competencies: [], questions: [] }
+    const peerPart = { competencies: p.competencies.filter(cid => comps.some(c => c.id === cid)), questions: p.questions.filter(q => q.label.trim()) }
+    await saveTemplate({ id: id.value, name: d.name.trim() || 'Modèle', content: { ...d.content, competencies: comps, questions: d.content.questions.filter(q => q.label.trim() && q.roles.length), peer: peerPart } })
     toast.add(t('tnd29.tpl.saved'))
     emit('saved')
   }
@@ -62,6 +73,7 @@ async function save() {
           <WbInput v-model="c.label" class="wb-grow" :aria-label="t('tnd29.tpl.competency', { n: i + 1 })" :placeholder="t('tnd29.tpl.competencyPh')" maxlength="80" />
           <WbButton variant="ghost" size="sm" icon="x" icon-only @click="cur.content.competencies.splice(i, 1)">{{ t('tnd30.editor.remove') }}</WbButton>
         </div>
+        <WbCheckbox :model-value="peer.competencies.includes(c.id)" :label="t('tnd29.tpl.askPeers')" @update:model-value="(v: boolean) => togglePeer(c.id, v)" />
         <div class="wb-tt-levels">
           <WbInput v-for="(l, j) in LEVELS" :key="l" v-model="c.levels[j]" :label="`${l} · ${t(`tnd29.level.${l}`)}`" maxlength="200" />
         </div>
@@ -76,6 +88,14 @@ async function save() {
         <WbButton variant="ghost" size="sm" icon="x" icon-only @click="cur.content.questions.splice(i, 1)">{{ t('tnd30.editor.remove') }}</WbButton>
       </div>
       <div><WbButton variant="secondary" size="sm" icon="plus" @click="addQuestion">{{ t('tnd29.tpl.addQuestion') }}</WbButton></div>
+
+      <h3 class="h3">{{ t('tnd29.tpl.peerTitle') }}</h3>
+      <p class="caption wb-mut">{{ t('tnd29.tpl.peerHint', { n: peer.competencies.length }) }}</p>
+      <div v-for="(q, i) in peer.questions" :key="q.id" class="wb-tt-q">
+        <WbInput v-model="q.label" class="wb-grow" :aria-label="t('tnd29.tpl.peerQuestion', { n: i + 1 })" maxlength="300" />
+        <WbButton variant="ghost" size="sm" icon="x" icon-only @click="peer.questions.splice(i, 1)">{{ t('tnd30.editor.remove') }}</WbButton>
+      </div>
+      <div v-if="peer.questions.length < 4"><WbButton variant="secondary" size="sm" icon="plus" @click="addPeerQuestion">{{ t('tnd29.tpl.addPeerQuestion') }}</WbButton></div>
       <div class="wb-panel-f"><WbButton block :loading="saving" data-action="save-template" @click="save">{{ t('rules.save') }}</WbButton></div>
     </template>
   </WbSidePanel>

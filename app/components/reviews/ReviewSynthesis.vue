@@ -1,19 +1,28 @@
 <script setup lang="ts">
-import type { ReviewResponse, TemplateContent } from '~/utils/reviews'
+import type { PeerFeedback, ReviewResponse, TemplateContent } from '~/utils/reviews'
 import { averageRating, compareRatings } from '~/utils/reviews'
 
 /**
  * TND-29 — side-by-side reading: per competency the self rating and the
  * manager's, gaps of 2 levels or more highlighted; then comments, answers and
- * the objectives review of each.
+ * the objectives review of each. Lot 2: the colleagues' anonymous average and
+ * their comments (shuffled, no names), only from 3 responses.
  */
-const props = defineProps<{ content: TemplateContent, self: ReviewResponse | null, manager: ReviewResponse | null, hasManager: boolean }>()
+const props = defineProps<{ content: TemplateContent, self: ReviewResponse | null, manager: ReviewResponse | null, hasManager: boolean, peers?: PeerFeedback | null }>()
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const rows = computed(() => compareRatings(props.content, props.self?.ratings, props.manager?.ratings))
 const avgSelf = computed(() => averageRating(props.self?.ratings))
 const avgMgr = computed(() => averageRating(props.manager?.ratings))
 const gaps = computed(() => rows.value.filter(r => r.flag).length)
+const peerOn = computed(() => !!props.peers?.shown)
+const peerAvg = (id: string) => props.peers?.averages?.[id] ?? null
+const avgPeers = computed(() => {
+  const v = Object.values(props.peers?.averages ?? {})
+  return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10 : null
+})
+const peerComments = (id: string) => (peerOn.value ? props.peers?.comments?.[id] ?? [] : [])
+const peerQuestions = computed(() => (peerOn.value ? (props.content.peer?.questions ?? []).filter(q => props.peers?.answers?.[q.id]?.length) : []))
 const fmt = (n: number | null) => (n === null ? '—' : n.toLocaleString(tag.value, { maximumFractionDigits: 1 }))
 const level = (n: number | null) => (n ? t(`tnd29.level.${n}`) : t('tnd29.form.cantSayShort'))
 const objStatus = (s: string) => (s ? t(`tnd29.obj.${s}`) : '—')
@@ -26,6 +35,7 @@ const objStatus = (s: string) => (s ? t(`tnd29.obj.${s}`) : '—')
         <h2 class="h2">{{ t('tnd29.syn.title') }}</h2>
         <div class="wb-row wb-wrap wb-rs2-legend caption">
           <span><i class="wb-rs2-dot is-self" />{{ t('tnd29.syn.self') }} · {{ fmt(avgSelf) }}</span>
+          <span v-if="peerOn"><i class="wb-rs2-dot is-peer" />{{ t('tnd29.syn.peers', { n: peers!.count }) }} · {{ fmt(avgPeers) }}</span>
           <span v-if="hasManager"><i class="wb-rs2-dot is-mgr" />{{ t('tnd29.syn.manager') }} · {{ fmt(avgMgr) }}</span>
           <WbBadge v-if="gaps" tone="warning" size="sm" icon="triangle-alert">{{ t('tnd29.syn.gaps', { n: gaps }, gaps) }}</WbBadge>
         </div>
@@ -36,18 +46,32 @@ const objStatus = (s: string) => (s ? t(`tnd29.obj.${s}`) : '—')
           <span class="wb-rs2-scale" :aria-label="`${t('tnd29.syn.self')} ${r.self ?? '—'}, ${t('tnd29.syn.manager')} ${r.manager ?? '—'}`">
             <i v-for="n in 4" :key="n" class="wb-rs2-tick" :style="{ left: `${((n - 1) / 3) * 100}%` }" />
             <b v-if="r.self" class="wb-rs2-dot is-self" :style="{ left: `${((r.self - 1) / 3) * 100}%` }" :title="`${t('tnd29.syn.self')} : ${level(r.self)}`" />
+            <b v-if="peerAvg(r.id)" class="wb-rs2-dot is-peer" :style="{ left: `${((peerAvg(r.id)! - 1) / 3) * 100}%` }" :title="`${t('tnd29.syn.peersShort')} : ${fmt(peerAvg(r.id))}`" />
             <b v-if="r.manager" class="wb-rs2-dot is-mgr" :style="{ left: `${((r.manager - 1) / 3) * 100}%` }" :title="`${t('tnd29.syn.manager')} : ${level(r.manager)}`" />
           </span>
-          <span class="caption wb-mut2 wb-rs2-v">{{ level(r.self) }}<template v-if="hasManager"> / {{ level(r.manager) }}</template></span>
+          <span class="caption wb-mut2 wb-rs2-v">{{ level(r.self) }}<template v-if="peerOn && peerAvg(r.id)"> / {{ fmt(peerAvg(r.id)) }}</template><template v-if="hasManager"> / {{ level(r.manager) }}</template></span>
         </li>
       </ul>
       <p class="caption wb-mut">{{ t('tnd29.syn.scale') }}</p>
+      <p v-if="peers && !peers.shown" class="wb-why small" data-peers="hidden"><WbIcon name="eye-off" :size="14" /> {{ t('tnd29.syn.peersHidden', { n: peers.count, min: peers.min }) }}</p>
     </section>
 
-    <section v-for="c in content.competencies" v-show="self?.comments[c.id] || manager?.comments[c.id]" :key="c.id" class="wb-rs2-cm">
+    <section v-for="c in content.competencies" v-show="self?.comments[c.id] || manager?.comments[c.id] || peerComments(c.id).length" :key="c.id" class="wb-rs2-cm">
       <h3 class="h3">{{ c.label }}</h3>
       <p v-if="self?.comments[c.id]" class="small"><b>{{ t('tnd29.syn.self') }} :</b> {{ self.comments[c.id] }}</p>
       <p v-if="manager?.comments[c.id]" class="small"><b>{{ t('tnd29.syn.manager') }} :</b> {{ manager.comments[c.id] }}</p>
+      <div v-if="peerComments(c.id).length" class="small"><b>{{ t('tnd29.syn.peersShort') }} :</b>
+        <ul class="wb-rs2-peer"><li v-for="(txt, i) in peerComments(c.id)" :key="i">« {{ txt }} »</li></ul>
+      </div>
+    </section>
+
+    <section v-if="peerQuestions.length" class="wb-card wb-rs2-card wb-stack-s" data-section="peer-answers">
+      <h2 class="h2">{{ t('tnd29.syn.peerAnswers') }}</h2>
+      <p class="caption wb-mut">{{ t('tnd29.syn.peerAnon') }}</p>
+      <div v-for="q in peerQuestions" :key="q.id" class="wb-rs2-q">
+        <p class="small wb-mut2">{{ q.label }}</p>
+        <ul class="wb-rs2-peer small"><li v-for="(txt, i) in peers!.answers![q.id]" :key="i">« {{ txt }} »</li></ul>
+      </div>
     </section>
 
     <section v-if="content.questions.length" class="wb-card wb-rs2-card wb-stack-s">
@@ -87,6 +111,9 @@ const objStatus = (s: string) => (s ? t(`tnd29.obj.${s}`) : '—')
 .wb-rs2-dot.is-self { background: var(--chart-1); }
 .wb-rs2-dot.is-mgr { background: var(--chart-3); }
 .wb-rs2-scale .wb-rs2-dot.is-mgr { bottom: 4px; }
+.wb-rs2-dot.is-peer { background: var(--chart-2); border-radius: 3px; transform: rotate(45deg); }
+.wb-rs2-scale .wb-rs2-dot.is-peer { bottom: -2px; }
+.wb-rs2-peer { margin: 4px 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; white-space: pre-wrap; }
 .wb-rs2-v { text-align: right; }
 .wb-rs2-cm { padding: 0 var(--space-2); }
 .wb-rs2-cm h3, .wb-rs2-cm p, .wb-rs2-q p { margin: 0 0 4px; }

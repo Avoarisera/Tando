@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ObjectiveReview, ReviewResponse, TemplateContent } from '~/utils/reviews'
-import { missingInResponse } from '~/utils/reviews'
+import { missingInResponse, type ReviewRole } from '~/utils/reviews'
 
 /**
  * TND-29 — the review form (self or manager): each competency on 4 levels
@@ -8,7 +8,7 @@ import { missingInResponse } from '~/utils/reviews'
  * comment asking for examples, the open questions of this role, the review of
  * the period's objectives. Autosaves as a draft; once submitted it is locked.
  */
-const props = defineProps<{ content: TemplateContent, role: 'self' | 'manager', packetId: string, authorId: string, initial: ReviewResponse | null, subject: string }>()
+const props = defineProps<{ content: TemplateContent, role: ReviewRole, packetId: string, authorId: string, initial: ReviewResponse | null, subject: string }>()
 const emit = defineEmits<{ submitted: [] }>()
 const { t } = useI18n()
 const toast = useToast()
@@ -77,6 +77,7 @@ const isMissing = (kind: 'c' | 'q', id: string) => !!error.value && (kind === 'c
 <template>
   <div class="wb-stack wb-rf">
     <p v-if="locked" class="wb-why small"><WbIcon name="circle-check" :size="14" /> {{ t('tnd29.form.locked') }}</p>
+    <p v-else-if="role === 'peer'" class="wb-why small"><WbIcon name="eye" :size="14" /> {{ t('tnd29.peer.intro', { who: subject }) }}</p>
     <p v-else class="small wb-mut2">{{ role === 'self' ? t('tnd29.form.introSelf') : t('tnd29.form.introManager', { who: subject }) }}</p>
 
     <section class="wb-stack">
@@ -124,7 +125,7 @@ const isMissing = (kind: 'c' | 'q', id: string) => !!error.value && (kind === 'c
       <WbButton icon="send" data-action="submit-review" @click="askSubmit">{{ t('tnd29.form.submit') }}</WbButton>
     </div>
 
-    <WbModal v-if="confirm" :title="t('tnd29.form.confirmTitle')" :description="role === 'self' ? t('tnd29.form.confirmSelf') : t('tnd29.form.confirmManager')" @close="confirm = false">
+    <WbModal v-if="confirm" :title="t('tnd29.form.confirmTitle')" :description="role === 'self' ? t('tnd29.form.confirmSelf') : role === 'peer' ? t('tnd29.peer.confirm') : t('tnd29.form.confirmManager')" @close="confirm = false">
       <template #footer>
         <WbButton variant="secondary" @click="confirm = false">{{ t('approvals.cancel') }}</WbButton>
         <WbButton icon="send" :loading="saving" data-action="confirm-submit" @click="submit">{{ t('tnd29.form.submit') }}</WbButton>

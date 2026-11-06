@@ -10,7 +10,7 @@ const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const toast = useToast()
 const route = useRoute()
 const id = String(route.params.id)
-const { getCycle, launchCycle, updateCycle, deleteCycle } = useReviews()
+const { getCycle, launchCycle, updateCycle, deleteCycle, remind } = useReviews()
 const { members, fetchMembers } = useTeamMembers()
 const { teams, fetchTeams } = useTeams()
 
@@ -66,6 +66,18 @@ async function close() {
   catch (e) { toast.add(errorMessage(e), 'error') }
 }
 
+// reminder to everyone late (in-app + e-mail when the SMTP is set)
+const reminding = ref(false)
+async function doRemind() {
+  reminding.value = true
+  try {
+    const r = await remind(id)
+    toast.add(r.people ? t('tnd29.cycle.reminded', { n: r.people, mails: r.emailed }, r.people) : t('tnd29.cycle.nobodyLate'))
+  }
+  catch (e) { toast.add(errorMessage(e), 'error') }
+  finally { reminding.value = false }
+}
+
 // ── Active: follow-up ──────────────────────────────────────────────────────
 const submitted = (pid: string, role: string) => responses.value.some(r => r.packet_id === pid && r.role === role && r.submitted_at)
 const rows = computed(() => packets.value.map((p) => {
@@ -89,6 +101,7 @@ const late = (due: string | null) => !!due && due < todayIso()
           <p class="small wb-mut2">{{ formatPeriod(cycle.period_start, cycle.period_end, tag) }} · {{ t(`tnd29.status.${cycle.status}`) }}</p>
           <p class="caption wb-mut">
             <template v-if="cycle.self_due">{{ t('tnd29.cycle.selfDue') }} : <b :class="{ 'wb-c-danger': cycle.status === 'active' && late(cycle.self_due) }">{{ fmtShort(cycle.self_due, tag) }}</b></template>
+            <template v-if="cycle.peers_enabled && cycle.peer_due"> · {{ t('tnd29.cycle.peerDue') }} : <b>{{ fmtShort(cycle.peer_due, tag) }}</b></template>
             <template v-if="cycle.manager_due"> · {{ t('tnd29.cycle.managerDue') }} : <b>{{ fmtShort(cycle.manager_due, tag) }}</b></template>
             <template v-if="cycle.hr_due"> · {{ t('tnd29.cycle.hrDue') }} : <b>{{ fmtShort(cycle.hr_due, tag) }}</b></template>
           </p>
@@ -98,7 +111,8 @@ const late = (due: string | null) => !!due && due < todayIso()
             <WbButton variant="ghost" size="sm" icon="circle-x" @click="remove">{{ t('tnd29.cycle.delete') }}</WbButton>
             <WbButton size="sm" icon="send" :disabled="!picked.length" data-action="launch" @click="confirmLaunch = true">{{ t('tnd29.cycle.launch', { n: picked.length }, picked.length) }}</WbButton>
           </template>
-          <WbButton v-else-if="cycle.status === 'active'" variant="secondary" size="sm" @click="close">{{ t('tnd29.cycle.close') }}</WbButton>
+          <WbButton v-if="cycle.status === 'active'" variant="secondary" size="sm" icon="bell" :loading="reminding" data-action="remind" @click="doRemind">{{ t('tnd29.cycle.remind') }}</WbButton>
+          <WbButton v-if="cycle.status === 'active'" variant="secondary" size="sm" @click="close">{{ t('tnd29.cycle.close') }}</WbButton>
         </div>
       </div>
 

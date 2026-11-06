@@ -1,15 +1,18 @@
 /** TND-29 — performance reviews: shapes and pure helpers (unit-tested) */
 
 export interface Competency { id: string, label: string, levels: string[] }
-export interface ReviewQuestion { id: string, label: string, roles: ('self' | 'manager')[] }
-export interface TemplateContent { objectives: boolean, competencies: Competency[], questions: ReviewQuestion[] }
+export type ReviewRole = 'self' | 'manager' | 'peer'
+export interface ReviewQuestion { id: string, label: string, roles: ReviewRole[] }
+/** short form asked to colleagues (TND-29 lot 2) */
+export interface PeerPart { competencies: string[], questions: { id: string, label: string }[] }
+export interface TemplateContent { objectives: boolean, competencies: Competency[], questions: ReviewQuestion[], peer?: PeerPart }
 export interface ObjectiveReview { text: string, status: 'met' | 'partial' | 'missed' | '', comment: string }
 
 export interface ReviewResponse {
   id?: string
   packet_id: string
   author_id: string
-  role: 'self' | 'manager'
+  role: ReviewRole
   ratings: Record<string, number>
   comments: Record<string, string>
   answers: Record<string, string>
@@ -20,7 +23,7 @@ export interface ReviewResponse {
 export const LEVEL_KEYS = [1, 2, 3, 4] as const
 
 /** What is still missing before a response can be submitted */
-export function missingInResponse(content: TemplateContent, role: 'self' | 'manager', r: Pick<ReviewResponse, 'ratings' | 'answers'>): { competencies: string[], questions: string[] } {
+export function missingInResponse(content: TemplateContent, role: ReviewRole, r: Pick<ReviewResponse, 'ratings' | 'answers'>): { competencies: string[], questions: string[] } {
   return {
     competencies: content.competencies.filter(c => r.ratings[c.id] === undefined).map(c => c.id),
     questions: content.questions.filter(q => q.roles.includes(role) && !(r.answers[q.id] ?? '').trim()).map(q => q.id),
@@ -53,3 +56,16 @@ export function packetStep(p: { self_submitted: boolean, manager_submitted: bool
   if (p.has_manager && !p.manager_submitted) return 'manager'
   return 'hr'
 }
+
+/** The colleagues' form as a template of its own: the chosen competencies, the peer questions, no objectives */
+export function peerContent(content: TemplateContent): TemplateContent {
+  const ids = content.peer?.competencies ?? []
+  return {
+    objectives: false,
+    competencies: content.competencies.filter(c => ids.includes(c.id)),
+    questions: (content.peer?.questions ?? []).map(q => ({ ...q, roles: ['peer'] as ReviewRole[] })),
+  }
+}
+
+/** Anonymous aggregate returned by peer_feedback() */
+export interface PeerFeedback { count: number, min: number, shown: boolean, averages?: Record<string, number>, comments?: Record<string, string[]>, answers?: Record<string, string[]> }

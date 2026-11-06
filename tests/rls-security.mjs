@@ -553,6 +553,80 @@ async function main() {
       await service.from('notifications').delete().in('kind', ['review_requested', 'review_shared'])
     }
   }
+
+  console.log('\nTND-29 lot 2 — retours des collègues (anonymat)')
+  {
+    const eddy = await signIn('employee2@waka.com')
+    // two temporary colleagues: 3 peers are needed for anonymity
+    const temp = []
+    for (const n of [1, 2]) {
+      const email = `sec-peer${n}-${Date.now()}@waka.com`
+      const { data: u } = await service.auth.admin.createUser({ email, password: PASSWORD, email_confirm: true })
+      await service.from('profiles').insert({ id: u.user.id, first_name: `Pair${n}`, last_name: 'Test', role: 'employee', joined_at: '2024-01-01' })
+      temp.push({ id: u.user.id, client: await signIn(email) })
+    }
+    const [p1, p2] = temp
+    const { data: tpl } = await service.from('review_templates').select('id').eq('kind', 'annual').limit(1).single()
+    const { data: cy } = await admin.from('review_cycles').insert({ name: `Sec 360 ${Date.now()}`, period_start: '2026-01-01', period_end: '2026-12-31', template_id: tpl.id, peers_enabled: true }).select('id').single()
+    await admin.rpc('launch_review_cycle', { p_cycle: cy.id, p_people: [IDS.emma] })
+    const { data: pk } = await service.from('review_packets').select('id').eq('cycle_id', cy.id).single()
+    const peerRow = (who, rating, txt) => ({ packet_id: pk.id, author_id: who, role: 'peer', ratings: { collaboration: rating }, comments: { collaboration: txt }, answers: { keep: txt }, submitted_at: new Date().toISOString() })
+    try {
+      const { error: mPropose } = await manager.rpc('propose_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id, p2.id] })
+      check('TND-29t', 'seule la personne évaluée propose ses collègues', !!mPropose)
+      const { error: tooFew } = await emma.rpc('propose_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id] })
+      check('TND-29u', 'moins de 3 collègues est refusé', !!tooFew)
+      const { error: selfPick } = await emma.rpc('propose_peers', { p_packet: pk.id, p_peers: [IDS.emma, IDS.eddy, p1.id] })
+      const { error: mgrPick } = await emma.rpc('propose_peers', { p_packet: pk.id, p_peers: [IDS.manager, IDS.eddy, p1.id] })
+      check('TND-29v', 'ni soi-même ni son manager comme collègue', !!selfPick && !!mgrPick)
+      const { error: okPropose } = await emma.rpc('propose_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id, p2.id] })
+      check('TND-29w', 'l\'employée propose 3 collègues', !okPropose, okPropose?.message)
+      const { error: early } = await eddy.from('review_responses').insert(peerRow(IDS.eddy, 3, 'trop tôt'))
+      check('TND-29x', 'un collègue proposé mais pas validé ne répond pas', !!early)
+      const { error: selfApprove } = await emma.rpc('approve_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id, p2.id] })
+      const { error: peerApprove } = await eddy.rpc('approve_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id, p2.id] })
+      check('TND-29y', 'ni l\'employée ni un collègue ne valident la liste', !!selfApprove && !!peerApprove)
+      const { error: okApprove } = await manager.rpc('approve_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id, p2.id] })
+      check('TND-29z', 'le manager valide la liste', !okApprove, okApprove?.message)
+      const { error: rePropose } = await emma.rpc('propose_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id, p2.id] })
+      check('TND-29aa', 'la liste validée n\'est plus modifiable par l\'employée', !!rePropose)
+      const { data: reqs } = await eddy.rpc('my_peer_requests')
+      check('TND-29ab', 'le collègue voit la demande, sans les réponses des autres', (reqs ?? []).some(r => r.packet_id === pk.id))
+      const { error: eddyWrite } = await eddy.from('review_responses').insert(peerRow(IDS.eddy, 4, 'Très fiable en revue de code'))
+      check('TND-29ac', 'le collègue validé envoie son retour', !eddyWrite, eddyWrite?.message)
+      const { error: mgrAsPeer } = await manager.from('review_responses').insert(peerRow(IDS.manager, 1, 'usurpation'))
+      const { error: asOther } = await p1.client.from('review_responses').insert(peerRow(IDS.eddy, 1, 'au nom d\'un autre'))
+      check('TND-29ad', 'personne d\'autre n\'écrit un retour collègue (ni au nom d\'un autre)', !!mgrAsPeer && !!asOther)
+      const reads = await Promise.all([emma, manager, admin, p1.client].map(c => c.from('review_responses').select('id').eq('packet_id', pk.id).eq('role', 'peer')))
+      const { data: own } = await eddy.from('review_responses').select('id').eq('packet_id', pk.id).eq('role', 'peer')
+      check('TND-29ae', 'un retour collègue n\'est lisible que par son auteur (pas l\'employée, le manager, le RH ni un autre collègue)', reads.every(r => (r.data ?? []).length === 0) && (own ?? []).length === 1)
+      const { data: fb1 } = await admin.rpc('peer_feedback', { p_packet: pk.id })
+      check('TND-29af', 'sous 3 réponses, rien n\'est montré au RH', fb1?.shown === false && fb1.count === 1 && !fb1.comments && !fb1.averages)
+      const { error: empEarly } = await emma.rpc('peer_feedback', { p_packet: pk.id })
+      const { error: mgrEarly } = await manager.rpc('peer_feedback', { p_packet: pk.id })
+      check('TND-29ag', 'avant le partage, ni l\'employée ni le manager ne lisent la synthèse', !!empEarly && !!mgrEarly)
+      const { data: stE } = await emma.rpc('peer_status', { p_packet: pk.id })
+      const { data: stH } = await admin.rpc('peer_status', { p_packet: pk.id })
+      check('TND-29ah', 'qui a répondu : visible du RH seulement', (stE ?? []).length === 0 && (stH ?? []).filter(x => x.answered).length === 1)
+      await p1.client.from('review_responses').insert(peerRow(p1.id, 2, 'Communique peu sur ses blocages'))
+      await p2.client.from('review_responses').insert(peerRow(p2.id, 3, 'Toujours disponible'))
+      const { data: fb3 } = await admin.rpc('peer_feedback', { p_packet: pk.id })
+      const flat = JSON.stringify(fb3)
+      check('TND-29ai', 'à 3 réponses : moyenne et commentaires, sans aucun identifiant d\'auteur', fb3?.shown === true && Number(fb3.averages?.collaboration) === 3 && fb3.comments?.collaboration?.length === 3 && ![IDS.eddy, p1.id, p2.id].some(id => flat.includes(id)))
+      await admin.rpc('hr_conclude_review', { p_packet: pk.id, p_rating: 3, p_strengths: 'x', p_improvements: 'y', p_objectives: [] })
+      await admin.rpc('share_review', { p_packet: pk.id })
+      const { data: fbE } = await emma.rpc('peer_feedback', { p_packet: pk.id })
+      const { data: fbD } = await eddy.rpc('peer_feedback', { p_packet: pk.id }).then(r => r, () => ({ data: null }))
+      check('TND-29aj', 'après partage, l\'employée voit la synthèse anonyme ; un collègue jamais', fbE?.shown === true && !fbD?.shown)
+      const { error: lateEdit } = await eddy.from('review_responses').update({ comments: { collaboration: 'changé' } }).eq('packet_id', pk.id).eq('author_id', IDS.eddy).select('id').then(r => ({ error: (r.data ?? []).length ? null : 'blocked' }))
+      check('TND-29ak', 'un retour envoyé n\'est plus modifiable', !!lateEdit)
+    }
+    finally {
+      await service.from('review_cycles').delete().eq('id', cy.id)
+      await service.from('notifications').delete().in('kind', ['review_requested', 'review_shared', 'review_peers_proposed', 'review_peer_requested'])
+      for (const u of temp) { await service.from('profiles').delete().eq('id', u.id); await service.auth.admin.deleteUser(u.id) }
+    }
+  }
 }
 
 try {

@@ -757,7 +757,10 @@
       "review_self": "Votre auto-évaluation est ouverte : {cycle}",
       "review_manager": "Évaluation de {who} à rédiger : {cycle}",
       "review_shared": "Votre dossier d’évaluation est partagé : {cycle}",
-      "review_requested": "Votre auto-évaluation est ouverte : {cycle}"
+      "review_requested": "Votre auto-évaluation est ouverte : {cycle}",
+      "review_peers_proposed": "{who} propose ses collègues pour son évaluation : {cycle}",
+      "review_peer_requested": "Retour demandé sur {who} : {cycle}",
+      "review_reminder": "Rappel : une évaluation vous attend ({cycle})"
     },
     "invite": {
       "title": "Rejoindre WakaBods",
@@ -1614,7 +1617,13 @@
       "allSteps": "Toutes les étapes",
       "step": "Étape",
       "open": "Ouvrir",
-      "noManager": "Sans manager"
+      "noManager": "Sans manager",
+      "peers": "Inclure des retours de collègues (360°)",
+      "peersHint": "Chaque personne propose de 3 à 6 collègues, son manager valide la liste. Les retours restent anonymes et ne sont montrés qu’à partir de 3 réponses.",
+      "peerDue": "Retours collègues",
+      "remind": "Relancer les retardataires",
+      "reminded": "{n} personne relancée ({mails} e-mail) | {n} personnes relancées ({mails} e-mails)",
+      "nobodyLate": "Personne n’est en retard"
     },
     "form": {
       "introSelf": "Prenez le temps : appuyez chaque appréciation sur des faits et des exemples de la période. Votre brouillon s’enregistre tout seul.",
@@ -1648,7 +1657,12 @@
       "self": "Auto-évaluation",
       "manager": "Manager",
       "gaps": "{n} écart marqué | {n} écarts marqués",
-      "scale": "De gauche à droite : Insuffisant, À développer, Maîtrisé, Remarquable. Un écart de 2 niveaux ou plus est surligné."
+      "scale": "De gauche à droite : Insuffisant, À développer, Maîtrisé, Remarquable. Un écart de 2 niveaux ou plus est surligné.",
+      "peers": "Collègues ({n})",
+      "peersShort": "Collègues",
+      "peersHidden": "{n} retour(s) de collègues sur {min} minimum : ils restent masqués pour préserver l’anonymat.",
+      "peerAnswers": "Ce que disent les collègues",
+      "peerAnon": "Réponses anonymes, présentées dans un ordre aléatoire."
     },
     "hr": {
       "title": "Conclusion RH",
@@ -1672,7 +1686,11 @@
       "managerDone": "Évaluation du manager envoyée",
       "managerTodo": "Évaluation du manager à faire",
       "sharedOn": "Partagée le {date}",
-      "acknowledged": "Signée le {date}"
+      "acknowledged": "Signée le {date}",
+      "peersAnswered": "Collègues : {n}/{total}",
+      "peersNone": "Collègues : liste non validée",
+      "peersTitle": "Collègues sollicités",
+      "peersAnon": "Vous voyez qui a répondu, pour relancer, mais jamais qui a écrit quoi."
     },
     "ack": {
       "title": "Prise de connaissance",
@@ -1714,7 +1732,39 @@
       "addQuestion": "Ajouter une question",
       "needCompetency": "Gardez au moins une compétence.",
       "needLevels": "Décrivez les 4 niveaux de chaque compétence.",
-      "saved": "Modèle enregistré"
+      "saved": "Modèle enregistré",
+      "askPeers": "Demander aussi aux collègues",
+      "peerTitle": "Formulaire des collègues",
+      "peerHint": "{n} compétence(s) demandée(s) aux collègues, plus les questions ci-dessous (2 conseillées).",
+      "peerQuestion": "Question aux collègues {n}",
+      "addPeerQuestion": "Ajouter une question aux collègues"
+    },
+    "peer": {
+      "title": "Collègues qui donnent un retour",
+      "statusApproved": "Liste validée",
+      "statusProposed": "En attente de validation",
+      "edit": "Modifier",
+      "selfHint": "Proposez de {min} à {max} collègues qui travaillent avec vous au quotidien, de votre équipe ou d’ailleurs. Votre manager validera la liste.",
+      "selfWaiting": "Votre proposition est envoyée à votre manager, qui peut l’ajuster avant de la valider.",
+      "selfWaitingHr": "Votre proposition est envoyée aux RH, qui la valideront.",
+      "selfApproved": "La liste est validée : ces collègues ont reçu la demande. Vous ne verrez que la synthèse anonyme, à partir de 3 réponses.",
+      "mgrHint": "Vérifiez la proposition, ajoutez ou retirez des collègues, puis validez : ils recevront la demande. Au moins 3, pour préserver l’anonymat.",
+      "mgrEmpty": "Aucune proposition pour l’instant. Vous pouvez choisir les collègues vous-même.",
+      "mgrApproved": "Liste validée. Vous pouvez encore la modifier tant que le dossier n’est pas partagé.",
+      "picked": "Collègues choisis",
+      "remove": "Retirer {who}",
+      "search": "Rechercher un collègue ou une équipe",
+      "none": "Aucun résultat",
+      "count": "{n} choisi(s) — de {min} à {max}",
+      "propose": "Envoyer à mon manager",
+      "approve": "Valider la liste",
+      "proposedToast": "Proposition envoyée",
+      "approvedToast": "Liste validée : les collègues sont prévenus",
+      "requests": "Retour demandé par un collègue ({n}) | Retours demandés par vos collègues ({n})",
+      "pageTitle": "Retour sur {who}",
+      "intro": "Votre retour sur {who} est anonyme : il n’est montré, sans votre nom et mélangé aux autres, qu’à partir de 3 réponses. Appuyez-vous sur des exemples concrets.",
+      "confirm": "Votre retour sera envoyé et ne pourra plus être modifié. Il restera anonyme.",
+      "closed": "Cette demande est close."
     }
   }
 }

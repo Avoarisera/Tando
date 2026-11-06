@@ -757,7 +757,10 @@
       "review_self": "Your self review is open: {cycle}",
       "review_manager": "Review of {who} to write: {cycle}",
       "review_shared": "Your review file is shared: {cycle}",
-      "review_requested": "Your self review is open: {cycle}"
+      "review_requested": "Your self review is open: {cycle}",
+      "review_peers_proposed": "{who} proposed colleagues for their review: {cycle}",
+      "review_peer_requested": "Feedback requested on {who}: {cycle}",
+      "review_reminder": "Reminder: a review is waiting for you ({cycle})"
     },
     "invite": {
       "title": "Join WakaBods",
@@ -1614,7 +1617,13 @@
       "allSteps": "All steps",
       "step": "Step",
       "open": "Open",
-      "noManager": "No manager"
+      "noManager": "No manager",
+      "peers": "Include colleague feedback (360°)",
+      "peersHint": "Each person proposes 3 to 6 colleagues, their manager approves the list. Feedback stays anonymous and is shown only from 3 responses.",
+      "peerDue": "Colleague feedback",
+      "remind": "Remind late people",
+      "reminded": "{n} person reminded ({mails} e-mail) | {n} people reminded ({mails} e-mails)",
+      "nobodyLate": "Nobody is late"
     },
     "form": {
       "introSelf": "Take your time: base each rating on facts and examples from the period. Your draft saves itself.",
@@ -1648,7 +1657,12 @@
       "self": "Self review",
       "manager": "Manager",
       "gaps": "{n} marked gap | {n} marked gaps",
-      "scale": "Left to right: Weak, Developing, Proficient, Outstanding. A gap of 2 levels or more is highlighted."
+      "scale": "Left to right: Weak, Developing, Proficient, Outstanding. A gap of 2 levels or more is highlighted.",
+      "peers": "Colleagues ({n})",
+      "peersShort": "Colleagues",
+      "peersHidden": "{n} colleague response(s) out of {min} minimum: hidden to keep anonymity.",
+      "peerAnswers": "What colleagues say",
+      "peerAnon": "Anonymous answers, in random order."
     },
     "hr": {
       "title": "HR conclusion",
@@ -1672,7 +1686,11 @@
       "managerDone": "Manager review sent",
       "managerTodo": "Manager review to do",
       "sharedOn": "Shared on {date}",
-      "acknowledged": "Signed on {date}"
+      "acknowledged": "Signed on {date}",
+      "peersAnswered": "Colleagues: {n}/{total}",
+      "peersNone": "Colleagues: list not approved",
+      "peersTitle": "Colleagues asked",
+      "peersAnon": "You see who answered, to remind them, but never who wrote what."
     },
     "ack": {
       "title": "Acknowledgement",
@@ -1714,7 +1732,39 @@
       "addQuestion": "Add a question",
       "needCompetency": "Keep at least one competency.",
       "needLevels": "Describe the 4 levels of each competency.",
-      "saved": "Template saved"
+      "saved": "Template saved",
+      "askPeers": "Also ask colleagues",
+      "peerTitle": "Colleague form",
+      "peerHint": "{n} competency(ies) asked to colleagues, plus the questions below (2 recommended).",
+      "peerQuestion": "Colleague question {n}",
+      "addPeerQuestion": "Add a colleague question"
+    },
+    "peer": {
+      "title": "Colleagues giving feedback",
+      "statusApproved": "List approved",
+      "statusProposed": "Awaiting approval",
+      "edit": "Edit",
+      "selfHint": "Propose {min} to {max} colleagues you work with every day, from your team or elsewhere. Your manager will approve the list.",
+      "selfWaiting": "Your proposal was sent to your manager, who can adjust it before approving.",
+      "selfWaitingHr": "Your proposal was sent to HR for approval.",
+      "selfApproved": "The list is approved: these colleagues got the request. You will only see the anonymous summary, from 3 responses.",
+      "mgrHint": "Check the proposal, add or remove colleagues, then approve: they will get the request. At least 3, to keep anonymity.",
+      "mgrEmpty": "No proposal yet. You can choose the colleagues yourself.",
+      "mgrApproved": "List approved. You can still change it until the file is shared.",
+      "picked": "Chosen colleagues",
+      "remove": "Remove {who}",
+      "search": "Search a colleague or team",
+      "none": "No result",
+      "count": "{n} chosen — {min} to {max}",
+      "propose": "Send to my manager",
+      "approve": "Approve the list",
+      "proposedToast": "Proposal sent",
+      "approvedToast": "List approved: colleagues are notified",
+      "requests": "Feedback requested by a colleague ({n}) | Feedback requested by colleagues ({n})",
+      "pageTitle": "Feedback on {who}",
+      "intro": "Your feedback on {who} is anonymous: it is shown without your name, mixed with others, only from 3 responses. Use concrete examples.",
+      "confirm": "Your feedback will be sent and can no longer be changed. It stays anonymous.",
+      "closed": "This request is closed."
     }
   }
 }
