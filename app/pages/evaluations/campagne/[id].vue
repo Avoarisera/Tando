@@ -10,7 +10,7 @@ const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const toast = useToast()
 const route = useRoute()
 const id = String(route.params.id)
-const { getCycle, launchCycle, updateCycle, deleteCycle, remind, notify } = useReviews()
+const { getCycle, launchCycle, updateCycle, deleteCycle, remind, notify, cyclePeerSummary } = useReviews()
 const { members, fetchMembers } = useTeamMembers()
 const { teams, fetchTeams } = useTeams()
 
@@ -18,6 +18,12 @@ const cycle = ref<ReviewCycle | null>(null)
 const packets = ref<HrPacket[]>([])
 const responses = ref<{ packet_id: string, role: string, submitted_at: string | null }[]>([])
 const error = ref<string | null>(null)
+// TND-33: HR chooses the colleagues of each person
+const peerSum = ref<{ packet_id: string, chosen: number, answered: number }[]>([])
+const peersOf = (pid: string) => peerSum.value.find(x => x.packet_id === pid) ?? { chosen: 0, answered: 0 }
+const choosingFor = ref<HrPacket | null>(null)
+const missingPeers = computed(() => (cycle.value?.peers_enabled && cycle.value.status === 'active') ? packets.value.filter(p => !p.shared_at && peersOf(p.id).chosen === 0).length : 0)
+async function peersChanged() { peerSum.value = await cyclePeerSummary(id) }
 async function load() {
   error.value = null
   try {
@@ -26,6 +32,7 @@ async function load() {
     cycle.value = r.cycle
     packets.value = r.packets
     responses.value = r.responses
+    peerSum.value = r.cycle.peers_enabled && r.cycle.status !== 'draft' ? await cyclePeerSummary(id) : []
   }
   catch (e) { error.value = errorMessage(e) }
 }
@@ -122,6 +129,7 @@ const late = (due: string | null) => !!due && due < todayIso()
         <li class="is-done"><WbIcon name="check" :size="14" /> {{ t('tnd32.steps.create') }}</li>
         <li class="is-cur"><b>2</b> {{ t('tnd32.steps.people') }}</li>
         <li><b>3</b> {{ t('tnd32.steps.launch') }}</li>
+        <li v-if="cycle.peers_enabled"><b>4</b> {{ t('tnd33.step') }}</li>
       </ol>
       <!-- draft: choose the people -->
       <section v-if="cycle.status === 'draft'" class="wb-card wb-cy-pick">
@@ -140,6 +148,7 @@ const late = (due: string | null) => !!due && due < todayIso()
 
       <!-- active / closed: follow-up -->
       <section v-else class="wb-card">
+        <WbBanner v-if="missingPeers" tone="warning" class="wb-cy-ban" data-banner="peers">{{ t('tnd33.missing', { n: missingPeers }, missingPeers) }}</WbBanner>
         <header class="wb-card-h wb-row-b wb-wrap">
           <h2 class="h3">{{ t('tnd29.cycle.packets', { n: packets.length }, packets.length) }}</h2>
           <WbSelect v-model="stepFilter" :options="stepOptions" :aria-label="t('tnd29.cycle.step')" />
@@ -147,13 +156,17 @@ const late = (due: string | null) => !!due && due < todayIso()
         <div class="wb-scroll wb-dt">
           <table>
             <caption class="wb-sr">{{ cycle.name }}</caption>
-            <thead><tr><th>{{ t('tnd26.person') }}</th><th>{{ t('tnd29.syn.manager') }}</th><th>{{ t('tnd29.step.self') }}</th><th>{{ t('tnd29.step.manager') }}</th><th>{{ t('tnd29.cycle.step') }}</th><th class="is-r" /></tr></thead>
+            <thead><tr><th>{{ t('tnd26.person') }}</th><th>{{ t('tnd29.syn.manager') }}</th><th>{{ t('tnd29.step.self') }}</th><th>{{ t('tnd29.step.manager') }}</th><th v-if="cycle.peers_enabled">{{ t('tnd29.syn.peersShort') }}</th><th>{{ t('tnd29.cycle.step') }}</th><th class="is-r" /></tr></thead>
             <tbody>
               <tr v-for="r in shown" :key="r.p.id" :data-packet="r.name">
                 <td><span class="wb-cp"><WbAvatar :name="r.name" :size="26" /><b class="small">{{ r.name }}</b></span></td>
                 <td class="small">{{ r.manager }}</td>
                 <td><WbIcon :name="submitted(r.p.id, 'self') ? 'circle-check' : 'clock'" :size="16" :class="submitted(r.p.id, 'self') ? 'wb-c-success' : 'wb-mut2'" /></td>
                 <td><WbIcon v-if="r.p.manager_id" :name="submitted(r.p.id, 'manager') ? 'circle-check' : 'clock'" :size="16" :class="submitted(r.p.id, 'manager') ? 'wb-c-success' : 'wb-mut2'" /><span v-else class="caption wb-mut">—</span></td>
+                <td v-if="cycle.peers_enabled" data-col="peers">
+                  <WbButton v-if="cycle.status === 'active' && !r.p.shared_at" :variant="peersOf(r.p.id).chosen ? 'ghost' : 'secondary'" size="sm" :icon="peersOf(r.p.id).chosen ? 'users' : 'plus'" data-action="choose-peers" @click="choosingFor = r.p">{{ peersOf(r.p.id).chosen ? t('tnd33.answered', { n: peersOf(r.p.id).answered, total: peersOf(r.p.id).chosen }) : t('tnd33.choose') }}</WbButton>
+                  <span v-else class="caption wb-mut2">{{ peersOf(r.p.id).chosen ? t('tnd33.answered', { n: peersOf(r.p.id).answered, total: peersOf(r.p.id).chosen }) : '—' }}</span>
+                </td>
                 <td><WbBadge :tone="stepTone(r.step)" size="sm">{{ t(`tnd29.pstep.${r.step}`) }}</WbBadge></td>
                 <td class="is-r"><WbButton variant="ghost" size="sm" :to="`/evaluations/dossier/${r.p.id}`">{{ t('tnd29.cycle.open') }}</WbButton></td>
               </tr>
@@ -162,6 +175,10 @@ const late = (due: string | null) => !!due && due < todayIso()
         </div>
       </section>
     </template>
+
+    <WbSidePanel v-if="choosingFor && cycle" :title="t('tnd33.panelTitle', { who: choosingFor.employee ? `${choosingFor.employee.first_name} ${choosingFor.employee.last_name}` : '' })" :subtitle="t('tnd33.panelHint')" @close="choosingFor = null">
+      <PeerNomination :key="choosingFor.id" :packet-id="choosingFor.id" mode="hr" :peers-min="cycle.peers_min" :peers-max="cycle.peers_max" open :has-manager="!!choosingFor.manager_id" @changed="peersChanged" />
+    </WbSidePanel>
 
     <WbModal v-if="confirmLaunch" :title="t('tnd29.cycle.launchTitle')" :description="t('tnd29.cycle.launchText', { n: picked.length }, picked.length)" @close="confirmLaunch = false">
       <template #footer>
@@ -173,6 +190,7 @@ const late = (due: string | null) => !!due && due < todayIso()
 </template>
 
 <style scoped>
+.wb-cy-ban { margin: var(--space-4) var(--space-4) 0; }
 .wb-cy-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .wb-cy-steps li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-pill); font-size: 13px; color: var(--ink-2); }
 .wb-cy-steps li b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2, #eef1f6); font-size: 12px; }

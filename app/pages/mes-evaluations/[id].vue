@@ -66,7 +66,7 @@ const fmtTime = (iso: string) => new Intl.DateTimeFormat(tag.value, { day: 'nume
         <p class="small wb-mut2">{{ packet.cycle_name }} · {{ formatPeriod(packet.period_start, packet.period_end, tag) }}<template v-if="role === 'self' && packet.manager_name"> · {{ t('tnd29.syn.manager') }} : {{ packet.manager_name }}</template></p>
       </header>
 
-      <PeerNomination v-if="peersOpen" :packet-id="packet.id" :mode="role" :peers-min="packet.peers_min" :peers-max="packet.peers_max" :open="peersOpen" :has-manager="!!packet.manager_id" />
+      <p v-if="peersOpen && role === 'self'" class="wb-why small" data-peers-note><WbIcon name="users" :size="14" /> {{ t('tnd33.selfNote') }}</p>
 
       <!-- to fill in -->
       <ReviewForm v-if="canWrite" :content="packet.content" :role="role" :packet-id="packet.id" :author-id="profile.id" :initial="mine" :subject="subject" @submitted="load" />

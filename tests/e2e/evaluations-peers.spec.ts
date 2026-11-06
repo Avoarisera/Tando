@@ -86,25 +86,28 @@ test.describe.serial('TND-29 lot 2 — Retours des collègues', () => {
     await expect(page.locator('tbody tr')).toHaveCount(1)
   })
 
-  test('T-TND29-102: Emma proposes 3 colleagues (not herself, not her manager)', async ({ page }) => {
+  test('T-TND29-102: Emma does not choose her colleagues (TND-33), she is only told', async ({ page }) => {
     await signIn(page, ACCOUNTS.emma, '/mes-evaluations')
     await page.locator('.wb-me-c.is-todo[data-packet="self"]', { hasText: CYCLE }).click()
+    await expect(page.locator('[data-peers-note]')).toBeVisible()
+    await expect(page.locator('[data-section="peers"]')).toHaveCount(0)
+  })
+
+  test('T-TND29-103: HR chooses Emma’s colleagues from the campaign; they get the request', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin, '/evaluations')
+    await page.locator(`a[data-cycle="${CYCLE}"]`).click()
+    await expect(page.locator('[data-banner="peers"]')).toBeVisible()
+    await page.locator('tr[data-packet="Emma Employée"] [data-action="choose-peers"]').click()
     const box = page.locator('[data-section="peers"]')
     await expect(box.locator('[data-peer="Marc Manager"]')).toHaveCount(0)
     await expect(box.locator('[data-peer="Emma Employée"]')).toHaveCount(0)
     await expect(box.locator('[data-action="save-peers"]')).toBeDisabled()
     for (const n of ['Eddy Employé', ...PEERS.map(p => `${p.first} ${p.last}`)]) await box.locator(`[data-peer="${n}"] input`).check()
     await box.locator('[data-action="save-peers"]').click()
-    await expect(box.getByText('En attente de validation')).toBeVisible()
-  })
-
-  test('T-TND29-103: Marc validates the list; the colleagues get the request', async ({ page }) => {
-    await signIn(page, ACCOUNTS.manager, '/mes-evaluations')
-    await page.locator('.wb-me-c.is-todo[data-packet="Emma Employée"]', { hasText: CYCLE }).click()
-    const box = page.locator('[data-section="peers"]')
-    await expect(box.locator('.wb-pn-chip.is-on')).toHaveCount(3)
-    await box.locator('[data-action="save-peers"]').click()
     await expect(box.getByText('Liste validée').first()).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.locator('tr[data-packet="Emma Employée"] [data-col="peers"]')).toContainText('0/3 ont répondu')
+    await expect(page.locator('[data-banner="peers"]')).toHaveCount(0)
   })
 
   test('T-TND29-104: Eddy answers; below 3 answers HR sees nothing but who answered', async ({ page }) => {
