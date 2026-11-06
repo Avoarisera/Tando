@@ -45,3 +45,6 @@ pnpm-debug.log*
 recovery-codes.txt
 wakabods-handoff
 test-results/
+
+# local screenshots of checks (dev-browser)
+images/
