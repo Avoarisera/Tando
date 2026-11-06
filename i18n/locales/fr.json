@@ -1497,7 +1497,10 @@
         "microsoft": "Microsoft 365 / Outlook",
         "brevo": "Brevo",
         "mailgun": "Mailgun (UE)",
-        "resend": "Resend"
+        "resend": "Resend",
+        "mailtrap": "Mailtrap — Email Sending (transactionnel)",
+        "mailtrap_bulk": "Mailtrap — Bulk",
+        "mailtrap_sandbox": "Mailtrap — Sandbox (tests, rien n’est délivré)"
       },
       "host": "Serveur SMTP",
       "port": "Port",
@@ -1527,7 +1530,12 @@
       "lastError": "Dernière erreur : {reason}",
       "lastTest": "Dernier test le {date}",
       "saved": "Réglages d’e-mail enregistrés",
-      "deliverability": "Pour éviter les indésirables, l’adresse d’expédition doit être sur un domaine dont le SPF et le DKIM autorisent ce serveur (votre fournisseur vous donne ces enregistrements DNS)."
+      "deliverability": "Pour éviter les indésirables, l’adresse d’expédition doit être sur un domaine dont le SPF et le DKIM autorisent ce serveur (votre fournisseur vous donne ces enregistrements DNS).",
+      "presetTip": {
+        "mailtrap": "Identifiant « api », mot de passe = jeton API Mailtrap (Sending Domains › SMTP/API Settings). L’expéditeur doit être sur votre domaine vérifié dans Mailtrap.",
+        "mailtrap_bulk": "Flux « Bulk » pour les envois groupés. Identifiant « api », mot de passe = jeton API Mailtrap, expéditeur sur le domaine vérifié.",
+        "mailtrap_sandbox": "Les e-mails arrivent dans votre boîte de test Mailtrap, jamais chez les destinataires. Identifiant et mot de passe : Sandboxes › votre boîte › SMTP."
+      }
     },
     "purge": {
       "last": "Suppression RGPD automatique, chaque jour. Dernier passage : {date}, aucune candidature supprimée. | Suppression RGPD automatique, chaque jour. Dernier passage : {date}, {n} candidature supprimée. | Suppression RGPD automatique, chaque jour. Dernier passage : {date}, {n} candidatures supprimées.",
