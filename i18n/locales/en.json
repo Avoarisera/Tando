@@ -1832,5 +1832,18 @@
       "emptyText": "Create a template, or save an existing opening as a template.",
       "archiveText": "It will no longer be offered for new openings. Existing openings do not change."
     }
+  },
+  "tnd33": {
+    "selfNote": "Colleagues chosen by HR will also give you feedback. It stays anonymous and is only shown, grouped, from 3 responses.",
+    "hrEmpty": "No colleague chosen. Pick 3 to {max}, from any team: each one gets an e-mail.",
+    "hrApproved": "These colleagues got the request. You can change the list until the file is shared; those who already answered stay.",
+    "save": "Save and send the requests",
+    "savedToast": "Colleagues saved: new ones get an e-mail",
+    "choose": "Choose",
+    "answered": "{n}/{total} answered",
+    "missing": "{n} person has no colleagues yet: choose them in the “Colleagues” column. | {n} people have no colleagues yet: choose them in the “Colleagues” column.",
+    "panelTitle": "Colleagues of {who}",
+    "panelHint": "They give anonymous feedback. Neither the person nor their manager sees this list.",
+    "step": "Choose everyone’s colleagues"
   }
 }

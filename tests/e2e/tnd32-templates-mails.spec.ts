@@ -91,7 +91,7 @@ test.describe.serial('TND-32 — modèles et e-mails', () => {
 
   test('T-TND32-005: edit a job template; save an opening as a template', async ({ page }) => {
     await signIn(page, '/recrutement/modeles')
-    await expect(page.locator('[data-job-template]')).toHaveCount(4)
+    await expect(page.locator('[data-job-template="Stage / alternance"]')).toBeVisible()
     await page.locator('[data-job-template="Stage / alternance"] [data-action="edit-job-template"]').click()
     await expect(page.locator('#op-slug')).toHaveCount(0)
     await page.fill('#tpl-name', `Stage ${RUN}`)

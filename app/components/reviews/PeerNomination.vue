@@ -2,10 +2,9 @@
 import type { Nomination } from '~/composables/useReviews'
 
 /**
- * TND-29 lot 2 — choosing the colleagues who give feedback.
- * - the employee proposes peersMin…peersMax colleagues (any team), until the list is validated;
- * - the manager (or HR when there is no manager) adjusts and validates it (at least 3, for anonymity).
- * Never shows who answered: that stays with HR (peer_status).
+ * TND-29 lot 2 / TND-33 — HR chooses the colleagues who give feedback (3 to
+ * peersMax, any team, neither the person nor their manager); each new colleague
+ * gets an e-mail. Changeable until the file is shared; who already answered stays.
  */
 const props = defineProps<{ packetId: string, mode: 'self' | 'manager' | 'hr', peersMin: number, peersMax: number, open: boolean, hasManager: boolean }>()
 const emit = defineEmits<{ changed: [] }>()
@@ -58,7 +57,7 @@ async function save() {
     if (decider.value) await approvePeers(props.packetId, picked.value)
     else await proposePeers(props.packetId, picked.value)
     notify()
-    toast.add(decider.value ? t('tnd29.peer.approvedToast') : t('tnd29.peer.proposedToast'))
+    toast.add(decider.value ? t('tnd33.savedToast') : t('tnd29.peer.proposedToast'))
     editing.value = false
     await load()
     emit('changed')
@@ -82,7 +81,7 @@ async function save() {
     <template v-else>
       <p class="small wb-mut2">
         <template v-if="mode === 'self'">{{ approved ? t('tnd29.peer.selfApproved') : proposed ? (hasManager ? t('tnd29.peer.selfWaiting') : t('tnd29.peer.selfWaitingHr')) : t('tnd29.peer.selfHint', { min: peersMin, max: peersMax }) }}</template>
-        <template v-else>{{ approved ? t('tnd29.peer.mgrApproved') : proposed ? t('tnd29.peer.mgrHint') : t('tnd29.peer.mgrEmpty') }}</template>
+        <template v-else>{{ approved ? t('tnd33.hrApproved') : proposed ? t('tnd29.peer.mgrHint') : t('tnd33.hrEmpty', { max: peersMax }) }}</template>
       </p>
 
       <ul v-if="!showPicker && list.length" class="wb-pn-chips">
@@ -108,7 +107,7 @@ async function save() {
           <span :class="['caption', valid ? 'wb-mut' : 'wb-c-danger']">{{ t('tnd29.peer.count', { n: picked.length, min, max: peersMax }) }}</span>
           <span class="wb-grow" />
           <WbButton v-if="editing" variant="ghost" size="sm" @click="editing = false; picked = list.map(x => x.peer_id)">{{ t('approvals.cancel') }}</WbButton>
-          <WbButton size="sm" :icon="decider ? 'circle-check' : 'send'" :disabled="!valid" :loading="saving" data-action="save-peers" @click="save">{{ decider ? t('tnd29.peer.approve') : t('tnd29.peer.propose') }}</WbButton>
+          <WbButton size="sm" :icon="decider ? 'circle-check' : 'send'" :disabled="!valid" :loading="saving" data-action="save-peers" @click="save">{{ decider ? t('tnd33.save') : t('tnd29.peer.propose') }}</WbButton>
         </div>
       </div>
     </template>

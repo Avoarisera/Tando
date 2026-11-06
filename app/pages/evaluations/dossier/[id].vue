@@ -112,7 +112,7 @@ const print = () => window.print()
         </ul>
         <p class="caption wb-mut">{{ t('tnd29.hr.peersAnon') }}</p>
       </section>
-      <PeerNomination v-if="peersOpen && (!packet.manager_id || !approvedPeers.length)" class="wb-no-print" :packet-id="packet.id" mode="hr" :peers-min="packet.review_cycles.peers_min" :peers-max="packet.review_cycles.peers_max" :open="peersOpen" :has-manager="!!packet.manager_id" @changed="load" />
+      <PeerNomination v-if="peersOpen" class="wb-no-print" :packet-id="packet.id" mode="hr" :peers-min="packet.review_cycles.peers_min" :peers-max="packet.review_cycles.peers_max" :open="peersOpen" :has-manager="!!packet.manager_id" @changed="load" />
 
       <ReviewSynthesis :content="content" :self="self" :manager="manager" :has-manager="!!packet.manager_id" :peers="peersOn ? peers : null" />
 

@@ -1832,5 +1832,18 @@
       "emptyText": "Créez un modèle, ou enregistrez une offre existante comme modèle.",
       "archiveText": "Il ne sera plus proposé pour les nouvelles offres. Les offres déjà créées ne changent pas."
     }
+  },
+  "tnd33": {
+    "selfNote": "Des collègues choisis par les RH vous donneront aussi un retour. Il reste anonyme et n’est montré, regroupé, qu’à partir de 3 réponses.",
+    "hrEmpty": "Aucun collègue choisi. Choisissez-en de 3 à {max}, de toutes les équipes : chacun recevra un e-mail.",
+    "hrApproved": "Ces collègues ont reçu la demande. Vous pouvez modifier la liste tant que le dossier n’est pas partagé ; ceux qui ont déjà répondu restent.",
+    "save": "Enregistrer et envoyer les demandes",
+    "savedToast": "Collègues enregistrés : les nouveaux reçoivent un e-mail",
+    "choose": "Choisir",
+    "answered": "{n}/{total} ont répondu",
+    "missing": "{n} personne n’a pas encore de collègues : choisissez-les dans la colonne « Collègues ». | {n} personnes n’ont pas encore de collègues : choisissez-les dans la colonne « Collègues ».",
+    "panelTitle": "Collègues de {who}",
+    "panelHint": "Ils donneront un retour anonyme. Ni la personne ni son manager ne voient cette liste.",
+    "step": "Choisir les collègues de chacun"
   }
 }

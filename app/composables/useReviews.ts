@@ -159,6 +159,12 @@ export function useReviews() {
     if (error) fail(error)
     return data as unknown as PeerFeedback | null
   }
+  /** HR: per packet, colleagues chosen / answered (TND-33) */
+  async function cyclePeerSummary(cycleId: string) {
+    const { data, error } = await supabase.rpc('cycle_peer_summary', { p_cycle: cycleId })
+    if (error) fail(error)
+    return (data ?? []) as unknown as { packet_id: string, chosen: number, answered: number }[]
+  }
   /** HR: in-app + e-mail reminder to everyone late in a campaign */
   async function remind(cycleId: string) {
     const { data: { session } } = await supabase.auth.getSession()
@@ -180,5 +186,5 @@ export function useReviews() {
   }
 
   return { listTemplates, saveTemplate, listCycles, createCycle, updateCycle, deleteCycle, launchCycle, getCycle, getPacket, conclude, share, myPackets, listResponses, saveResponse, acknowledge,
-    listNominations, peerCandidates, proposePeers, approvePeers, myPeerRequests, peerStatus, peerFeedback, remind, notify, duplicateTemplate, createTemplate, archiveTemplate }
+    listNominations, peerCandidates, proposePeers, cyclePeerSummary, approvePeers, myPeerRequests, peerStatus, peerFeedback, remind, notify, duplicateTemplate, createTemplate, archiveTemplate }
 }
