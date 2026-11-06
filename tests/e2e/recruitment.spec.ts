@@ -211,4 +211,72 @@ test.describe.serial('TND-30 — Recrutement', () => {
     await expect(page.getByText('Lien invalide')).toBeVisible()
     await visitor.close()
   })
+
+  // ── Lots 3 & 4 ───────────────────────────────────────────────────────────
+  test('T-TND30-012: statistics show the funnel and the sources', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin, '/recrutement?vue=stats')
+    await expect(page.getByRole('heading', { name: 'Entonnoir' })).toBeVisible()
+    await expect(page.locator('.wb-rs-funnel li')).not.toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible()
+    await expect(page.getByText('Page carrières').first()).toBeVisible()
+  })
+
+  test('T-TND30-013: a pooled candidate is proposed for another opening', async ({ page, request }) => {
+    const pooled = await request.post(`/api/careers/${SLUG}/apply`, { multipart: {
+      first_name: 'Vola', last_name: `Pool${RUN}`, email: `vola.${RUN}@example.com`, consent: 'true', consent_pool: 'true', answers: '{}',
+      cv: { name: 'cv.pdf', mimeType: 'application/pdf', buffer: PDF } } })
+    expect(pooled.status()).toBe(200)
+    // a second opening to propose them for
+    await signIn(page, ACCOUNTS.admin, '/recrutement/nouvelle')
+    await page.fill('#op-title', `Autre poste ${RUN}`)
+    await page.fill('#op-min', '20000')
+    await page.fill('#op-max', '25000')
+    await page.locator('[data-action="publish"]').click()
+    await page.waitForURL(/\/recrutement\/[0-9a-f-]{36}/)
+    await page.goto('/recrutement?vue=pool')
+    const row = page.locator('.wb-tp tbody tr', { hasText: `Pool${RUN}` })
+    await row.locator('[data-action="propose"]').click()
+    await page.locator('#pool-target').selectOption({ label: `Autre poste ${RUN}` })
+    await page.locator('[data-action="confirm-propose"]').click()
+    await expect(page.getByText(`est proposé·e pour « Autre poste ${RUN} »`)).toBeVisible()
+    await page.goto('/recrutement')
+    await page.locator(`a[data-opening="Autre poste ${RUN}"]`).click()
+    await expect(page.locator('.wb-pp-card', { hasText: `Pool${RUN}` })).toContainText('Vivier')
+  })
+
+  test('T-TND30-014: anonymous screening hides the identity at the first stages', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin, '/recrutement')
+    await page.locator(`a[data-opening="Autre poste ${RUN}"]`).click()
+    await page.getByRole('tab', { name: 'Offre' }).click()
+    await page.getByText('Présélection anonyme').click()
+    await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
+    await expect(page.getByText('Offre enregistrée')).toBeVisible()
+    await page.getByRole('tab', { name: /Candidatures/ }).click()
+    const card = page.locator('.wb-pp-card').first()
+    await expect(card).toContainText('Candidat n°')
+    await expect(card).not.toContainText(`Pool${RUN}`)
+    await card.click()
+    await expect(page.locator('.wb-panel')).toContainText('Présélection anonyme')
+    await expect(page.locator('.wb-panel')).not.toContainText(`vola.${RUN}@example.com`)
+  })
+
+  test('T-TND30-015: Settings › E-mails keeps the API key write-only', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin, '/settings')
+    await page.fill('#mail-from-name', 'Recrutement')
+    await page.fill('#mail-from', 'jobs@example.com')
+    await page.fill('#mail-key', 're_e2e_key_00001234')
+    await page.locator('[data-action="save-mail"]').click()
+    await expect(page.getByText('Réglages d’e-mail enregistrés')).toBeVisible()
+    await page.reload()
+    await waitForHydration(page)
+    await expect(page.locator('#mail-key')).toHaveValue('')
+    await expect(page.locator('#mail-key')).toHaveAttribute('placeholder', /…1234/)
+    // sending cannot be turned on without key + sender, and an employee has no access
+  })
+
+  test('T-TND30-016: an employee cannot read the e-mail settings', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee1, '/')
+    const status = await page.evaluate(async () => (await fetch('/api/settings/mail')).status)
+    expect(status).toBe(401)
+  })
 })

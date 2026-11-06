@@ -41,6 +41,19 @@ export interface Scorecard {
   updated_at: string
   profiles: { first_name: string, last_name: string } | null
 }
+export interface PoolRow {
+  id: string
+  opening_id: string
+  stage: string
+  status: 'active' | 'rejected' | 'withdrawn' | 'hired'
+  source: string
+  consent_pool: boolean
+  rejection_reason: string | null
+  created_at: string
+  updated_at: string
+  candidates: { id: string, first_name: string, last_name: string, email: string } | null
+  application_files: { id: string, kind: string }[]
+}
 export interface EmailTemplate { key: 'acknowledgement' | 'rejection' | 'invitation' | 'offer', subject: string, body: string }
 
 export interface ApplicationEvent { id: number, kind: string, data: Record<string, unknown>, created_at: string, actor_id: string | null, profiles: { first_name: string, last_name: string } | null }
@@ -142,10 +155,25 @@ export function useRecruitment() {
     if (error) throw new Error(errorMessage(error))
   }
   const sendEmail = (applicationId: string, body: { subject: string, text: string, template: string }) => authFetch<{ sent: boolean, reason: string | null }>(`/api/recruiting/applications/${applicationId}/email`, { method: 'POST', body })
+  const purge = (dry: boolean) => authFetch<{ last: { last_run_at: string, result: { applications?: number, files?: number, candidates?: number } } | null }>(`/api/recruiting/purge${dry ? '?dry=1' : ''}`, { method: dry ? 'GET' : 'POST' })
+  const propose = (applicationId: string, openingId: string) => authFetch<{ id: string, opening_id: string }>(`/api/recruiting/applications/${applicationId}/propose`, { method: 'POST', body: { opening_id: openingId } })
+
+  /** Lot 3 — every application with its stage history, for the statistics and the talent pool */
+  async function listAllApplications() {
+    const [{ data: apps, error }, { data: events, error: e2 }, { data: ops, error: e3 }] = await Promise.all([
+      supabase.from('applications').select('id, opening_id, stage, status, source, consent_pool, rejection_reason, created_at, updated_at, candidates (id, first_name, last_name, email), application_files (id, kind)').order('created_at', { ascending: false }),
+      supabase.from('application_events').select('application_id, kind, data, created_at').in('kind', ['stage', 'hired']),
+      supabase.from('job_openings').select('id, title, status, stages'),
+    ])
+    if (error || e2 || e3) throw new Error(errorMessage(error ?? e2 ?? e3))
+    return { apps: (apps ?? []) as unknown as PoolRow[], events: (events ?? []) as { application_id: string, kind: string, data: { from?: string, to?: string }, created_at: string }[], openings: (ops ?? []) as { id: string, title: string, status: string, stages: { key: string, label: string }[] }[] }
+  }
+
   const hire = (applicationId: string, body: Record<string, unknown>) => authFetch<{ id: string }>(`/api/recruiting/applications/${applicationId}/hire`, { method: 'POST', body })
 
   return { listOpenings, getOpening, saveOpening, listApplications, listEvents, addNote, moveStage, reject, restore, fileUrl,
-    listInterviews, planInterview, cancelInterview, listScorecards, saveScorecard, listTemplates, saveTemplate, sendEmail, hire }
+    listInterviews, planInterview, cancelInterview, listScorecards, saveScorecard, listTemplates, saveTemplate, sendEmail, hire,
+    propose, listAllApplications, purge }
 }
 
 export const stageLabel = (stages: Stage[], key: string) => stages.find(s => s.key === key)?.label ?? key

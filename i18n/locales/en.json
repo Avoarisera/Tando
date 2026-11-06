@@ -1413,6 +1413,113 @@
       "erasedText": "We keep nothing of this application.",
       "invalidTitle": "Invalid link",
       "invalidText": "This follow-up link does not exist or the application was deleted."
+    },
+    "view": {
+      "openings": "Jobs",
+      "stats": "Statistics",
+      "pool": "Talent pool"
+    },
+    "stats": {
+      "title": "Recruitment statistics",
+      "allOpenings": "All jobs",
+      "opening": "Job",
+      "received": "Applications received",
+      "last90": "last 90 days",
+      "active": "In progress",
+      "activeSub": "applications to process",
+      "hired": "Hires",
+      "hiredSub": "since the start",
+      "timeToHire": "Time to hire",
+      "median": "median, from application to hire",
+      "days": "{n} day | {n} days",
+      "funnel": "Funnel",
+      "funnelSub": "Share of candidates reaching each stage",
+      "perMonth": "Applications per month",
+      "sources": "Sources",
+      "sourcesSub": "Where candidates come from (share links)",
+      "reasons": "Main decline reasons",
+      "noReasons": "No decline yet.",
+      "empty": "No application yet."
+    },
+    "pool": {
+      "title": "Talent pool",
+      "sub": "{n} person agreed to be kept | {n} people agreed to be kept",
+      "empty": "Nobody in the pool: candidates who tick “Keep my application” show here.",
+      "lastJob": "Last job",
+      "outcome": "Outcome",
+      "date": "Applied",
+      "propose": "Propose for a job",
+      "proposeTitle": "Propose {who} for a job",
+      "proposeText": "An application is created on the chosen job, with a copy of their files (source “Talent pool”).",
+      "proposed": "{who} is proposed for “{job}”",
+      "hint": "The pool only keeps candidates who agreed, 2 years at most after the last exchange (GDPR)."
+    },
+    "anon": {
+      "toggle": "Anonymous screening",
+      "hint": "At the “New” and “Screening” stages, name, contact details and photo are hidden to reduce bias. The résumé itself is not redacted: ask for a résumé without photo in the job if needed.",
+      "name": "Candidate #{id}",
+      "panel": "Anonymous screening: the identity shows at the next stage."
+    },
+    "share": {
+      "button": "Share links",
+      "title": "Share the job",
+      "text": "Each link counts its applications in the statistics (sources).",
+      "copy": "Copy",
+      "copied": "Link copied",
+      "src": {
+        "linkedin": "LinkedIn",
+        "indeed": "Indeed",
+        "welcome": "Welcome to the Jungle",
+        "referral": "Referral"
+      }
+    },
+    "mailcfg": {
+      "title": "E-mails",
+      "hint": "The service sending e-mails to candidates (acknowledgements, invitations, rejections).",
+      "on": "Sending from {from}",
+      "env": "Sending configured by server variables",
+      "off": "Sending disabled: e-mails are not sent",
+      "how": "How to set up sending?",
+      "how1": "Create a free account on",
+      "how2": "Add your domain at Resend, then add the DNS records shown by “Check the domain” at your DNS host (Cloudflare…).",
+      "how3": "Create an API key (full access) and paste it below.",
+      "how4": "Enter the sender address, save, send a test e-mail, then turn sending on.",
+      "fromName": "Sender name",
+      "fromNamePh": "E.g. WakaBods Recruitment",
+      "from": "Sender address",
+      "fromHint": "On a domain verified at Resend.",
+      "replyTo": "Reply-to address",
+      "replyHint": "Where candidates’ replies arrive (optional).",
+      "key": "Resend API key",
+      "keyKept": "Key saved (…{hint}) — leave empty to keep it",
+      "keyHint": "Encrypted in the Supabase vault, never shown again.",
+      "enable": "Turn e-mail sending on",
+      "check": "Check the domain",
+      "dom": {
+        "verified": "Verified",
+        "pending": "Pending",
+        "failed": "Failed",
+        "missing": "Not in Resend"
+      },
+      "domMissing": "This domain is not in your Resend account yet: add it, then check again.",
+      "dns": "DNS records",
+      "type": "Type",
+      "name": "Name",
+      "value": "Value (click to copy)",
+      "dnsHint": "Add these records at your DNS host. Verification can take a few minutes.",
+      "testTo": "Send a test to",
+      "test": "Send a test e-mail",
+      "testOk": "Test e-mail sent to {to}. Check the inbox (and spam).",
+      "testKo": "Sending failed: {reason}",
+      "lastError": "Last error: {reason}",
+      "lastTest": "Last test on {date}",
+      "saved": "E-mail settings saved"
+    },
+    "purge": {
+      "last": "Automatic GDPR deletion, daily. Last run: {date}, no application deleted. | Automatic GDPR deletion, daily. Last run: {date}, {n} application deleted. | Automatic GDPR deletion, daily. Last run: {date}, {n} applications deleted.",
+      "never": "Automatic GDPR deletion, daily: not run yet.",
+      "run": "Run now",
+      "done": "No expired application. | {n} expired application deleted. | {n} expired applications deleted."
     }
   }
 }

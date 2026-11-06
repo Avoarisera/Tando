@@ -136,6 +136,8 @@ async function save() {
         <WbButton type="submit" :loading="saving">{{ t('rules.save') }}</WbButton>
       </div>
     </form>
+    <!-- outside the company form: its own buttons and saving (TND-30 lot 4) -->
+    <MailSettings v-if="!loadError && !isLoading" />
   </div>
 </template>
 

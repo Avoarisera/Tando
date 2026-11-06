@@ -466,6 +466,30 @@ async function main() {
       await service.from('job_openings').delete().eq('id', op.id)
     }
   }
+
+  console.log('\nTND-30 lots 3–4 — purge RGPD, réglages e-mail')
+  {
+    const { data: ms, error: msErr } = await admin.from('mail_settings').select('*')
+    check('TND-30v', 'même un admin ne lit pas les réglages e-mail en direct (route serveur seulement)', !!msErr || (ms ?? []).length === 0)
+    const { data: k, error: kErr } = await admin.rpc('get_mail_api_key')
+    check('TND-30w', 'la clé d\'API n\'est lisible par aucun utilisateur connecté', !!kErr && !k)
+    const { error: setErr } = await admin.rpc('set_mail_api_key', { p_key: 're_pirate_12345678' })
+    check('TND-30x', 'aucun utilisateur connecté ne remplace la clé en direct', !!setErr)
+    const { data: jr, error: jrErr } = await admin.from('job_runs').select('*')
+    check('TND-30y', 'le journal des tâches n\'est pas lisible depuis le navigateur', !!jrErr || (jr ?? []).length === 0)
+    // purge date follows the last contact (+ 2 years)
+    const { data: op } = await service.from('job_openings').insert({ slug: `sec-l3-${Date.now()}`, title: 'Sec lot 3', status: 'published' }).select('id').single()
+    const { data: c } = await service.from('candidates').insert({ email: `l3.${Date.now()}@example.com`, first_name: 'Old', last_name: 'One' }).select('id').single()
+    const { data: a } = await service.from('applications').insert({ opening_id: op.id, candidate_id: c.id, last_contact_at: '2023-01-15T10:00:00Z', status: 'rejected' }).select('id, purge_after').single()
+    try {
+      check('TND-30z', 'la date de suppression suit le dernier contact (+ 2 ans)', a.purge_after === '2025-01-15')
+    }
+    finally {
+      await service.from('applications').delete().eq('id', a.id)
+      await service.from('candidates').delete().eq('id', c.id)
+      await service.from('job_openings').delete().eq('id', op.id)
+    }
+  }
 }
 
 try {

@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   if (body?.sendEmail === true && app.candidates?.email) {
     const company = await companyInfo(supabase)
     const mail = await buildEmail(supabase, 'rejection', { prenom: app.candidates.first_name, poste: app.job_openings?.title ?? '', entreprise: company.name })
-    const sent = await sendMail({ to: app.candidates.email, subject: mail.subject, text: mail.text + PRIVACY_FOOTER })
+    const sent = await sendMail(supabase, { to: app.candidates.email, subject: mail.subject, text: mail.text + PRIVACY_FOOTER })
     emailed = sent.sent
     await supabase.from('application_events').insert({ application_id: app.id, actor_id: user.id, kind: 'email', data: { template: 'rejection', sent: sent.sent, reason: sent.reason ?? null } })
   }

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { ApplicationEvent, ApplicationRow } from '~/composables/useRecruitment'
 import type { Opening } from '~/utils/recruitment'
+import { isAnonymous } from '~/utils/recruitment'
+import { pseudonym } from '~/utils/recruit-stats'
 
 /**
  * TND-30 — one application: CV preview (PDF in the page), cover letter, answers,
@@ -18,7 +20,9 @@ const { listEvents, addNote, moveStage, reject, restore, fileUrl, listTemplates,
 const { teams, fetchTeams } = useTeams()
 
 const c = computed(() => props.app.candidates)
-const name = computed(() => (c.value ? `${c.value.first_name} ${c.value.last_name}` : '—'))
+// anonymous screening: no identity at the first stages (TND-30 lot 3)
+const anon = computed(() => isAnonymous(props.opening, props.app))
+const name = computed(() => (anon.value ? t('tnd30.anon.name', { id: pseudonym(props.app.id) }) : c.value ? `${c.value.first_name} ${c.value.last_name}` : '—'))
 const cv = computed(() => props.app.application_files.find(f => f.kind === 'cv') ?? null)
 const letterFile = computed(() => props.app.application_files.find(f => f.kind === 'cover_letter') ?? null)
 
@@ -195,7 +199,8 @@ const purgeIn = computed(() => Math.max(0, Math.round((Date.parse(props.app.purg
 <template>
   <WbSidePanel :title="name" :subtitle="`${opening.title} · ${t('tnd30.panel.applied', { date: fmtShort(app.created_at.slice(0, 10), tag) })}`" :width="760" @close="emit('close')">
     <div class="wb-cp-top">
-      <ul class="wb-cp-contact small">
+      <p v-if="anon" class="small wb-mut2 wb-cp-anon"><WbIcon name="eye" :size="14" /> {{ t('tnd30.anon.panel') }}</p>
+      <ul v-else class="wb-cp-contact small">
         <li><WbIcon name="mail" :size="14" /><a :href="`mailto:${c?.email}`">{{ c?.email }}</a></li>
         <li v-if="c?.phone"><WbIcon name="circle-user-round" :size="14" /><a :href="`tel:${c.phone}`">{{ c.phone }}</a></li>
         <li v-if="c?.linkedin_url"><WbIcon name="external-link" :size="14" /><a :href="c.linkedin_url" target="_blank" rel="noopener noreferrer">{{ t('tnd30.panel.profileLink') }}</a></li>
@@ -230,7 +235,7 @@ const purgeIn = computed(() => Math.max(0, Math.round((Date.parse(props.app.purg
       <template v-else>
         <template v-for="f in [tab === 'letter' ? letterFile : cv]" :key="f?.id ?? 'none'">
           <div v-if="f" class="wb-row-b wb-cp-file small">
-            <span><WbIcon name="file-text" :size="16" /> <b>{{ f.file_name }}</b> · {{ size(f.size_bytes) }}</span>
+            <span><WbIcon name="file-text" :size="16" /> <b>{{ anon ? (f.kind === 'cv' ? 'CV' : t('tnd30.panel.letter')) : f.file_name }}</b> · {{ size(f.size_bytes) }}</span>
             <WbButton variant="ghost" size="sm" icon="download" @click="download(f.id)">{{ t('tnd30.panel.download') }}</WbButton>
           </div>
           <iframe v-if="f && preview" :src="preview" class="wb-cp-frame" :title="f.file_name" />

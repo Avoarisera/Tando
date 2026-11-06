@@ -33,6 +33,8 @@ export interface Criterion { id: string, label: string }
 export interface Opening extends Omit<PublicOpening, 'teams'> {
   /** scorecard criteria (TND-30 lot 2), up to 6 */
   criteria: Criterion[]
+  /** hide identity at the first stages (TND-30 lot 3) */
+  anonymous_screening: boolean
   team_id: string | null
   hiring_manager_id: string | null
   stages: Stage[]
@@ -73,3 +75,13 @@ export function slugify(title: string): string {
   return title.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 70) || 'offre'
 }
+
+/** Anonymous screening (TND-30 lot 3): identity hidden at « Nouvelle » and « Présélection » */
+export const ANON_STAGES = ['new', 'screen']
+export function isAnonymous(opening: Pick<Opening, 'anonymous_screening'> | null | undefined, app: { stage: string, status: string }): boolean {
+  return !!opening?.anonymous_screening && app.status === 'active' && ANON_STAGES.includes(app.stage)
+}
+
+/** Readable names of the application sources (?source= of the share links) */
+export const SOURCE_LABEL: Record<string, string> = { careers: 'Page carrières', linkedin: 'LinkedIn', indeed: 'Indeed', referral: 'Cooptation', vivier: 'Vivier', welcome: 'Welcome to the Jungle' }
+export const sourceLabel = (s: string) => SOURCE_LABEL[s] ?? s

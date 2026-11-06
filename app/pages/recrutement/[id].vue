@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { ApplicationRow } from '~/composables/useRecruitment'
 import type { Opening } from '~/utils/recruitment'
+import { isAnonymous, sourceLabel } from '~/utils/recruitment'
+import { pseudonym } from '~/utils/recruit-stats'
 
 // One opening (TND-30): candidates by stage (drag & drop) and the opening editor.
 // `/recrutement/nouvelle` opens the editor for a new opening.
@@ -71,6 +73,16 @@ async function drop(stage: string) {
   try { await moveStage(a.id, stage) }
   catch (e) { a.stage = prev; toast.add(errorMessage(e), 'error') }
 }
+const displayName = (a: ApplicationRow) => (isAnonymous(opening.value, a) ? t('tnd30.anon.name', { id: pseudonym(a.id) }) : `${a.candidates?.first_name ?? ''} ${a.candidates?.last_name ?? ''}`)
+
+// share links per source (counted in the statistics)
+const sharing = ref(false)
+const SOURCES = ['linkedin', 'indeed', 'welcome', 'referral'] as const
+const shareUrl = (src: string) => `${typeof window === 'undefined' ? '' : window.location.origin}/carrieres/${opening.value?.slug}?source=${src}`
+async function copy(src: string) {
+  try { await navigator.clipboard.writeText(shareUrl(src)); toast.add(t('tnd30.share.copied')) }
+  catch { toast.add(shareUrl(src)) }
+}
 const ago = (iso: string) => {
   const d = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000)
   return d <= 0 ? t('tnd30.detail.today') : t('tnd30.detail.daysAgo', { n: d }, d)
@@ -94,6 +106,7 @@ async function onSaved(newId: string) {
         <div class="wb-row wb-wrap" style="gap: 8px">
           <WbBadge :tone="opening?.status === 'published' ? 'success' : opening?.status === 'paused' ? 'warning' : 'neutral'">{{ t(`tnd30.status.${opening?.status}`) }}</WbBadge>
           <WbButton v-if="opening?.status === 'published'" variant="secondary" size="sm" icon="external-link" :to="`/carrieres/${opening.slug}`" target="_blank">{{ t('tnd30.detail.seePublic') }}</WbButton>
+          <WbButton v-if="opening?.status === 'published' && canManage" variant="secondary" size="sm" icon="send" data-action="share" @click="sharing = true">{{ t('tnd30.share.button') }}</WbButton>
         </div>
       </div>
 
@@ -131,10 +144,10 @@ async function onSaved(newId: string) {
                   @dragstart="dragId = a.id"
                   @click="openId = a.id"
                 >
-                  <WbAvatar :name="`${a.candidates?.first_name} ${a.candidates?.last_name}`" :size="28" />
+                  <WbAvatar :name="displayName(a)" :size="28" />
                   <span class="wb-grow wb-pp-t">
-                    <b class="small">{{ a.candidates?.first_name }} {{ a.candidates?.last_name }}</b>
-                    <span class="caption wb-mut2">{{ ago(a.created_at) }}<template v-if="a.source !== 'careers'"> · {{ a.source }}</template></span>
+                    <b class="small">{{ displayName(a) }}</b>
+                    <span class="caption wb-mut2">{{ ago(a.created_at) }}<template v-if="a.source !== 'careers'"> · {{ sourceLabel(a.source) }}</template></span>
                   </span>
                   <WbBadge v-if="a.status === 'rejected'" tone="danger" size="sm">{{ t('tnd30.appStatus.rejected') }}</WbBadge>
                   <WbIcon v-else-if="a.application_files.some(f => f.kind === 'cover_letter') || a.cover_letter_text" name="file-text" :size="14" class="wb-mut2" :title="t('tnd30.panel.letter')" />
@@ -145,6 +158,15 @@ async function onSaved(newId: string) {
         </div>
       </template>
     </template>
+
+    <WbModal v-if="sharing && opening" :title="t('tnd30.share.title')" :description="t('tnd30.share.text')" @close="sharing = false">
+      <ul class="wb-list wb-share">
+        <li v-for="s in SOURCES" :key="s">
+          <span class="wb-grow"><b class="small">{{ t(`tnd30.share.src.${s}`) }}</b><br><code class="caption wb-mut2">{{ shareUrl(s) }}</code></span>
+          <WbButton variant="secondary" size="sm" @click="copy(s)">{{ t('tnd30.share.copy') }}</WbButton>
+        </li>
+      </ul>
+    </WbModal>
 
     <CandidatePanel v-if="openApp && opening" :app="openApp" :opening="opening" :can-manage="canManage" @close="openId = null" @changed="load" />
   </div>

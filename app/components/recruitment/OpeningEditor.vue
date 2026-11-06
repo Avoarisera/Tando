@@ -35,6 +35,7 @@ const form = reactive({
   benefits: o?.benefits ?? '',
   process: (o?.process_steps ?? ['Échange RH', 'Entretien technique', 'Rencontre équipe']).join('\n'),
   cover_letter: o?.cover_letter ?? 'optional',
+  anonymous_screening: o?.anonymous_screening ?? false,
 })
 const questions = ref<OpeningQuestion[]>([...(o?.questions ?? [])])
 // scorecard criteria (TND-30 lot 2): what interviewers rate from 1 to 4
@@ -88,6 +89,7 @@ async function save(status?: OpeningStatus) {
       process_steps: form.process.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8),
       questions: qs, cover_letter: form.cover_letter,
       criteria: criteria.value.map(c => ({ ...c, label: c.label.trim() })).filter(c => c.label).slice(0, 6),
+      anonymous_screening: form.anonymous_screening,
       ...(status ? { status } : {}),
       ...(status === 'published' && !o?.published_at ? { published_at: new Date().toISOString() } : {}),
       ...(!o ? { stages: DEFAULT_STAGES, created_by: profile.value?.id ?? null } : {}),
@@ -143,6 +145,10 @@ async function save(status?: OpeningStatus) {
       <header><h2 class="h3">{{ t('tnd30.editor.form') }}</h2><p class="small wb-mut">{{ t('tnd30.editor.formHint') }}</p></header>
       <div class="wb-oe-f">
         <WbSelect id="op-letter" v-model="form.cover_letter" :label="t('tnd30.apply.letter')" :options="letterOptions" />
+        <div class="wb-stack-s">
+          <WbCheckbox v-model="form.anonymous_screening" :label="t('tnd30.anon.toggle')" />
+          <p class="caption wb-mut">{{ t('tnd30.anon.hint') }}</p>
+        </div>
         <div class="wb-oe-wide wb-stack-s">
           <span class="wb-label">{{ t('tnd30.editor.questions') }}</span>
           <div v-for="(q, i) in questions" :key="q.id" class="wb-row wb-oe-q">

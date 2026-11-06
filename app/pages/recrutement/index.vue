@@ -5,7 +5,27 @@ import type { Opening, OpeningStatus } from '~/utils/recruitment'
 definePageMeta({ titleKey: 'nav.recruitment', layout: 'private', middleware: 'recruiter-access' })
 const { t } = useI18n()
 const { isRecruiter } = useCurrentUser()
-const { listOpenings } = useRecruitment()
+const { listOpenings, listAllApplications } = useRecruitment()
+const route = useRoute()
+const router = useRouter()
+
+// Offres · Statistiques · Vivier (the last two for HR) — TND-30 lot 3
+type View = 'openings' | 'stats' | 'pool'
+const view = ref<View>(['stats', 'pool'].includes(String(route.query.vue)) ? route.query.vue as View : 'openings')
+watch(view, (v) => { router.replace({ query: v === 'openings' ? {} : { vue: v } }); if (v !== 'openings') loadAll() })
+const views = computed(() => [
+  { value: 'openings', label: t('tnd30.view.openings'), icon: 'file-text' },
+  { value: 'stats', label: t('tnd30.view.stats'), icon: 'gauge' },
+  { value: 'pool', label: t('tnd30.view.pool'), icon: 'users' },
+])
+const all = ref<Awaited<ReturnType<typeof listAllApplications>> | null>(null)
+const allError = ref<string | null>(null)
+async function loadAll() {
+  allError.value = null
+  try { all.value = await listAllApplications() }
+  catch (e) { allError.value = errorMessage(e) }
+}
+onMounted(() => { if (view.value !== 'openings') loadAll() })
 
 const openings = ref<(Opening & { teams: { name: string } | null })[]>([])
 const apps = ref<{ opening_id: string, stage: string, status: string, created_at: string }[]>([])
@@ -43,6 +63,18 @@ const tone = (s: OpeningStatus) => (s === 'published' ? 'success' : s === 'pause
 
 <template>
   <div class="wb-page wb-stack">
+    <div v-if="isRecruiter" class="wb-row-b wb-wrap">
+      <WbSegmented v-model="view" :options="views" :label="t('nav.recruitment')" />
+    </div>
+
+    <template v-if="view === 'stats' || view === 'pool'">
+      <WbErrorState v-if="allError" :message="allError" @retry="loadAll" />
+      <WbSkeleton v-else-if="!all" variant="metric" :count="3" />
+      <RecruitStats v-else-if="view === 'stats'" :apps="all.apps" :events="all.events" :openings="all.openings" />
+      <TalentPool v-else :apps="all.apps" :openings="all.openings" @changed="loadAll" />
+    </template>
+
+    <template v-else>
     <div class="wb-row-b wb-wrap">
       <WbTabs v-model="filter" :tabs="tabs" :label="t('nav.recruitment')" />
       <div class="wb-row wb-wrap" style="gap: 8px">
@@ -85,6 +117,7 @@ const tone = (s: OpeningStatus) => (s === 'published' ? 'success' : s === 'pause
         </NuxtLink>
       </li>
     </ul>
+    </template>
     <TemplatesPanel v-if="showTemplates" @close="showTemplates = false" />
   </div>
 </template>

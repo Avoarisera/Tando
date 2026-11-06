@@ -99,7 +99,7 @@ export default defineEventHandler(async (event) => {
 
   const company = await companyInfo(supabase)
   const mail = await buildEmail(supabase, 'acknowledgement', { prenom: f.first_name, nom: f.last_name, poste: opening.title, entreprise: company.name, lien_suivi: trackUrl(getRequestURL(event).origin, app.track_token) })
-  const sent = await sendMail({ to: f.email, subject: mail.subject, text: mail.text + PRIVACY_FOOTER })
+  const sent = await sendMail(supabase, { to: f.email, subject: mail.subject, text: mail.text + PRIVACY_FOOTER })
   await supabase.from('application_events').insert([
     { application_id: app.id, kind: 'submitted', data: { source: 'careers' } },
     { application_id: app.id, kind: 'email', data: { template: 'acknowledgement', sent: sent.sent, reason: sent.reason ?? null } },

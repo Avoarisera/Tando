@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   const template = typeof b?.template === 'string' && ['invitation', 'offer', 'rejection', 'acknowledgement'].includes(b.template) ? b.template : 'custom'
   if (!subject || !text) throw createError({ statusCode: 400, statusMessage: 'L’objet et le message sont obligatoires' })
   if (!app.candidates?.email) throw createError({ statusCode: 400, statusMessage: 'Adresse du candidat inconnue' })
-  const sent = await sendMail({ to: app.candidates.email, subject, text: text + PRIVACY_FOOTER })
+  const sent = await sendMail(supabase, { to: app.candidates.email, subject, text: text + PRIVACY_FOOTER })
   await supabase.from('application_events').insert({ application_id: app.id, actor_id: user.id, kind: 'email', data: { template, subject, sent: sent.sent, reason: sent.reason ?? null } })
   if (sent.sent) await supabase.from('applications').update({ last_contact_at: new Date().toISOString() }).eq('id', app.id)
   return { sent: sent.sent, reason: sent.reason ?? null }

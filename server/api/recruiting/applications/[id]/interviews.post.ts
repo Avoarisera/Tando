@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
     const when = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).format(startsAt)
     const where = [location, video].filter(Boolean).join(' · ')
     const mail = await buildEmail(supabase, 'invitation', { prenom: app.candidates.first_name, poste: app.job_openings?.title ?? '', entreprise: company.name, date: `${when} (${duration} min)`, lieu: where })
-    const sent = await sendMail({ to: app.candidates.email, subject: mail.subject, text: mail.text + PRIVACY_FOOTER })
+    const sent = await sendMail(supabase, { to: app.candidates.email, subject: mail.subject, text: mail.text + PRIVACY_FOOTER })
     emailed = sent.sent
     await supabase.from('application_events').insert({ application_id: app.id, actor_id: user.id, kind: 'email', data: { template: 'invitation', sent: sent.sent, reason: sent.reason ?? null } })
   }
