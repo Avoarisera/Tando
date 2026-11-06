@@ -1,6 +1,8 @@
 import type { ObjectiveReview, PeerFeedback, ReviewResponse, TemplateContent } from '~/utils/reviews'
 
-export interface ReviewTemplate { id: string, name: string, kind: 'annual' | 'probation' | 'custom', content: TemplateContent, archived: boolean, updated_at: string }
+export interface CalibrationRow { packet_id: string, employee_name: string, team_name: string | null, manager_name: string | null, self_avg: number | null, manager_avg: number | null, peer_avg: number | null, peer_count: number, hr_rating: number | null, shared: boolean, adjustments: number }
+export interface TeamReportRow { team: string, n: number, self_done: number, with_manager: number, manager_done: number, peers_chosen: number, peers_answered: number, hr_done: number, shared: number, acknowledged: number, small: boolean, competencies: Record<string, number> | null, hr_avg: number | null, hr_dist: number[] | null }
+export interface ReviewTemplate { id: string, name: string, kind: 'annual' | 'probation' | 'custom' | 'professional', content: TemplateContent, archived: boolean, updated_at: string }
 export interface ReviewCycle {
   id: string, name: string, period_start: string, period_end: string, template_id: string, content: TemplateContent | null
   self_due: string | null, manager_due: string | null, hr_due: string | null, status: 'draft' | 'active' | 'closed'
@@ -165,6 +167,32 @@ export function useReviews() {
     if (error) fail(error)
     return (data ?? []) as unknown as { packet_id: string, chosen: number, answered: number }[]
   }
+  // ── Lot 3 (TND-35) ────────────────────────────────────────────────────
+  async function cycleCalibration(cycleId: string) {
+    const { data, error } = await supabase.rpc('cycle_calibration', { p_cycle: cycleId })
+    if (error) fail(error)
+    return (data ?? []) as unknown as CalibrationRow[]
+  }
+  async function calibrate(packetId: string, rating: number, reason: string) {
+    const { error } = await supabase.rpc('calibrate_review', { p_packet: packetId, p_rating: rating, p_reason: reason })
+    if (error) fail(error)
+  }
+  async function calibrationLog(packetIds: string[]) {
+    if (!packetIds.length) return []
+    const { data, error } = await supabase.from('review_calibrations').select('packet_id, from_rating, to_rating, reason, created_at, author:author_id (first_name, last_name)').in('packet_id', packetIds).order('created_at', { ascending: false })
+    if (error) fail(error)
+    return (data ?? []) as unknown as { packet_id: string, from_rating: number | null, to_rating: number, reason: string, created_at: string, author: { first_name: string, last_name: string } | null }[]
+  }
+  async function teamReport(cycleId: string) {
+    const { data, error } = await supabase.rpc('cycle_team_report', { p_cycle: cycleId })
+    if (error) fail(error)
+    return (data ?? []) as unknown as TeamReportRow[]
+  }
+  async function professionalStatus() {
+    const { data, error } = await supabase.rpc('professional_review_status')
+    if (error) fail(error)
+    return (data ?? []) as unknown as { id: string, name: string, team_name: string | null, joined_at: string, last_ep: string | null, last_bilan: string | null }[]
+  }
   /** HR: in-app + e-mail reminder to everyone late in a campaign */
   async function remind(cycleId: string) {
     const { data: { session } } = await supabase.auth.getSession()
@@ -186,5 +214,5 @@ export function useReviews() {
   }
 
   return { listTemplates, saveTemplate, listCycles, createCycle, updateCycle, deleteCycle, launchCycle, getCycle, getPacket, conclude, share, myPackets, listResponses, saveResponse, acknowledge,
-    listNominations, peerCandidates, proposePeers, cyclePeerSummary, approvePeers, myPeerRequests, peerStatus, peerFeedback, remind, notify, duplicateTemplate, createTemplate, archiveTemplate }
+    listNominations, peerCandidates, proposePeers, cyclePeerSummary, cycleCalibration, calibrate, calibrationLog, teamReport, professionalStatus, approvePeers, myPeerRequests, peerStatus, peerFeedback, remind, notify, duplicateTemplate, createTemplate, archiveTemplate }
 }

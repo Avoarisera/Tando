@@ -5,7 +5,8 @@ export type ReviewRole = 'self' | 'manager' | 'peer'
 export interface ReviewQuestion { id: string, label: string, roles: ReviewRole[] }
 /** short form asked to colleagues (TND-29 lot 2) */
 export interface PeerPart { competencies: string[], questions: { id: string, label: string }[] }
-export interface TemplateContent { objectives: boolean, competencies: Competency[], questions: ReviewQuestion[], peer?: PeerPart }
+/** no_rating / professional / bilan: « entretien professionnel » (TND-35), no performance rating */
+export interface TemplateContent { objectives: boolean, competencies: Competency[], questions: ReviewQuestion[], peer?: PeerPart, no_rating?: boolean, professional?: boolean, bilan?: boolean }
 export interface ObjectiveReview { text: string, status: 'met' | 'partial' | 'missed' | '', comment: string }
 
 export interface ReviewResponse {
@@ -69,3 +70,36 @@ export function peerContent(content: TemplateContent): TemplateContent {
 
 /** Anonymous aggregate returned by peer_feedback() */
 export interface PeerFeedback { count: number, min: number, shown: boolean, averages?: Record<string, number>, comments?: Record<string, string[]>, answers?: Record<string, string[]> }
+
+// ── Lot 3 (TND-35) ──────────────────────────────────────────────────────────
+const isoDay = (d: Date) => d.toISOString().slice(0, 10)
+function shiftIso(iso: string, { years = 0, days = 0 }: { years?: number, days?: number }): string {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number) as [number, number, number]
+  const dt = new Date(Date.UTC(y + years, m - 1, d + days))
+  // 29 Feb + n years → 28 Feb (keep the month)
+  if (years && dt.getUTCMonth() !== m - 1) dt.setUTCDate(0)
+  return isoDay(dt)
+}
+export const addYearsIso = (iso: string, years: number) => shiftIso(iso, { years })
+export const addDaysIso = (iso: string, days: number) => shiftIso(iso, { days })
+
+export type DueStatus = 'overdue' | 'soon' | 'ok'
+/** Professional interview every 2 years (L6315-1) and 6-year review, from hire date or the last one shared */
+export function professionalDue(p: { joined_at: string, last_ep: string | null, last_bilan: string | null }, today: string, soonDays = 60) {
+  const nextEp = addYearsIso(p.last_ep ?? p.joined_at, 2)
+  let nextBilan = addYearsIso(p.joined_at, 6)
+  while (p.last_bilan && nextBilan <= p.last_bilan) nextBilan = addYearsIso(nextBilan, 6)
+  const status = (d: string): DueStatus => (d < today ? 'overdue' : d <= addDaysIso(today, soonDays) ? 'soon' : 'ok')
+  return { nextEp, nextBilan, epStatus: status(nextEp), bilanStatus: status(nextBilan) }
+}
+
+/**
+ * Automatic reminders around a due date: « before » from D-3 to D, « after »
+ * from D+1 to D+7 (the cron runs often; each phase is sent once, see job_runs).
+ */
+export function reminderPhase(due: string | null, today: string): 'before' | 'after' | null {
+  if (!due) return null
+  if (today >= addDaysIso(due, -3) && today <= due) return 'before'
+  if (today >= addDaysIso(due, 1) && today <= addDaysIso(due, 7)) return 'after'
+  return null
+}

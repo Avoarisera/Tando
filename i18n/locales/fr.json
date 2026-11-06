@@ -760,7 +760,8 @@
       "review_requested": "Votre auto-évaluation est ouverte : {cycle}",
       "review_peers_proposed": "{who} propose ses collègues pour son évaluation : {cycle}",
       "review_peer_requested": "Retour demandé sur {who} : {cycle}",
-      "review_reminder": "Rappel : une évaluation vous attend ({cycle})"
+      "review_reminder": "Rappel : une évaluation vous attend ({cycle})",
+      "review_ep_due": "{n} entretien professionnel à prévoir | {n} entretiens professionnels à prévoir"
     },
     "invite": {
       "title": "Rejoindre WakaBods",
@@ -1808,7 +1809,8 @@
       "kind": {
         "annual": "Annuel",
         "probation": "Période d’essai",
-        "custom": "Personnalisé"
+        "custom": "Personnalisé",
+        "professional": "Entretien professionnel"
       }
     },
     "job": {
@@ -1855,6 +1857,67 @@
       "manager": "manager : valide les congés de son équipe, voit « Mon équipe » et sa vélocité, évalue ses collaborateurs",
       "hr": "RH : recrutement (offres, candidats, entretiens) et campagnes d’évaluation (choix des collègues, conclusions)",
       "admin": "administrateur : tout, y compris les personnes, les équipes, les factures et les réglages (accès RH inclus)"
+    }
+  },
+  "tnd35": {
+    "tabs": {
+      "follow": "Suivi",
+      "calibration": "Harmonisation",
+      "report": "Rapport par équipe",
+      "cycles": "Campagnes",
+      "professional": "Entretiens professionnels"
+    },
+    "cal": {
+      "intro": "Comparez l’appréciation RH aux moyennes de chaque dossier et la répartition par manager, pour des appréciations cohérentes d’une équipe à l’autre. Tout ajustement exige une justification, conservée.",
+      "spread": "Répartition des appréciations",
+      "rated": "{n} sur {total} appréciés",
+      "byManager": "Par manager",
+      "avg": "Moy.",
+      "hr": "Appréciation RH",
+      "none": "Pas encore",
+      "adjust": "Ajuster",
+      "adjusted": "{n} ajustement | {n} ajustements",
+      "gapHint": "Écart d’au moins 1 point avec la moyenne du manager",
+      "peersHidden": "{n} réponse(s) de collègues : moyenne masquée sous 3 réponses",
+      "legend": "Moyennes sur 4 (« je ne peux pas me prononcer » exclu). Collègues : à partir de 3 réponses. Surligné : écart d’au moins 1 point entre le manager et l’appréciation RH.",
+      "modalTitle": "Ajuster l’appréciation de {who}",
+      "modalHint": "Possible tant que le dossier n’est pas partagé. La justification est conservée et visible des RH.",
+      "reason": "Justification",
+      "reasonPh": "Ex. : alignement avec les dossiers comparables de l’équipe, faits nouveaux…",
+      "reasonRequired": "Justifiez l’ajustement (10 caractères au moins)",
+      "pick": "Choisissez une appréciation",
+      "save": "Enregistrer l’ajustement",
+      "saved": "Appréciation ajustée",
+      "history": "Ajustements précédents"
+    },
+    "rep": {
+      "intro": "Participation à chaque étape, puis moyennes par compétence (évaluations des managers) et appréciations RH. Les moyennes ne sont affichées que pour les équipes d’au moins 3 personnes.",
+      "people": "{n} personne | {n} personnes",
+      "hrAvg": "Appréciation RH moyenne",
+      "ack": "Pris connaissance",
+      "small": "Équipe de moins de 3 personnes : les moyennes sont masquées pour préserver la confidentialité.",
+      "dist": "Répartition",
+      "empty": "Aucun dossier dans cette campagne",
+      "legend": "Moyennes sur 4, sans aucun nom. Les retours de collègues restent dans chaque dossier (anonymes, à partir de 3 réponses)."
+    },
+    "ep": {
+      "intro": "L’entretien professionnel est obligatoire tous les 2 ans, avec un bilan tous les 6 ans (Code du travail, L6315-1). Il porte sur le parcours et les perspectives, pas sur la performance : pas d’appréciation.",
+      "overdue": "{n} en retard | {n} en retard",
+      "soon": "{n} à prévoir dans les 60 jours | {n} à prévoir dans les 60 jours",
+      "onlyDue": "Seulement ceux à prévoir",
+      "pickAll": "Tout sélectionner",
+      "last": "Dernier entretien",
+      "next": "Prochain entretien",
+      "bilan": "Bilan à 6 ans",
+      "never": "Jamais",
+      "none": "Aucun entretien à prévoir.",
+      "picked": "{n} personne sélectionnée | {n} personnes sélectionnées",
+      "launch": "Lancer un entretien professionnel",
+      "launchBilan": "Lancer un bilan à 6 ans",
+      "campaignName": "Entretiens professionnels",
+      "bilanName": "Bilans à 6 ans",
+      "legal": "Échéances calculées depuis la date d’arrivée ou le dernier entretien partagé. Un rappel est envoyé aux RH chaque semaine pour les échéances à moins de 30 jours ou dépassées.",
+      "formNote": "Entretien professionnel : pas d’appréciation ni de retours de collègues. Les échanges portent sur le parcours, les compétences, la formation et le projet professionnel."
     }
   }
 }

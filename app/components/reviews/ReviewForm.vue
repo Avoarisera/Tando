@@ -80,7 +80,7 @@ const isMissing = (kind: 'c' | 'q', id: string) => !!error.value && (kind === 'c
     <p v-else-if="role === 'peer'" class="wb-why small"><WbIcon name="eye" :size="14" /> {{ t('tnd29.peer.intro', { who: subject }) }}</p>
     <p v-else class="small wb-mut2">{{ role === 'self' ? t('tnd29.form.introSelf') : t('tnd29.form.introManager', { who: subject }) }}</p>
 
-    <section class="wb-stack">
+    <section v-if="content.competencies.length" class="wb-stack">
       <h2 class="h2">{{ t('tnd29.form.competencies') }}</h2>
       <fieldset v-for="c in content.competencies" :key="c.id" :data-comp="c.id" :class="['wb-card wb-rf-comp', { 'is-miss': isMissing('c', c.id) }]" :disabled="locked">
         <legend class="h3">{{ c.label }}</legend>

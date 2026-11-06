@@ -30,7 +30,7 @@ const objStatus = (s: string) => (s ? t(`tnd29.obj.${s}`) : '—')
 
 <template>
   <div class="wb-stack wb-rs2">
-    <section class="wb-card wb-rs2-card">
+    <section v-if="content.competencies.length" class="wb-card wb-rs2-card">
       <header class="wb-row-b wb-wrap">
         <h2 class="h2">{{ t('tnd29.syn.title') }}</h2>
         <div class="wb-row wb-wrap wb-rs2-legend caption">
