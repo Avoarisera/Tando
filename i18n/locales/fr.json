@@ -1162,7 +1162,7 @@
     },
     "hr": {
       "access": "Accès RH",
-      "hint": "Donne accès au recrutement (et bientôt aux évaluations), sans les factures ni les paramètres.",
+      "hint": "Donne accès au recrutement et aux campagnes d’évaluation, sans les factures ni les réglages. Se cumule avec Employé ou Manager.",
       "badge": "RH"
     },
     "list": {
@@ -1845,5 +1845,16 @@
     "panelTitle": "Collègues de {who}",
     "panelHint": "Ils donneront un retour anonyme. Ni la personne ni son manager ne voient cette liste.",
     "step": "Choisir les collègues de chacun"
+  },
+  "tnd34": {
+    "hrAccess": "Accès RH (en plus du rôle)",
+    "hrIncluded": "Accès RH inclus (l’administrateur a tous les accès)",
+    "summaryTitle": "Cette personne sera :",
+    "can": {
+      "base": "ses congés, le calendrier et ses évaluations",
+      "manager": "manager : valide les congés de son équipe, voit « Mon équipe » et sa vélocité, évalue ses collaborateurs",
+      "hr": "RH : recrutement (offres, candidats, entretiens) et campagnes d’évaluation (choix des collègues, conclusions)",
+      "admin": "administrateur : tout, y compris les personnes, les équipes, les factures et les réglages (accès RH inclus)"
+    }
   }
 }

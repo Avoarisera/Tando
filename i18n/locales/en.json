@@ -1162,7 +1162,7 @@
     },
     "hr": {
       "access": "HR access",
-      "hint": "Gives access to recruitment (and soon evaluations), without invoices or settings.",
+      "hint": "Gives access to recruitment and review campaigns, without invoices or settings. Combines with Employee or Manager.",
       "badge": "HR"
     },
     "list": {
@@ -1845,5 +1845,16 @@
     "panelTitle": "Colleagues of {who}",
     "panelHint": "They give anonymous feedback. Neither the person nor their manager sees this list.",
     "step": "Choose everyone’s colleagues"
+  },
+  "tnd34": {
+    "hrAccess": "HR access (on top of the role)",
+    "hrIncluded": "HR access included (the administrator has every access)",
+    "summaryTitle": "This person will be:",
+    "can": {
+      "base": "their leave, the calendar and their reviews",
+      "manager": "manager: approves their team’s leave, sees “My team” and its velocity, reviews their reports",
+      "hr": "HR: recruitment (openings, candidates, interviews) and review campaigns (choosing colleagues, conclusions)",
+      "admin": "administrator: everything, including people, teams, invoices and settings (HR access included)"
+    }
   }
 }

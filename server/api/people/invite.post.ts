@@ -10,6 +10,7 @@ interface InviteBody {
   team_id?: unknown
   country?: unknown
   joined_at?: unknown
+  is_hr?: unknown
 }
 
 const ROLES = ['employee', 'manager', 'admin'] as const
@@ -43,7 +44,7 @@ export default defineEventHandler(async (event) => {
   if (!country) throw createError({ statusCode: 400, statusMessage: 'Pays invalide' })
 
   const userId = await invitePerson(supabase, siteUrl(event), {
-    email, firstName, lastName, role, teamId, country, joinedAt,
+    email, firstName, lastName, role, teamId, country, joinedAt, isHr: body?.is_hr === true,
   })
 
   return { id: userId }

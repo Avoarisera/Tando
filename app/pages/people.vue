@@ -96,6 +96,15 @@ const rows = computed(() => {
 const ROLE_TONE = { employee: 'neutral', manager: 'info', admin: 'indigo' } as const
 const toast = useToast()
 const countries = computed(() => countryOptions(tag.value))
+// plain-language summary of what the chosen role(s) give (TND-34)
+const rolesLabel = computed(() => (form.role === 'admin' ? t('roles.admin') : [t(`roles.${form.role}`), ...(form.is_hr ? [t('tnd30.hr.badge')] : [])].join(' + ')))
+const rolesLines = computed(() => {
+  if (form.role === 'admin') return [t('tnd34.can.admin')]
+  const out = [t('tnd34.can.base')]
+  if (form.role === 'manager') out.push(t('tnd34.can.manager'))
+  if (form.is_hr) out.push(t('tnd34.can.hr'))
+  return out
+})
 const roleChoices = computed(() => (['employee', 'manager', 'admin'] as const).map(r => ({ value: r, label: t(`roles.${r}`) })))
 const teamChoices = computed(() => [{ value: '', label: t('r8a.people.noTeam') }, ...teams.value.map(x => ({ value: x.id, label: x.name }))])
 
@@ -140,7 +149,7 @@ async function savePerson() {
       await $fetch('/api/people/invite', {
         method: 'POST',
         headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
-        body: { email: form.email, first_name: form.first_name, last_name: form.last_name, role: form.role, team_id: form.team_id || null, country: form.country, joined_at: form.joined_at },
+        body: { email: form.email, first_name: form.first_name, last_name: form.last_name, role: form.role, team_id: form.team_id || null, country: form.country, joined_at: form.joined_at, is_hr: form.role !== 'admin' && form.is_hr },
       })
       toast.add(t('r8a.people.invited', { email: form.email.trim() }))
     }
@@ -295,7 +304,7 @@ const teamsPager = usePagination(computed(() => teamCards.value))
               <tr v-for="p in rowsPager.items.value" :key="p.id" :data-person="fullName(p)">
                 <td><span class="wb-cp"><WbAvatar :name="fullName(p)" :size="28" /><b class="small">{{ fullName(p) }}</b></span></td>
                 <td>{{ teamName(p.team_id) }}</td>
-                <td><WbBadge :tone="ROLE_TONE[p.role]">{{ t(`roles.${p.role}`) }}</WbBadge><WbBadge v-if="p.is_hr && p.role !== 'admin'" tone="indigo" size="sm" class="wb-hr-b">{{ t('tnd30.hr.badge') }}</WbBadge></td>
+                <td><WbBadge :tone="ROLE_TONE[p.role]">{{ t(`roles.${p.role}`) }}</WbBadge><WbBadge v-if="p.is_hr && p.role !== 'admin'" tone="indigo" size="sm" class="wb-hr-b" :title="t('tnd34.can.hr')">+ {{ t('tnd30.hr.badge') }}</WbBadge></td>
                 <td>{{ countryName(p.country, tag) }}</td>
                 <td class="wb-num">{{ fmtDate(p.joined_at, tag, { day: '2-digit', month: '2-digit', year: 'numeric' }) }}</td>
                 <td>
@@ -361,9 +370,15 @@ const teamsPager = usePagination(computed(() => teamCards.value))
           <WbSelect id="person-country" v-model="form.country" :label="t('r8a.people.country')" :options="countries" :hint="t('r8a.people.countryHint')" />
           <WbInput id="person-joined" v-model="form.joined_at" type="date" :label="t('people.joined')" />
         </div>
-        <div v-if="panel === 'edit' && form.role !== 'admin'" class="wb-stack-s">
-          <WbCheckbox v-model="form.is_hr" :label="t('tnd30.hr.access')" />
+        <!-- what the person gets: main role + HR access (TND-34) -->
+        <div class="wb-stack-s wb-roles" data-section="roles">
+          <WbCheckbox v-if="form.role !== 'admin'" v-model="form.is_hr" :label="t('tnd34.hrAccess')" data-field="is-hr" />
+          <WbCheckbox v-else :model-value="true" disabled :label="t('tnd34.hrIncluded')" />
           <p class="caption wb-mut">{{ t('tnd30.hr.hint') }}</p>
+          <div class="wb-roles-sum small" data-roles-summary>
+            <b>{{ t('tnd34.summaryTitle') }}</b> {{ rolesLabel }}
+            <ul><li v-for="(line, i) in rolesLines" :key="i">{{ line }}</li></ul>
+          </div>
         </div>
         <WbSelect v-if="panel === 'edit' && linearUsers.length" id="person-linear" v-model="form.linear_user_id" :label="t('tnd26.linearUser')" :options="linearUserChoices" :hint="t('tnd26.linearUserHint')" />
         <div class="wb-panel-f">
@@ -425,6 +440,8 @@ const teamsPager = usePagination(computed(() => teamCards.value))
 </template>
 
 <style scoped>
+.wb-roles-sum { padding: var(--space-3); border-radius: var(--radius-md); background: var(--brand-tint); }
+.wb-roles-sum ul { margin: 6px 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 2px; }
 /* Toolbar row: filters on the left, primary action on the right */
 .wb-adm-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); }
 .wb-adm-f { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); flex: 1; min-width: 0; }
