@@ -16,6 +16,33 @@ export interface ApplicationRow {
   candidates: { id: string, first_name: string, last_name: string, email: string, phone: string | null, linkedin_url: string | null } | null
   application_files: { id: string, kind: 'cv' | 'cover_letter', file_name: string, mime_type: string, size_bytes: number }[]
 }
+export interface Interview {
+  id: string
+  stage_key: string
+  starts_at: string
+  duration_min: number
+  location: string
+  video_url: string | null
+  notes: string
+  status: 'scheduled' | 'done' | 'cancelled'
+  interview_participants: { profile_id: string, profiles: { first_name: string, last_name: string } | null }[]
+}
+export type Recommendation = 'strong_yes' | 'yes' | 'no' | 'strong_no'
+export interface Scorecard {
+  id: string
+  application_id: string
+  author_id: string
+  stage_key: string
+  ratings: Record<string, number>
+  comments: Record<string, string>
+  summary: string
+  recommendation: Recommendation | null
+  submitted_at: string | null
+  updated_at: string
+  profiles: { first_name: string, last_name: string } | null
+}
+export interface EmailTemplate { key: 'acknowledgement' | 'rejection' | 'invitation' | 'offer', subject: string, body: string }
+
 export interface ApplicationEvent { id: number, kind: string, data: Record<string, unknown>, created_at: string, actor_id: string | null, profiles: { first_name: string, last_name: string } | null }
 
 /** TND-30 — recruitment data (RLS: recruiters see everything, hiring managers their openings) */
@@ -80,7 +107,50 @@ export function useRecruitment() {
   const restore = (id: string) => authFetch<{ ok: true }>(`/api/recruiting/applications/${id}/restore`, { method: 'POST' })
   const fileUrl = (id: string, download = false) => authFetch<{ url: string, name: string }>(`/api/recruiting/files/${id}${download ? '?download=1' : ''}`)
 
-  return { listOpenings, getOpening, saveOpening, listApplications, listEvents, addNote, moveStage, reject, restore, fileUrl }
+  // ── Lot 2: interviews, scorecards, e-mails, hire ─────────────────────────
+  async function listInterviews(applicationId: string) {
+    const { data, error } = await supabase.from('interviews')
+      .select('id, stage_key, starts_at, duration_min, location, video_url, notes, status, interview_participants (profile_id, profiles (first_name, last_name))')
+      .eq('application_id', applicationId).order('starts_at')
+    if (error) throw new Error(errorMessage(error))
+    return (data ?? []) as unknown as Interview[]
+  }
+  const planInterview = (applicationId: string, body: Record<string, unknown>) => authFetch<{ id: string, emailed: boolean | null }>(`/api/recruiting/applications/${applicationId}/interviews`, { method: 'POST', body })
+  const cancelInterview = (id: string) => authFetch<{ ok: true }>(`/api/recruiting/interviews/${id}/cancel`, { method: 'POST' })
+
+  async function listScorecards(applicationId: string) {
+    const { data, error } = await supabase.from('scorecards')
+      .select('*, profiles:author_id (first_name, last_name)').eq('application_id', applicationId).order('submitted_at', { ascending: true, nullsFirst: false })
+    if (error) throw new Error(errorMessage(error))
+    return (data ?? []) as unknown as Scorecard[]
+  }
+  async function saveScorecard(card: Partial<Scorecard> & { application_id: string, author_id: string, stage_key: string }) {
+    const row = { application_id: card.application_id, author_id: card.author_id, stage_key: card.stage_key, ratings: card.ratings ?? {}, comments: card.comments ?? {}, summary: card.summary ?? '', recommendation: card.recommendation ?? null, submitted_at: card.submitted_at ?? null }
+    const { error } = card.id
+      ? await supabase.from('scorecards').update(row).eq('id', card.id)
+      : await supabase.from('scorecards').insert(row)
+    if (error) throw new Error(errorMessage(error))
+  }
+
+  async function listTemplates() {
+    const { data, error } = await supabase.from('email_templates').select('key, subject, body').order('key')
+    if (error) throw new Error(errorMessage(error))
+    return (data ?? []) as EmailTemplate[]
+  }
+  async function saveTemplate(t: EmailTemplate) {
+    const { error } = await supabase.from('email_templates').update({ subject: t.subject, body: t.body, updated_at: new Date().toISOString() }).eq('key', t.key)
+    if (error) throw new Error(errorMessage(error))
+  }
+  const sendEmail = (applicationId: string, body: { subject: string, text: string, template: string }) => authFetch<{ sent: boolean, reason: string | null }>(`/api/recruiting/applications/${applicationId}/email`, { method: 'POST', body })
+  const hire = (applicationId: string, body: Record<string, unknown>) => authFetch<{ id: string }>(`/api/recruiting/applications/${applicationId}/hire`, { method: 'POST', body })
+
+  return { listOpenings, getOpening, saveOpening, listApplications, listEvents, addNote, moveStage, reject, restore, fileUrl,
+    listInterviews, planInterview, cancelInterview, listScorecards, saveScorecard, listTemplates, saveTemplate, sendEmail, hire }
 }
 
 export const stageLabel = (stages: Stage[], key: string) => stages.find(s => s.key === key)?.label ?? key
+
+/** Same variables as the server ({prenom} {poste}…): preview and prefill of an e-mail */
+export function fillTemplate(text: string, vars: Record<string, string>): string {
+  return text.replace(/\{(prenom|nom|poste|entreprise|date|lieu|lien_suivi)\}/g, (m, k: string) => vars[k] ?? m).replace(/\n{3,}/g, '\n\n')
+}

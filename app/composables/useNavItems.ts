@@ -45,7 +45,7 @@ export function navSectionsFor(role: Role, opts: { withVelocity?: boolean, recru
     // recruitment: admins, HR access, or a manager who recruits on an opening (TND-30)
     || (k === 'recruitment' && role !== 'admin' && !opts.recruiter && !opts.hiringManager)
   // HR access on an employee or manager: the Talents section is added to their own menu
-  const base = NAV[role].some(([key]) => key === 'talent') || !opts.recruiter ? NAV[role] : [...NAV[role], ['talent', ['recruitment']] as [NavSection['key'], NavKey[]]]
+  const base = NAV[role].some(([key]) => key === 'talent') || !(opts.recruiter || opts.hiringManager) ? NAV[role] : [...NAV[role], ['talent', ['recruitment']] as [NavSection['key'], NavKey[]]]
   return base
     .map(([key, keys]) => ({ key, items: keys.filter(k => !hidden(k)).map(k => ITEMS[k]) }))
     .filter(s => s.items.length > 0)
@@ -66,14 +66,17 @@ export function useNavItems() {
   if (import.meta.client) {
     watch(role, (r) => { if (r === 'manager' && !velocityLoaded.value) fetchVelocityTeams().catch(() => undefined) }, { immediate: true })
   }
-  // a manager sees Recrutement when they are the hiring manager of an opening
+  // Recrutement also shows for a hiring manager, and for anyone invited to an interview
   const supabase = useSupabaseClient()
   const hiringManager = useState<boolean>('nav-hiring-manager', () => false)
   if (import.meta.client) {
     watch(() => profile.value?.id, async (id) => {
-      if (!id || role.value !== 'manager') return
-      const { count } = await supabase.from('job_openings').select('id', { count: 'exact', head: true }).eq('hiring_manager_id', id)
-      hiringManager.value = (count ?? 0) > 0
+      if (!id || role.value === 'admin') return
+      const [{ count: openings }, { count: interviews }] = await Promise.all([
+        supabase.from('job_openings').select('id', { count: 'exact', head: true }).eq('hiring_manager_id', id),
+        supabase.from('interview_participants').select('interview_id', { count: 'exact', head: true }).eq('profile_id', id),
+      ])
+      hiringManager.value = (openings ?? 0) + (interviews ?? 0) > 0
     }, { immediate: true })
   }
   const recruiter = computed(() => role.value === 'admin' || profile.value?.is_hr === true)

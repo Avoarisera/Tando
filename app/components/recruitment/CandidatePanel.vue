@@ -7,25 +7,29 @@ import type { Opening } from '~/utils/recruitment'
  * activity feed with internal notes, stage change, decline (internal reason +
  * optional polite e-mail), reopen.
  */
-const props = defineProps<{ app: ApplicationRow, opening: Opening }>()
+/** canManage: HR or the hiring manager (stage, decline, e-mail, interviews); an invited interviewer only reads and scores */
+const props = defineProps<{ app: ApplicationRow, opening: Opening, canManage: boolean }>()
 const emit = defineEmits<{ close: [], changed: [] }>()
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const toast = useToast()
 const { profile, isRecruiter } = useCurrentUser()
-const { listEvents, addNote, moveStage, reject, restore, fileUrl } = useRecruitment()
+const { listEvents, addNote, moveStage, reject, restore, fileUrl, listTemplates, sendEmail, hire } = useRecruitment()
+const { teams, fetchTeams } = useTeams()
 
 const c = computed(() => props.app.candidates)
 const name = computed(() => (c.value ? `${c.value.first_name} ${c.value.last_name}` : '—'))
 const cv = computed(() => props.app.application_files.find(f => f.kind === 'cv') ?? null)
 const letterFile = computed(() => props.app.application_files.find(f => f.kind === 'cover_letter') ?? null)
 
-type Tab = 'cv' | 'letter' | 'answers' | 'activity'
+type Tab = 'cv' | 'letter' | 'answers' | 'scorecards' | 'interviews' | 'activity'
 const tab = ref<Tab>('cv')
 const tabs = computed(() => [
   { id: 'cv', label: t('tnd30.panel.cv') },
   ...(props.app.cover_letter_text || letterFile.value ? [{ id: 'letter', label: t('tnd30.panel.letter') }] : []),
   ...(props.opening.questions.length ? [{ id: 'answers', label: t('tnd30.panel.answers') }] : []),
+  { id: 'scorecards', label: t('tnd30.panel.scorecards') },
+  { id: 'interviews', label: t('tnd30.panel.interviews') },
   { id: 'activity', label: t('tnd30.panel.activity'), count: events.value.filter(e => e.kind === 'note').length || undefined },
 ])
 
@@ -76,6 +80,10 @@ function eventText(e: ApplicationEvent): string {
     case 'restored': return t('tnd30.event.restored')
     case 'email': return d.sent ? t(`tnd30.event.email.${d.template}`) : t('tnd30.event.emailNotSent', { what: t(`tnd30.event.emailName.${d.template}`) })
     case 'note': return String(d.text ?? '')
+    case 'interview': return d.cancelled ? t('tnd30.event.interviewCancelled') : t('tnd30.event.interview', { stage: stageLabel(props.opening.stages, String(d.stage)), date: d.starts_at ? fmtTime(String(d.starts_at)) : '' })
+    case 'scorecard': return t('tnd30.event.scorecard', { stage: stageLabel(props.opening.stages, String(d.stage)), rec: d.recommendation ? t(`tnd30.rec.${d.recommendation}`) : '' })
+    case 'hired': return t('tnd30.event.hired')
+    case 'withdrawn': return t('tnd30.event.withdrawn')
     default: return e.kind
   }
 }
@@ -96,14 +104,14 @@ const stage = computed({
 })
 const declining = ref(false)
 const reason = ref('')
-const sendEmail = ref(true)
+const sendRejection = ref(true)
 const reasonError = ref<string | null>(null)
 async function confirmDecline() {
   if (!reason.value.trim()) { reasonError.value = t('tnd30.panel.reasonRequired'); return }
   busy.value = true
   try {
-    const r = await reject(props.app.id, reason.value.trim(), sendEmail.value)
-    toast.add(sendEmail.value && !r.emailed ? t('tnd30.panel.declinedNoMail') : t('tnd30.panel.declined', { who: c.value?.first_name ?? '' }))
+    const r = await reject(props.app.id, reason.value.trim(), sendRejection.value)
+    toast.add(sendRejection.value && !r.emailed ? t('tnd30.panel.declinedNoMail') : t('tnd30.panel.declined', { who: c.value?.first_name ?? '' }))
     declining.value = false
     emit('changed')
     await loadEvents()
@@ -117,6 +125,67 @@ async function reopen() {
   catch (e) { toast.add(errorMessage(e), 'error') }
   finally { busy.value = false }
 }
+// ── E-mail to the candidate (from a template, editable) ─────────────────────
+const composing = ref(false)
+const mail = reactive({ template: 'invitation', subject: '', text: '' })
+const templates = ref<{ key: string, subject: string, body: string }[]>([])
+const mailVars = computed(() => ({ prenom: c.value?.first_name ?? '', nom: c.value?.last_name ?? '', poste: props.opening.title, entreprise: '', date: '', lieu: '' }))
+async function openMail() {
+  composing.value = true
+  try { templates.value = await listTemplates() }
+  catch { templates.value = [] }
+  applyTemplate()
+}
+function applyTemplate() {
+  const tpl = templates.value.find(x => x.key === mail.template)
+  mail.subject = tpl ? fillTemplate(tpl.subject, mailVars.value) : ''
+  mail.text = tpl ? fillTemplate(tpl.body, mailVars.value) : ''
+}
+watch(() => mail.template, applyTemplate)
+const mailTemplates = computed(() => [
+  { value: 'invitation', label: t('tnd30.tpl.invitation') }, { value: 'offer', label: t('tnd30.tpl.offer') }, { value: 'custom', label: t('tnd30.tpl.custom') },
+])
+const mailError = ref<string | null>(null)
+async function send() {
+  mailError.value = null
+  if (!mail.subject.trim() || !mail.text.trim()) { mailError.value = t('tnd30.mail.required'); return }
+  if (/\{(prenom|nom|poste|entreprise|date|lieu)\}/.test(mail.text + mail.subject)) { mailError.value = t('tnd30.mail.unfilled'); return }
+  busy.value = true
+  try {
+    const r = await sendEmail(props.app.id, { subject: mail.subject.trim(), text: mail.text.trim(), template: mail.template })
+    toast.add(r.sent ? t('tnd30.mail.sent', { email: c.value?.email ?? '' }) : t('tnd30.mail.notSent'), r.sent ? undefined : 'error')
+    composing.value = false
+    await loadEvents()
+  }
+  catch (e) { mailError.value = errorMessage(e) }
+  finally { busy.value = false }
+}
+
+// ── Hire: creates the employee account ──────────────────────────────────────
+const hiring = ref(false)
+const hireForm = reactive({ team_id: props.opening.team_id ?? '', role: 'employee', joined_at: todayIso(), country: 'FR' })
+const hireError = ref<string | null>(null)
+const teamChoices = computed(() => [{ value: '', label: t('r8a.people.noTeam') }, ...teams.value.map(x => ({ value: x.id, label: x.name }))])
+const roleChoices = computed(() => [{ value: 'employee', label: t('roles.employee') }, { value: 'manager', label: t('roles.manager') }])
+const countryChoices = computed(() => countryOptions(tag.value))
+async function openHire() { hiring.value = true; hireError.value = null; fetchTeams() }
+async function confirmHire() {
+  hireError.value = null
+  busy.value = true
+  try {
+    await hire(props.app.id, { team_id: hireForm.team_id || null, role: hireForm.role, joined_at: hireForm.joined_at, country: hireForm.country })
+    toast.add(t('tnd30.hire.done', { who: c.value?.first_name ?? '', email: c.value?.email ?? '' }))
+    hiring.value = false
+    emit('changed')
+    await loadEvents()
+  }
+  catch (e) {
+    const err = e as { data?: { statusMessage?: string } }
+    hireError.value = err.data?.statusMessage ?? errorMessage(e)
+  }
+  finally { busy.value = false }
+}
+
 const size = (b: number) => (b < 1024 * 1024
   ? `${Math.max(1, Math.round(b / 1024)).toLocaleString(tag.value)} Ko`
   : `${(b / 1024 / 1024).toLocaleString(tag.value, { maximumFractionDigits: 1 })} Mo`)
@@ -132,13 +201,21 @@ const purgeIn = computed(() => Math.max(0, Math.round((Date.parse(props.app.purg
         <li v-if="c?.linkedin_url"><WbIcon name="external-link" :size="14" /><a :href="c.linkedin_url" target="_blank" rel="noopener noreferrer">{{ t('tnd30.panel.profileLink') }}</a></li>
       </ul>
       <div class="wb-cp-act">
-        <template v-if="app.status === 'rejected'">
-          <WbBadge tone="danger" size="sm">{{ t('tnd30.appStatus.rejected') }}</WbBadge>
-          <WbButton variant="secondary" size="sm" icon="rotate-ccw" :loading="busy" @click="reopen">{{ t('tnd30.panel.reopen') }}</WbButton>
+        <template v-if="!canManage">
+          <WbBadge size="sm">{{ stageLabel(opening.stages, app.stage) }}</WbBadge>
+        </template>
+        <template v-else-if="app.status === 'rejected' || app.status === 'withdrawn'">
+          <WbBadge tone="danger" size="sm">{{ t(`tnd30.appStatus.${app.status}`) }}</WbBadge>
+          <WbButton v-if="app.status === 'rejected'" variant="secondary" size="sm" icon="rotate-ccw" :loading="busy" @click="reopen">{{ t('tnd30.panel.reopen') }}</WbButton>
+        </template>
+        <template v-else-if="app.status === 'hired'">
+          <WbBadge tone="success" size="sm" icon="circle-check">{{ t('tnd30.appStatus.hired') }}</WbBadge>
         </template>
         <template v-else>
           <WbSelect v-model="stage" :options="stageOptions" :aria-label="t('tnd30.panel.stage')" :disabled="busy" />
-          <WbButton variant="secondary" size="sm" icon="circle-x" data-action="decline" @click="declining = true; reason = ''; reasonError = null">{{ t('tnd30.panel.decline') }}</WbButton>
+          <WbButton variant="secondary" size="sm" icon="mail" data-action="email" @click="openMail">{{ t('tnd30.mail.button') }}</WbButton>
+          <WbButton v-if="isRecruiter && (app.stage === 'offer' || app.stage === 'hired')" size="sm" icon="user-plus" data-action="hire" @click="openHire">{{ t('tnd30.hire.button') }}</WbButton>
+          <WbButton variant="ghost" size="sm" icon="circle-x" data-action="decline" @click="declining = true; reason = ''; reasonError = null">{{ t('tnd30.panel.decline') }}</WbButton>
         </template>
       </div>
     </div>
@@ -165,6 +242,9 @@ const purgeIn = computed(() => Math.max(0, Math.round((Date.parse(props.app.purg
       </template>
     </section>
 
+    <ScorecardsTab v-else-if="tab === 'scorecards'" :app="app" :opening="opening" />
+    <InterviewsTab v-else-if="tab === 'interviews'" :app="app" :opening="opening" :can-manage="canManage" @changed="loadEvents" />
+
     <section v-else-if="tab === 'answers'" class="wb-stack-s">
       <div v-for="q in opening.questions" :key="q.id" class="wb-cp-qa">
         <p class="small wb-mut2">{{ q.label }}</p>
@@ -187,9 +267,34 @@ const purgeIn = computed(() => Math.max(0, Math.round((Date.parse(props.app.purg
 
     <p class="caption wb-mut wb-cp-rgpd">{{ t('tnd30.panel.purge', { n: purgeIn }, purgeIn) }}<template v-if="app.consent_pool"> · {{ t('tnd30.panel.pool') }}</template></p>
 
+    <WbModal v-if="composing" :title="t('tnd30.mail.title', { who: name })" :description="t('tnd30.mail.text', { email: c?.email ?? '' })" @close="composing = false">
+      <WbBanner v-if="mailError" tone="danger">{{ mailError }}</WbBanner>
+      <WbSelect id="mail-tpl" v-model="mail.template" :label="t('tnd30.mail.template')" :options="mailTemplates" />
+      <WbInput id="mail-subject" v-model="mail.subject" :label="t('tnd30.mail.subject')" maxlength="200" />
+      <WbTextarea id="mail-text" v-model="mail.text" :label="t('tnd30.mail.message')" :max="6000" :rows="10" :hint="t('tnd30.mail.hint')" />
+      <template #footer>
+        <WbButton variant="secondary" @click="composing = false">{{ t('approvals.cancel') }}</WbButton>
+        <WbButton icon="send" :loading="busy" data-action="send-email" @click="send">{{ t('tnd30.mail.send') }}</WbButton>
+      </template>
+    </WbModal>
+
+    <WbModal v-if="hiring" :title="t('tnd30.hire.title', { who: name })" :description="t('tnd30.hire.text', { email: c?.email ?? '' })" @close="hiring = false">
+      <WbBanner v-if="hireError" tone="danger">{{ hireError }}</WbBanner>
+      <div class="wb-grid wb-cols-2" style="gap: 16px">
+        <WbSelect id="hire-team" v-model="hireForm.team_id" :label="t('calendar.team')" :options="teamChoices" />
+        <WbSelect id="hire-role" v-model="hireForm.role" :label="t('people.role')" :options="roleChoices" />
+        <WbInput id="hire-date" v-model="hireForm.joined_at" type="date" :label="t('tnd30.hire.start')" />
+        <WbSelect id="hire-country" v-model="hireForm.country" :label="t('r8a.people.country')" :options="countryChoices" />
+      </div>
+      <template #footer>
+        <WbButton variant="secondary" @click="hiring = false">{{ t('approvals.cancel') }}</WbButton>
+        <WbButton icon="user-plus" :loading="busy" data-action="confirm-hire" @click="confirmHire">{{ t('tnd30.hire.confirm') }}</WbButton>
+      </template>
+    </WbModal>
+
     <WbModal v-if="declining" tone="danger" :title="t('tnd30.panel.declineTitle', { who: name })" :description="t('tnd30.panel.declineText')" @close="declining = false">
       <WbTextarea id="cp-reason" v-model="reason" :label="t('tnd30.panel.reasonLabel')" :max="300" :rows="2" :error="reasonError" required />
-      <WbCheckbox v-model="sendEmail" :label="t('tnd30.panel.sendRejection')" />
+      <WbCheckbox v-model="sendRejection" :label="t('tnd30.panel.sendRejection')" />
       <template #footer>
         <WbButton variant="secondary" @click="declining = false">{{ t('approvals.cancel') }}</WbButton>
         <WbButton variant="danger" :loading="busy" data-action="confirm-decline" @click="confirmDecline">{{ t('tnd30.panel.decline') }}</WbButton>

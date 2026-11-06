@@ -9,7 +9,7 @@ export interface RecruiterAccess { supabase: SupabaseClient, user: User, recruit
  * either recruiter rights (admin or HR access) or, when `openingId` is given,
  * being the hiring manager of that opening.
  */
-export async function requireRecruiter(event: H3Event, openingId?: string): Promise<RecruiterAccess> {
+export async function requireRecruiter(event: H3Event, openingId?: string, interviewApplicationId?: string): Promise<RecruiterAccess> {
   const token = getHeader(event, 'authorization')?.replace('Bearer ', '')
   if (!token) throw createError({ statusCode: 401, statusMessage: 'Non authentifié' })
   const supabase = serverSupabaseServiceRole(event)
@@ -21,6 +21,12 @@ export async function requireRecruiter(event: H3Event, openingId?: string): Prom
   if (openingId) {
     const { data: o } = await supabase.from('job_openings').select('id').eq('id', openingId).eq('hiring_manager_id', user.id).maybeSingle()
     if (o) return { supabase, user, recruiter: false }
+  }
+  // read-only access for an interviewer of this application (files)
+  if (interviewApplicationId) {
+    const { data: p } = await supabase.from('interview_participants').select('interview_id, interviews!inner (application_id, status)')
+      .eq('profile_id', user.id).eq('interviews.application_id', interviewApplicationId).neq('interviews.status', 'cancelled').limit(1)
+    if (p?.length) return { supabase, user, recruiter: false }
   }
   throw createError({ statusCode: 403, statusMessage: 'Accès refusé' })
 }

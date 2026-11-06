@@ -750,7 +750,8 @@
       "cancel_requested": "{who} asks to cancel leave ({type}, {period})",
       "cancel_approved": "The cancellation of your {type} leave on {period} is accepted",
       "cancel_refused": "The cancellation of your {type} leave on {period} was declined: it stays booked",
-      "application_received": "{who} applied: {job}"
+      "application_received": "{who} applied: {job}",
+      "interview_scheduled": "Interview with {who} ({job}): {when}"
     },
     "invite": {
       "title": "Join WakaBods",
@@ -1186,7 +1187,8 @@
       "emptyDraft": "Publish the job to receive applications.",
       "hiredRecruiterOnly": "Only HR can mark someone as hired.",
       "today": "today",
-      "daysAgo": "{n} day ago | {n} days ago"
+      "daysAgo": "{n} day ago | {n} days ago",
+      "interviewerHint": "You are invited to an interview: open the file to read the résumé and fill in your scorecard."
     },
     "panel": {
       "cv": "Résumé",
@@ -1215,7 +1217,9 @@
       "declined": "{who}’s application declined",
       "declinedNoMail": "Application declined — the e-mail was not sent (mail service not configured)",
       "purge": "Data deleted in {n} day | Data deleted in {n} days (GDPR)",
-      "pool": "agreed to the talent pool"
+      "pool": "agreed to the talent pool",
+      "scorecards": "Scorecards",
+      "interviews": "Interviews"
     },
     "event": {
       "submitted": "Application received",
@@ -1224,13 +1228,24 @@
       "restored": "Application reopened",
       "email": {
         "acknowledgement": "Acknowledgement e-mail sent",
-        "rejection": "Rejection e-mail sent"
+        "rejection": "Rejection e-mail sent",
+        "invitation": "Invitation e-mail sent",
+        "offer": "Offer e-mail sent",
+        "custom": "E-mail sent"
       },
       "emailNotSent": "{what} not sent (mail service not configured)",
       "emailName": {
         "acknowledgement": "Acknowledgement e-mail",
-        "rejection": "Rejection e-mail"
-      }
+        "rejection": "Rejection e-mail",
+        "invitation": "Invitation e-mail",
+        "offer": "Offer e-mail",
+        "custom": "E-mail"
+      },
+      "interview": "Interview planned ({stage}): {date}",
+      "interviewCancelled": "Interview cancelled",
+      "scorecard": "Scorecard sent ({stage}): {rec}",
+      "hired": "Hired: WakaBods account created",
+      "withdrawn": "The candidate withdrew the application"
     },
     "editor": {
       "post": "The job",
@@ -1262,7 +1277,142 @@
       "published": "Job published on the careers page",
       "titleRequired": "The job title is required (3 characters at least).",
       "salaryOrder": "The minimum salary is above the maximum.",
-      "salaryRequired": "Enter a salary range before publishing."
+      "salaryRequired": "Enter a salary range before publishing.",
+      "criteria": "Scorecard",
+      "criteriaHint": "Criteria every interviewer rates from 1 to 4 (6 at most). The same for all: that is what makes opinions comparable.",
+      "criterion": "Criterion {n}",
+      "addCriterion": "Add a criterion"
+    },
+    "rec": {
+      "strong_yes": "Strong yes",
+      "yes": "Yes",
+      "no": "No",
+      "strong_no": "Strong no"
+    },
+    "score": {
+      "noCriteria": "No criteria for this job: add some in the Job tab (Scorecard).",
+      "synthesis": "Summary of {n} scorecard | Summary of {n} scorecards",
+      "mine": "My scorecard",
+      "lockedOn": "Scorecard sent on {date}: it can no longer be changed.",
+      "missing": "Rate the remaining criterion. | Rate the {n} remaining criteria.",
+      "needRec": "Pick a recommendation.",
+      "submitted": "Scorecard sent",
+      "saved": "Draft saved",
+      "level": {
+        "1": "Weak",
+        "2": "Unsure",
+        "3": "Good",
+        "4": "Excellent"
+      },
+      "comment": "Comment on {c}",
+      "commentPh": "An observed fact, an example (optional)",
+      "summary": "Summary",
+      "summaryHint": "What stood out, with concrete examples.",
+      "recommendation": "Recommendation",
+      "saveDraft": "Save draft",
+      "submit": "Send my scorecard",
+      "submitHint": "Once sent, you will see the others’.",
+      "others": "Others’ scorecards",
+      "noOthers": "Nobody else has sent a scorecard yet.",
+      "hiddenUntil": "Others’ scorecards show once yours is sent, for an independent opinion."
+    },
+    "itv": {
+      "plan": "Plan an interview",
+      "when": "Date and time",
+      "duration": "Length",
+      "minutes": "{n} min",
+      "location": "Place",
+      "locationPh": "E.g. Office, room 2",
+      "video": "Video link (optional)",
+      "people": "Interviewers ({n})",
+      "peopleHint": "They will see this candidate only, and can fill in their scorecard.",
+      "notes": "Note to interviewers",
+      "notesHint": "Points to explore, context (not sent to the candidate).",
+      "notify": "E-mail the invitation to the candidate",
+      "save": "Plan",
+      "needPeople": "Add at least one interviewer.",
+      "badLink": "The video link must start with https://",
+      "planned": "Interview planned",
+      "plannedNoMail": "Interview planned — the e-mail to the candidate was not sent (mail service not configured)",
+      "none": "No interview planned.",
+      "join": "Join the call",
+      "cancel": "Cancel",
+      "cancelled": "cancelled"
+    },
+    "tpl": {
+      "title": "E-mail templates",
+      "hint": "Messages sent to candidates. Variables are replaced when sending.",
+      "acknowledgement": "Acknowledgement",
+      "invitation": "Interview invitation",
+      "offer": "Offer",
+      "rejection": "Rejection",
+      "custom": "Free message",
+      "vars": "Variables:",
+      "preview": "Preview with an example",
+      "saved": "Template saved"
+    },
+    "mail": {
+      "button": "E-mail",
+      "title": "Write to {who}",
+      "text": "The message goes to {email}, with the GDPR note at the bottom.",
+      "template": "Template",
+      "subject": "Subject",
+      "message": "Message",
+      "hint": "Read it and complete it before sending (date, place…).",
+      "send": "Send",
+      "required": "Subject and message are required.",
+      "unfilled": "A variable is not filled in (between braces): complete the message.",
+      "sent": "E-mail sent to {email}",
+      "notSent": "E-mail not sent: the mail service is not configured."
+    },
+    "hire": {
+      "button": "Hire",
+      "title": "Hire {who}?",
+      "text": "A WakaBods account is created and an invitation goes to {email}. The application moves to “Hired”.",
+      "start": "Start date",
+      "confirm": "Create the account",
+      "done": "{who} joins the team: invitation sent to {email}"
+    },
+    "track": {
+      "title": "Application follow-up",
+      "follow": "Follow my application",
+      "keepLink": "Keep this link: it is also in the confirmation e-mail.",
+      "hello": "Hello {name},",
+      "applied": "Application sent on {date}",
+      "step": {
+        "received": "Application received",
+        "review": "Under review",
+        "interviews": "Interviews",
+        "offer": "Decision"
+      },
+      "stepHint": {
+        "received": "We received it.",
+        "review": "We are reading your application carefully.",
+        "interviews": "You meet the team.",
+        "offer": "We get back to you very soon."
+      },
+      "end": {
+        "closed": "We did not move forward for this job. Thank you for your interest in {company}.",
+        "withdrawn": "You withdrew your application.",
+        "hired": "Welcome to {company}!"
+      },
+      "myData": "My data",
+      "myDataText": "You can withdraw your application, or delete your data for good (résumé, letter, answers).",
+      "withdraw": "Withdraw my application",
+      "erase": "Delete my data",
+      "seeJob": "See the job again",
+      "confirm": {
+        "withdraw": "Withdraw your application?",
+        "erase": "Delete your data?"
+      },
+      "confirmText": {
+        "withdraw": "The team will be told you no longer wish to go on.",
+        "erase": "Your application, résumé and answers are deleted for good. This link will stop working."
+      },
+      "erasedTitle": "Your data is deleted",
+      "erasedText": "We keep nothing of this application.",
+      "invalidTitle": "Invalid link",
+      "invalidText": "This follow-up link does not exist or the application was deleted."
     }
   }
 }

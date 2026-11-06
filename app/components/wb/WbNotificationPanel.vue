@@ -16,12 +16,13 @@ const STYLE: Record<NotificationKind, [string, string]> = {
   cancel_approved: ['ban', 'neutral'],
   cancel_refused: ['circle-alert', 'warning'],
   application_received: ['user-plus', 'info'],
+  interview_scheduled: ['calendar-days', 'indigo'],
 }
 
 function text(n: AppNotification) {
   const d = n.data
   const period = d.start_date && d.end_date ? formatPeriod(d.start_date, d.end_date, tag.value) : ''
-  return t(`r8a.notif.${n.kind}`, { who: `${d.first_name ?? ''} ${d.last_name ?? ''}`.trim(), type: d.type ?? '', period, job: d.job ?? '' })
+  return t(`r8a.notif.${n.kind}`, { who: `${d.first_name ?? ''} ${d.last_name ?? ''}`.trim(), type: d.type ?? '', period, job: d.job ?? '', when: d.starts_at ? new Intl.DateTimeFormat(tag.value, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(d.starts_at)) : '' })
 }
 
 const today = todayIso()

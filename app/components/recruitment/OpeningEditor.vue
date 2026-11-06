@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Opening, OpeningQuestion, OpeningStatus } from '~/utils/recruitment'
+import type { Criterion, Opening, OpeningQuestion, OpeningStatus } from '~/utils/recruitment'
 import { DEFAULT_STAGES } from '~/utils/recruitment'
 
 /**
@@ -37,6 +37,14 @@ const form = reactive({
   cover_letter: o?.cover_letter ?? 'optional',
 })
 const questions = ref<OpeningQuestion[]>([...(o?.questions ?? [])])
+// scorecard criteria (TND-30 lot 2): what interviewers rate from 1 to 4
+const criteria = ref<Criterion[]>(o?.criteria?.length ? [...o.criteria] : [
+  { id: 'c1', label: 'Compétences techniques' }, { id: 'c2', label: 'Communication' }, { id: 'c3', label: 'Motivation pour le poste' },
+])
+function addCriterion() {
+  if (criteria.value.length >= 6) return
+  criteria.value.push({ id: `c${Date.now().toString(36)}`, label: '' })
+}
 const slugTouched = ref(!!o?.slug)
 watch(() => form.title, (v) => { if (!slugTouched.value) form.slug = slugify(v) })
 
@@ -79,6 +87,7 @@ async function save(status?: OpeningStatus) {
       summary: form.summary.trim(), missions: form.missions.trim(), profile: form.profile.trim(), benefits: form.benefits.trim(),
       process_steps: form.process.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8),
       questions: qs, cover_letter: form.cover_letter,
+      criteria: criteria.value.map(c => ({ ...c, label: c.label.trim() })).filter(c => c.label).slice(0, 6),
       ...(status ? { status } : {}),
       ...(status === 'published' && !o?.published_at ? { published_at: new Date().toISOString() } : {}),
       ...(!o ? { stages: DEFAULT_STAGES, created_by: profile.value?.id ?? null } : {}),
@@ -142,6 +151,19 @@ async function save(status?: OpeningStatus) {
             <WbButton variant="ghost" size="sm" icon="x" icon-only @click="questions.splice(i, 1)">{{ t('tnd30.editor.remove') }}</WbButton>
           </div>
           <div><WbButton v-if="questions.length < 3" variant="secondary" size="sm" icon="plus" @click="addQuestion">{{ t('tnd30.editor.addQuestion') }}</WbButton></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wb-card wb-oe-s">
+      <header><h2 class="h3">{{ t('tnd30.editor.criteria') }}</h2><p class="small wb-mut">{{ t('tnd30.editor.criteriaHint') }}</p></header>
+      <div class="wb-oe-f">
+        <div class="wb-oe-wide wb-stack-s">
+          <div v-for="(c, i) in criteria" :key="c.id" class="wb-row wb-oe-q">
+            <WbInput :id="`op-c-${i}`" v-model="c.label" class="wb-grow" :aria-label="t('tnd30.editor.criterion', { n: i + 1 })" maxlength="80" />
+            <WbButton variant="ghost" size="sm" icon="x" icon-only @click="criteria.splice(i, 1)">{{ t('tnd30.editor.remove') }}</WbButton>
+          </div>
+          <div><WbButton v-if="criteria.length < 6" variant="secondary" size="sm" icon="plus" @click="addCriterion">{{ t('tnd30.editor.addCriterion') }}</WbButton></div>
         </div>
       </div>
     </section>

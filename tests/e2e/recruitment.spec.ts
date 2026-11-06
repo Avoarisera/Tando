@@ -10,6 +10,7 @@ import { test, expect, type Page } from '@playwright/test'
 const ACCOUNTS = {
   admin:     { email: 'admin@waka.com',     password: 'Waka2026!' },
   employee1: { email: 'employee1@waka.com', password: 'Waka2026!' },
+  employee2: { email: 'employee2@waka.com', password: 'Waka2026!' },
 }
 const RUN = Date.now().toString(36)
 const TITLE = `Testeur QA ${RUN}`
@@ -127,5 +128,87 @@ test.describe.serial('TND-30 — Recrutement', () => {
     await page.goto('/carrieres/offre-qui-n-existe-pas')
     await expect(page.getByText('Cette offre n’est plus disponible')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Toutes les offres' })).toBeVisible()
+  })
+
+  // ── Lot 2 ────────────────────────────────────────────────────────────────
+  let track = ''
+  test('T-TND30-007: a second candidate applies; the follow-up link shows coarse progress', async ({ request, browser }) => {
+    const res = await request.post(`/api/careers/${SLUG}/apply`, { multipart: {
+      first_name: 'Lina', last_name: `Lot2${RUN}`, email: `lina.${RUN}@example.com`, consent: 'true', answers: '{}',
+      cv: { name: 'CV Lina.pdf', mimeType: 'application/pdf', buffer: PDF } } })
+    expect(res.status()).toBe(200)
+    track = (await res.json()).track
+    const visitor = await browser.newContext()
+    const page = await visitor.newPage()
+    await page.goto(`/carrieres/suivi/${track}`)
+    await expect(page.getByText('Candidature reçue')).toBeVisible()
+    await expect(page.getByText(TITLE)).toBeVisible()
+    await visitor.close()
+  })
+
+  test('T-TND30-008: HR plans an interview with an employee as interviewer', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin, '/recrutement')
+    await page.locator(`a[data-opening="${TITLE}"]`).click()
+    await page.locator('.wb-pp-card', { hasText: `Lot2${RUN}` }).click()
+    const panel = page.locator('.wb-panel')
+    await panel.getByRole('tab', { name: 'Entretiens' }).click()
+    await panel.locator('[data-action="plan-interview"]').click()
+    await panel.getByLabel('Eddy Employé').check()
+    await panel.locator('[data-action="save-interview"]').click()
+    await expect(panel.locator('.wb-iv-item').first()).toContainText('Eddy Employé')
+  })
+
+  test('T-TND30-009: the invited employee sees only this candidate, scores, cannot move the stage', async ({ page }) => {
+    await signIn(page, ACCOUNTS.employee2, '/')
+    await expect(page.locator('.wb-side-col nav a[href="/recrutement"]')).toBeVisible()
+    await page.goto('/recrutement')
+    await page.locator(`a[data-opening="${TITLE}"]`).click()
+    await expect(page.locator('.wb-pp-card')).toHaveCount(1)
+    await page.locator('.wb-pp-card').click()
+    const panel = page.locator('.wb-panel')
+    await expect(panel.locator('.wb-cp-act select')).toHaveCount(0)
+    await panel.getByRole('tab', { name: 'Évaluations' }).click()
+    await expect(panel.getByText('Les évaluations des autres s’affichent une fois la vôtre envoyée')).toBeVisible()
+    for (const crit of await panel.locator('.wb-sc-crit').all()) await crit.locator('[data-level="4"]').click()
+    await panel.getByRole('radio', { name: 'Oui, fortement' }).click()
+    await panel.locator('[data-action="submit-scorecard"]').click()
+    await expect(panel.getByText(/Évaluation envoyée le/)).toBeVisible()
+  })
+
+  test('T-TND30-010: HR sees the scorecard, moves to « Offre » and hires: the account is created', async ({ page }) => {
+    await signIn(page, ACCOUNTS.admin, '/recrutement')
+    await page.locator(`a[data-opening="${TITLE}"]`).click()
+    await page.locator('.wb-pp-card', { hasText: `Lot2${RUN}` }).click()
+    const panel = page.locator('.wb-panel')
+    await panel.getByRole('tab', { name: 'Évaluations' }).click()
+    await expect(panel.locator('.wb-sc-card')).toContainText('Eddy Employé')
+    await expect(panel.getByText(/Synthèse de 1 évaluation/)).toBeVisible()
+    await panel.locator('.wb-cp-act select').selectOption('offer')
+    await panel.locator('[data-action="hire"]').click()
+    await page.locator('[data-action="confirm-hire"]').click()
+    // the « Embauché » badge (not the stage list) once the account is created
+    await expect(panel.locator('.wb-cp-act .wb-badge', { hasText: 'Embauché' })).toBeVisible({ timeout: 15_000 })
+    await page.goto('/people')
+    await expect(page.locator("b", { hasText: `Lina Lot2${RUN}` })).toBeVisible()
+  })
+
+  test('T-TND30-011: a candidate withdraws, then erases their data from the follow-up link', async ({ request, browser }) => {
+    const res = await request.post(`/api/careers/${SLUG}/apply`, { multipart: {
+      first_name: 'Rado', last_name: `Out${RUN}`, email: `rado.${RUN}@example.com`, consent: 'true', answers: '{}',
+      cv: { name: 'cv.pdf', mimeType: 'application/pdf', buffer: PDF } } })
+    const token = (await res.json()).track
+    const visitor = await browser.newContext()
+    const page = await visitor.newPage()
+    await page.goto(`/carrieres/suivi/${token}`)
+    await waitForHydration(page)
+    await page.locator('[data-action="withdraw"]').click()
+    await page.locator('[data-action="confirm-track"]').click()
+    await expect(page.getByText('Vous avez retiré votre candidature.')).toBeVisible()
+    await page.locator('[data-action="erase"]').click()
+    await page.locator('[data-action="confirm-track"]').click()
+    await expect(page.getByText('Vos données sont supprimées')).toBeVisible()
+    await page.goto(`/carrieres/suivi/${token}`)
+    await expect(page.getByText('Lien invalide')).toBeVisible()
+    await visitor.close()
   })
 })

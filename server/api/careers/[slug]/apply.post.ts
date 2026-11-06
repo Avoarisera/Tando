@@ -1,7 +1,7 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { cleanFileName, createRateLimiter, extOf, MAX_FILE_BYTES, sniffMime, validateApplication, type AcceptedMime, type ApplicationFields, type OpeningForm } from '../../../utils/careers'
 import { sendMail } from '../../../utils/mailer'
-import { acknowledgementEmail } from '../../../utils/recruit-emails'
+import { buildEmail, PRIVACY_FOOTER, trackUrl } from '../../../utils/recruit-emails'
 import { companyInfo } from '../../../utils/public-openings'
 
 /**
@@ -82,7 +82,7 @@ export default defineEventHandler(async (event) => {
   const { data: app, error: appErr } = await supabase.from('applications').insert({
     opening_id: opening.id, candidate_id: cand.id, answers: f.answers, cover_letter_text: f.cover_letter_text,
     consent_pool: f.consent_pool, source: (field('source') || 'careers').slice(0, 40),
-  }).select('id').single()
+  }).select('id, track_token').single()
   if (appErr?.code === '23505') throw createError({ statusCode: 409, statusMessage: 'Vous avez déjà postulé à cette offre avec cette adresse.' })
   if (appErr || !app) throw createError({ statusCode: 500, statusMessage: 'Candidature impossible pour le moment' })
 
@@ -98,8 +98,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const company = await companyInfo(supabase)
-  const mail = acknowledgementEmail({ firstName: f.first_name, jobTitle: opening.title, company: company.name })
-  const sent = await sendMail({ to: f.email, ...mail })
+  const mail = await buildEmail(supabase, 'acknowledgement', { prenom: f.first_name, nom: f.last_name, poste: opening.title, entreprise: company.name, lien_suivi: trackUrl(getRequestURL(event).origin, app.track_token) })
+  const sent = await sendMail({ to: f.email, subject: mail.subject, text: mail.text + PRIVACY_FOOTER })
   await supabase.from('application_events').insert([
     { application_id: app.id, kind: 'submitted', data: { source: 'careers' } },
     { application_id: app.id, kind: 'email', data: { template: 'acknowledgement', sent: sent.sent, reason: sent.reason ?? null } },
@@ -113,5 +113,5 @@ export default defineEventHandler(async (event) => {
       data: { first_name: f.first_name, last_name: f.last_name, job: opening.title, opening_id: opening.id, application_id: app.id },
     })))
   }
-  return { ok: true }
+  return { ok: true, track: app.track_token }
 })

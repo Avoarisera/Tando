@@ -37,6 +37,7 @@ const kpis = computed(() => ({
   active: apps.value.filter(a => a.status === 'active').length,
   fresh: apps.value.filter(a => Date.parse(a.created_at) > weekAgo).length,
 }))
+const showTemplates = ref(false)
 const tone = (s: OpeningStatus) => (s === 'published' ? 'success' : s === 'paused' ? 'warning' : 'neutral') as 'success' | 'warning' | 'neutral'
 </script>
 
@@ -45,6 +46,7 @@ const tone = (s: OpeningStatus) => (s === 'published' ? 'success' : s === 'pause
     <div class="wb-row-b wb-wrap">
       <WbTabs v-model="filter" :tabs="tabs" :label="t('nav.recruitment')" />
       <div class="wb-row wb-wrap" style="gap: 8px">
+        <WbButton v-if="isRecruiter" variant="secondary" size="sm" icon="mail" data-action="templates" @click="showTemplates = true">{{ t('tnd30.tpl.title') }}</WbButton>
         <WbButton variant="secondary" size="sm" icon="external-link" to="/carrieres" target="_blank">{{ t('tnd30.list.careersPage') }}</WbButton>
         <WbButton v-if="isRecruiter" size="sm" icon="plus" to="/recrutement/nouvelle" data-action="new-opening">{{ t('tnd30.list.new') }}</WbButton>
       </div>
@@ -83,6 +85,7 @@ const tone = (s: OpeningStatus) => (s === 'published' ? 'success' : s === 'pause
         </NuxtLink>
       </li>
     </ul>
+    <TemplatesPanel v-if="showTemplates" @close="showTemplates = false" />
   </div>
 </template>
 

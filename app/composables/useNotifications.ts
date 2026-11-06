@@ -1,13 +1,13 @@
 export type NotificationKind =
   | 'request_submitted' | 'manager_approved' | 'approved' | 'rejected'
   | 'cancel_requested' | 'cancel_approved' | 'cancel_refused'
-  | 'application_received'
+  | 'application_received' | 'interview_scheduled'
 
 export interface AppNotification {
   id: string
   kind: NotificationKind
   request_id: string | null
-  data: { first_name?: string, last_name?: string, type?: string, start_date?: string, end_date?: string, days?: number, comment?: string | null, job?: string, opening_id?: string, application_id?: string }
+  data: { first_name?: string, last_name?: string, type?: string, start_date?: string, end_date?: string, days?: number, comment?: string | null, job?: string, opening_id?: string, application_id?: string, starts_at?: string }
   read_at: string | null
   created_at: string
 }

@@ -423,6 +423,49 @@ async function main() {
       await service.from('job_openings').delete().in('id', ops.map(o => o.id))
     }
   }
+
+  console.log('\nTND-30 lot 2 — entretiens, évaluations, modèles')
+  {
+    const adminId = (await admin.auth.getUser()).data.user.id
+    const { data: op } = await service.from('job_openings').insert({ slug: `sec-l2-${Date.now()}`, title: 'Sec lot 2', status: 'published', criteria: [{ id: 'c1', label: 'Tech' }] }).select('id').single()
+    const { data: c1 } = await service.from('candidates').insert({ email: `l2a.${Date.now()}@example.com`, first_name: 'A', last_name: 'One' }).select('id').single()
+    const { data: c2 } = await service.from('candidates').insert({ email: `l2b.${Date.now()}@example.com`, first_name: 'B', last_name: 'Two' }).select('id').single()
+    const { data: a1 } = await service.from('applications').insert({ opening_id: op.id, candidate_id: c1.id }).select('id').single()
+    const { data: a2 } = await service.from('applications').insert({ opening_id: op.id, candidate_id: c2.id }).select('id').single()
+    const { data: itv } = await service.from('interviews').insert({ application_id: a1.id, stage_key: 'tech', starts_at: new Date(Date.now() + 86400000).toISOString() }).select('id').single()
+    await service.from('interview_participants').insert({ interview_id: itv.id, profile_id: IDS.emma })
+    // a recruiter's submitted scorecard on a1
+    await service.from('scorecards').insert({ application_id: a1.id, author_id: adminId, stage_key: 'tech', ratings: { c1: 2 }, recommendation: 'no', submitted_at: new Date().toISOString() })
+    try {
+      const { data: eApps } = await emma.from('applications').select('id').eq('opening_id', op.id)
+      check('TND-30l', 'l\'intervenante invitée voit le candidat qu\'elle rencontre, pas les autres', (eApps ?? []).length === 1 && eApps[0].id === a1.id)
+      const { data: eOp } = await emma.from('job_openings').select('id, criteria').eq('id', op.id)
+      check('TND-30m', 'elle lit l\'offre (critères) de ce candidat', (eOp ?? []).length === 1)
+      const { data: before } = await emma.from('scorecards').select('id').eq('application_id', a1.id)
+      check('TND-30n', 'elle ne voit pas les évaluations des autres avant d\'envoyer la sienne', (before ?? []).length === 0)
+      const { error: insE } = await emma.from('scorecards').insert({ application_id: a1.id, author_id: IDS.emma, stage_key: 'tech', ratings: { c1: 4 }, recommendation: 'yes', submitted_at: new Date().toISOString() })
+      const { data: after } = await emma.from('scorecards').select('id, author_id').eq('application_id', a1.id)
+      check('TND-30o', 'après envoi, elle voit les évaluations des autres', !insE && (after ?? []).length === 2)
+      const { data: upd } = await emma.from('scorecards').update({ recommendation: 'strong_yes' }).eq('author_id', IDS.emma).select('id')
+      check('TND-30p', 'une évaluation envoyée n\'est plus modifiable', (upd ?? []).length === 0)
+      const { error: forge } = await emma.from('scorecards').insert({ application_id: a1.id, author_id: adminId, stage_key: 'hr', ratings: {}, recommendation: 'yes' })
+      check('TND-30q', 'personne n\'écrit une évaluation au nom d\'un autre', !!forge)
+      const { error: other } = await emma.from('scorecards').insert({ application_id: a2.id, author_id: IDS.emma, stage_key: 'tech', ratings: {} })
+      check('TND-30r', 'pas d\'évaluation sur un candidat qu\'on ne rencontre pas', !!other)
+      const { data: eddyApps } = await (await signIn('employee2@waka.com')).from('applications').select('id').eq('opening_id', op.id)
+      check('TND-30s', 'un employé non invité ne voit aucun candidat', (eddyApps ?? []).length === 0)
+      const { data: eTpl } = await emma.from('email_templates').select('key')
+      const { data: eTplUp } = await emma.from('email_templates').update({ subject: 'pirate' }).eq('key', 'rejection').select('key')
+      check('TND-30t', 'un employé ne lit ni ne modifie les modèles d\'e-mails', (eTpl ?? []).length === 0 && (eTplUp ?? []).length === 0)
+      const { data: aTpl } = await admin.from('email_templates').select('key')
+      check('TND-30u', 'le RH lit les 4 modèles', (aTpl ?? []).length === 4)
+    }
+    finally {
+      await service.from('applications').delete().in('id', [a1.id, a2.id])
+      await service.from('candidates').delete().in('id', [c1.id, c2.id])
+      await service.from('job_openings').delete().eq('id', op.id)
+    }
+  }
 }
 
 try {

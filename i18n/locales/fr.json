@@ -750,7 +750,8 @@
       "cancel_requested": "{who} demande l’annulation d’un congé ({type}, {period})",
       "cancel_approved": "L’annulation de votre congé {type} du {period} est acceptée",
       "cancel_refused": "L’annulation de votre congé {type} du {period} est refusée : il est maintenu",
-      "application_received": "{who} a postulé : {job}"
+      "application_received": "{who} a postulé : {job}",
+      "interview_scheduled": "Entretien avec {who} ({job}) : {when}"
     },
     "invite": {
       "title": "Rejoindre WakaBods",
@@ -1186,7 +1187,8 @@
       "emptyDraft": "Publiez l’offre pour recevoir des candidatures.",
       "hiredRecruiterOnly": "Seul le RH peut marquer une embauche.",
       "today": "aujourd’hui",
-      "daysAgo": "il y a {n} jour | il y a {n} jours"
+      "daysAgo": "il y a {n} jour | il y a {n} jours",
+      "interviewerHint": "Vous êtes invité·e à un entretien : ouvrez la fiche pour lire le CV et remplir votre évaluation."
     },
     "panel": {
       "cv": "CV",
@@ -1215,7 +1217,9 @@
       "declined": "Candidature de {who} non retenue",
       "declinedNoMail": "Candidature non retenue — l’e-mail n’est pas parti (service d’envoi non configuré)",
       "purge": "Données supprimées dans {n} jour | Données supprimées dans {n} jours (RGPD)",
-      "pool": "accepte le vivier"
+      "pool": "accepte le vivier",
+      "scorecards": "Évaluations",
+      "interviews": "Entretiens"
     },
     "event": {
       "submitted": "Candidature reçue",
@@ -1224,13 +1228,24 @@
       "restored": "Candidature rouverte",
       "email": {
         "acknowledgement": "E-mail d’accusé de réception envoyé",
-        "rejection": "E-mail de refus envoyé"
+        "rejection": "E-mail de refus envoyé",
+        "invitation": "E-mail d’invitation envoyé",
+        "offer": "E-mail de proposition envoyé",
+        "custom": "E-mail envoyé"
       },
       "emailNotSent": "{what} non envoyé (service d’envoi non configuré)",
       "emailName": {
         "acknowledgement": "E-mail d’accusé de réception",
-        "rejection": "E-mail de refus"
-      }
+        "rejection": "E-mail de refus",
+        "invitation": "E-mail d’invitation",
+        "offer": "E-mail de proposition",
+        "custom": "E-mail"
+      },
+      "interview": "Entretien planifié ({stage}) : {date}",
+      "interviewCancelled": "Entretien annulé",
+      "scorecard": "Évaluation envoyée ({stage}) : {rec}",
+      "hired": "Embauché : compte WakaBods créé",
+      "withdrawn": "Le candidat a retiré sa candidature"
     },
     "editor": {
       "post": "Le poste",
@@ -1262,7 +1277,142 @@
       "published": "Offre publiée sur la page carrières",
       "titleRequired": "L’intitulé du poste est obligatoire (3 caractères au moins).",
       "salaryOrder": "Le salaire minimum dépasse le maximum.",
-      "salaryRequired": "Indiquez une fourchette de salaire avant de publier."
+      "salaryRequired": "Indiquez une fourchette de salaire avant de publier.",
+      "criteria": "Grille d’évaluation",
+      "criteriaHint": "Les critères notés de 1 à 4 par chaque intervenant (6 au plus). Les mêmes pour tous : c’est ce qui rend les avis comparables.",
+      "criterion": "Critère {n}",
+      "addCriterion": "Ajouter un critère"
+    },
+    "rec": {
+      "strong_yes": "Oui, fortement",
+      "yes": "Oui",
+      "no": "Non",
+      "strong_no": "Non, fortement"
+    },
+    "score": {
+      "noCriteria": "Aucun critère défini pour cette offre : ajoutez-en dans l’onglet Offre (Grille d’évaluation).",
+      "synthesis": "Synthèse de {n} évaluation | Synthèse de {n} évaluations",
+      "mine": "Mon évaluation",
+      "lockedOn": "Évaluation envoyée le {date} : elle n’est plus modifiable.",
+      "missing": "Notez le critère restant. | Notez les {n} critères restants.",
+      "needRec": "Choisissez une recommandation.",
+      "submitted": "Évaluation envoyée",
+      "saved": "Brouillon enregistré",
+      "level": {
+        "1": "Insuffisant",
+        "2": "À confirmer",
+        "3": "Bon",
+        "4": "Excellent"
+      },
+      "comment": "Commentaire sur {c}",
+      "commentPh": "Un fait observé, un exemple (facultatif)",
+      "summary": "Synthèse",
+      "summaryHint": "Ce qui vous a marqué, avec des exemples concrets.",
+      "recommendation": "Recommandation",
+      "saveDraft": "Enregistrer le brouillon",
+      "submit": "Envoyer mon évaluation",
+      "submitHint": "Une fois envoyée, vous verrez celles des autres.",
+      "others": "Évaluations des autres",
+      "noOthers": "Personne d’autre n’a encore envoyé son évaluation.",
+      "hiddenUntil": "Les évaluations des autres s’affichent une fois la vôtre envoyée, pour un avis indépendant."
+    },
+    "itv": {
+      "plan": "Planifier un entretien",
+      "when": "Date et heure",
+      "duration": "Durée",
+      "minutes": "{n} min",
+      "location": "Lieu",
+      "locationPh": "Ex. Bureau, salle 2",
+      "video": "Lien de visio (facultatif)",
+      "people": "Intervenants ({n})",
+      "peopleHint": "Ils verront ce candidat uniquement, et pourront remplir leur évaluation.",
+      "notes": "Note aux intervenants",
+      "notesHint": "Points à creuser, contexte (non envoyé au candidat).",
+      "notify": "Envoyer l’invitation par e-mail au candidat",
+      "save": "Planifier",
+      "needPeople": "Ajoutez au moins un intervenant.",
+      "badLink": "Le lien de visio doit commencer par https://",
+      "planned": "Entretien planifié",
+      "plannedNoMail": "Entretien planifié — l’e-mail au candidat n’est pas parti (service d’envoi non configuré)",
+      "none": "Aucun entretien prévu.",
+      "join": "Rejoindre la visio",
+      "cancel": "Annuler",
+      "cancelled": "annulé"
+    },
+    "tpl": {
+      "title": "Modèles d’e-mails",
+      "hint": "Les messages envoyés aux candidats. Les variables sont remplacées à l’envoi.",
+      "acknowledgement": "Accusé de réception",
+      "invitation": "Invitation à un entretien",
+      "offer": "Proposition",
+      "rejection": "Refus",
+      "custom": "Message libre",
+      "vars": "Variables :",
+      "preview": "Aperçu avec un exemple",
+      "saved": "Modèle enregistré"
+    },
+    "mail": {
+      "button": "E-mail",
+      "title": "Écrire à {who}",
+      "text": "Le message part à {email}, avec la mention RGPD en bas.",
+      "template": "Modèle",
+      "subject": "Objet",
+      "message": "Message",
+      "hint": "Relisez et complétez avant d’envoyer (date, lieu…).",
+      "send": "Envoyer",
+      "required": "L’objet et le message sont obligatoires.",
+      "unfilled": "Une variable n’est pas remplie (entre accolades) : complétez le message.",
+      "sent": "E-mail envoyé à {email}",
+      "notSent": "E-mail non envoyé : le service d’envoi n’est pas configuré."
+    },
+    "hire": {
+      "button": "Embaucher",
+      "title": "Embaucher {who} ?",
+      "text": "Un compte WakaBods est créé et une invitation part à {email}. La candidature passe en « Embauché ».",
+      "start": "Date d’arrivée",
+      "confirm": "Créer le compte",
+      "done": "{who} rejoint l’équipe : invitation envoyée à {email}"
+    },
+    "track": {
+      "title": "Suivi de candidature",
+      "follow": "Suivre ma candidature",
+      "keepLink": "Gardez ce lien : il est aussi dans l’e-mail de confirmation.",
+      "hello": "Bonjour {name},",
+      "applied": "Candidature envoyée le {date}",
+      "step": {
+        "received": "Candidature reçue",
+        "review": "En cours d’examen",
+        "interviews": "Entretiens",
+        "offer": "Décision"
+      },
+      "stepHint": {
+        "received": "Nous l’avons bien reçue.",
+        "review": "Nous lisons votre candidature avec attention.",
+        "interviews": "Vous échangez avec l’équipe.",
+        "offer": "Nous revenons vers vous très vite."
+      },
+      "end": {
+        "closed": "Nous n’avons pas donné suite pour ce poste. Merci pour l’intérêt porté à {company}.",
+        "withdrawn": "Vous avez retiré votre candidature.",
+        "hired": "Bienvenue chez {company} !"
+      },
+      "myData": "Mes données",
+      "myDataText": "Vous pouvez retirer votre candidature, ou supprimer définitivement vos données (CV, lettre, réponses).",
+      "withdraw": "Retirer ma candidature",
+      "erase": "Supprimer mes données",
+      "seeJob": "Revoir l’offre",
+      "confirm": {
+        "withdraw": "Retirer votre candidature ?",
+        "erase": "Supprimer vos données ?"
+      },
+      "confirmText": {
+        "withdraw": "L’équipe sera informée que vous ne souhaitez plus poursuivre.",
+        "erase": "Votre candidature, votre CV et vos réponses sont supprimés définitivement. Ce lien ne fonctionnera plus."
+      },
+      "erasedTitle": "Vos données sont supprimées",
+      "erasedText": "Nous ne conservons plus rien de cette candidature.",
+      "invalidTitle": "Lien invalide",
+      "invalidText": "Ce lien de suivi n’existe pas ou la candidature a été supprimée."
     }
   }
 }

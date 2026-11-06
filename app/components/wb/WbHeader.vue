@@ -18,7 +18,7 @@ watch(() => route.fullPath, () => { notifOpen.value = false })
 function openNotification(n: AppNotification) {
   notifOpen.value = false
   if (!n.read_at) markRead([n.id])
-  if (n.kind === 'application_received' && n.data.opening_id) {
+  if ((n.kind === 'application_received' || n.kind === 'interview_scheduled') && n.data.opening_id) {
     navigateTo({ path: `/recrutement/${n.data.opening_id}`, query: n.data.application_id ? { a: n.data.application_id } : {} })
     return
   }

@@ -26,6 +26,7 @@ const errors = ref<string[]>([])
 const formError = ref<string | null>(null)
 const sending = ref(false)
 const done = ref(false)
+const track = ref<string | null>(null)
 const MAX = 10 * 1024 * 1024
 const ACCEPT = '.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 const has = (k: string) => errors.value.includes(k)
@@ -68,7 +69,8 @@ async function submit() {
   if (letterMode.value === 'file') fd.set('cover_letter_text', '')
   sending.value = true
   try {
-    await $fetch(`/api/careers/${slug}/apply`, { method: 'POST', body: fd })
+    const r = await $fetch<{ ok: true, track?: string }>(`/api/careers/${slug}/apply`, { method: 'POST', body: fd })
+    track.value = r.track ?? null
     done.value = true
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -96,7 +98,11 @@ const fieldErr = (k: string) => (has(k) ? t(`tnd30.apply.err.${k.startsWith('q:'
       <h1 class="h2">{{ t('tnd30.apply.thanksTitle', { name: form.first_name }) }}</h1>
       <p>{{ t('tnd30.apply.thanksText', { job: o.title }) }}</p>
       <p class="small wb-mut2">{{ t('tnd30.apply.thanksMail', { email: form.email }) }}</p>
-      <WbButton variant="secondary" to="/carrieres">{{ t('tnd30.public.allOpenings') }}</WbButton>
+      <div class="wb-row wb-wrap" style="gap: 8px; justify-content: center">
+        <WbButton v-if="track" :to="`/carrieres/suivi/${track}`" icon="eye">{{ t('tnd30.track.follow') }}</WbButton>
+        <WbButton variant="secondary" to="/carrieres">{{ t('tnd30.public.allOpenings') }}</WbButton>
+      </div>
+      <p v-if="track" class="caption wb-mut">{{ t('tnd30.track.keepLink') }}</p>
     </div>
 
     <div v-else class="wb-job">

@@ -28,7 +28,11 @@ export interface PublicOpening {
   teams: { name: string } | null
 }
 
+export interface Criterion { id: string, label: string }
+
 export interface Opening extends Omit<PublicOpening, 'teams'> {
+  /** scorecard criteria (TND-30 lot 2), up to 6 */
+  criteria: Criterion[]
   team_id: string | null
   hiring_manager_id: string | null
   stages: Stage[]

@@ -10,7 +10,8 @@ export default defineEventHandler(async (event) => {
   const { data: f } = await admin.from('application_files').select('storage_path, file_name, applications (opening_id)').eq('id', id).maybeSingle()
   const openingId = (f?.applications as { opening_id?: string } | null)?.opening_id
   if (!f || !openingId) throw createError({ statusCode: 404, statusMessage: 'Fichier introuvable' })
-  const { supabase } = await requireRecruiter(event, openingId)
+  const { data: f2 } = await admin.from('application_files').select('application_id').eq('id', id).single()
+  const { supabase } = await requireRecruiter(event, openingId, f2?.application_id as string | undefined)
   const download = getQuery(event).download === '1'
   const { data, error } = await supabase.storage.from('applications').createSignedUrl(f.storage_path, 300, download ? { download: f.file_name } : undefined)
   if (error || !data) throw createError({ statusCode: 500, statusMessage: 'Lien indisponible' })

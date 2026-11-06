@@ -9,7 +9,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
-const { isRecruiter } = useCurrentUser()
+const { isRecruiter, profile } = useCurrentUser()
 const { getOpening, listApplications, moveStage } = useRecruitment()
 
 const id = String(route.params.id)
@@ -42,6 +42,9 @@ const tabs = computed(() => [
   ...(isRecruiter.value ? [{ id: 'opening', label: t('tnd30.detail.opening') }] : []),
 ])
 
+// HR or the hiring manager manage the pipeline; an invited interviewer only reads and scores
+const canManage = computed(() => isRecruiter.value || (!!opening.value && opening.value.hiring_manager_id === profile.value?.id))
+
 // ── Pipeline ────────────────────────────────────────────────────────────────
 const search = ref('')
 const showDeclined = ref(false)
@@ -61,7 +64,7 @@ async function drop(stage: string) {
   const a = apps.value.find(x => x.id === dragId.value)
   overCol.value = null
   dragId.value = null
-  if (!a || a.stage === stage || a.status === 'rejected') return
+  if (!a || a.stage === stage || a.status === 'rejected' || !canManage.value) return
   if (stage === 'hired' && !isRecruiter.value) { toast.add(t('tnd30.detail.hiredRecruiterOnly'), 'error'); return }
   const prev = a.stage
   a.stage = stage // optimistic
@@ -100,7 +103,7 @@ async function onSaved(newId: string) {
         <div class="wb-row wb-wrap wb-pp-f">
           <WbInput v-model="search" class="wb-pp-search" icon="search" type="search" :aria-label="t('tnd26.search')" :placeholder="t('tnd30.detail.search')" />
           <WbFilterChip v-if="declinedCount" v-model="showDeclined">{{ t('tnd30.detail.showDeclined', { n: declinedCount }) }}</WbFilterChip>
-          <span class="caption wb-mut wb-grow wb-pp-hint">{{ t('tnd30.detail.dragHint') }}</span>
+          <span class="caption wb-mut wb-grow wb-pp-hint">{{ canManage ? t('tnd30.detail.dragHint') : t('tnd30.detail.interviewerHint') }}</span>
         </div>
         <div v-if="!apps.length" class="wb-card">
           <WbEmptyState art="inbox" :title="t('tnd30.detail.emptyTitle')">
@@ -123,7 +126,7 @@ async function onSaved(newId: string) {
                 <button
                   type="button"
                   :class="['wb-pp-card', { 'is-rej': a.status === 'rejected', 'is-open': openId === a.id }]"
-                  :draggable="a.status !== 'rejected'"
+                  :draggable="canManage && a.status !== 'rejected'"
                   :data-id="a.id"
                   @dragstart="dragId = a.id"
                   @click="openId = a.id"
@@ -143,7 +146,7 @@ async function onSaved(newId: string) {
       </template>
     </template>
 
-    <CandidatePanel v-if="openApp && opening" :app="openApp" :opening="opening" @close="openId = null" @changed="load" />
+    <CandidatePanel v-if="openApp && opening" :app="openApp" :opening="opening" :can-manage="canManage" @close="openId = null" @changed="load" />
   </div>
 </template>
 
