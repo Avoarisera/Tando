@@ -16,14 +16,19 @@ interface MailState {
 }
 
 // Common providers: host, port and security pre-filled (the login stays to type)
-const PRESETS: Record<string, { host: string, port: number, security: Security, user?: string }> = {
+const PRESETS: Record<string, { host: string, port: number, security: Security, user?: string, hint?: boolean }> = {
   ovh: { host: 'ssl0.ovh.net', port: 465, security: 'tls' },
   google: { host: 'smtp.gmail.com', port: 587, security: 'starttls' },
   microsoft: { host: 'smtp.office365.com', port: 587, security: 'starttls' },
   brevo: { host: 'smtp-relay.brevo.com', port: 587, security: 'starttls' },
   mailgun: { host: 'smtp.eu.mailgun.org', port: 587, security: 'starttls' },
   resend: { host: 'smtp.resend.com', port: 465, security: 'tls', user: 'resend' },
+  // Mailtrap Email Sending: login « api », password = API token; the sandbox catches test e-mails
+  mailtrap: { host: 'live.smtp.mailtrap.io', port: 587, security: 'starttls', user: 'api', hint: true },
+  mailtrap_bulk: { host: 'bulk.smtp.mailtrap.io', port: 587, security: 'starttls', user: 'api', hint: true },
+  mailtrap_sandbox: { host: 'sandbox.smtp.mailtrap.io', port: 2525, security: 'starttls', hint: true },
 }
+const presetHint = computed(() => (PRESETS[preset.value]?.hint ? t(`tnd30.mailcfg.presetTip.${preset.value}`) : t('tnd30.mailcfg.presetHint')))
 const preset = ref('')
 const presetOptions = computed(() => [{ value: '', label: t('tnd30.mailcfg.presetPick') }, ...Object.keys(PRESETS).map(k => ({ value: k, label: t(`tnd30.mailcfg.preset.${k}`) }))])
 const securityOptions = computed(() => (['starttls', 'tls', 'none'] as const).map(v => ({ value: v, label: t(`tnd30.mailcfg.sec.${v}`) })))
@@ -111,7 +116,7 @@ const resultText = computed(() => {
       <WbSkeleton v-if="!state && !error" :count="2" />
       <template v-if="state">
       <div class="wb-set-f">
-        <div class="wb-set-wide"><WbSelect id="mail-preset" v-model="preset" :label="t('tnd30.mailcfg.presetLabel')" :options="presetOptions" :hint="t('tnd30.mailcfg.presetHint')" /></div>
+        <div class="wb-set-wide"><WbSelect id="mail-preset" v-model="preset" :label="t('tnd30.mailcfg.presetLabel')" :options="presetOptions" :hint="presetHint" /></div>
         <WbInput id="mail-host" v-model="form.smtp_host" :label="t('tnd30.mailcfg.host')" placeholder="smtp.votre-fournisseur.com" autocomplete="off" />
         <div class="wb-mail-2">
           <WbInput id="mail-port" v-model="form.smtp_port" inputmode="numeric" :label="t('tnd30.mailcfg.port')" />

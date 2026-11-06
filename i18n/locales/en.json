@@ -1497,7 +1497,10 @@
         "microsoft": "Microsoft 365 / Outlook",
         "brevo": "Brevo",
         "mailgun": "Mailgun (EU)",
-        "resend": "Resend"
+        "resend": "Resend",
+        "mailtrap": "Mailtrap — Email Sending (transactional)",
+        "mailtrap_bulk": "Mailtrap — Bulk",
+        "mailtrap_sandbox": "Mailtrap — Sandbox (testing, nothing delivered)"
       },
       "host": "SMTP server",
       "port": "Port",
@@ -1527,7 +1530,12 @@
       "lastError": "Last error: {reason}",
       "lastTest": "Last test on {date}",
       "saved": "E-mail settings saved",
-      "deliverability": "To stay out of spam, the sender address must be on a domain whose SPF and DKIM allow this server (your provider gives you these DNS records)."
+      "deliverability": "To stay out of spam, the sender address must be on a domain whose SPF and DKIM allow this server (your provider gives you these DNS records).",
+      "presetTip": {
+        "mailtrap": "Username “api”, password = Mailtrap API token (Sending Domains › SMTP/API Settings). The sender must be on your domain verified in Mailtrap.",
+        "mailtrap_bulk": "“Bulk” stream for mass sending. Username “api”, password = Mailtrap API token, sender on the verified domain.",
+        "mailtrap_sandbox": "E-mails land in your Mailtrap test inbox, never with recipients. Username and password: Sandboxes › your inbox › SMTP."
+      }
     },
     "purge": {
       "last": "Automatic GDPR deletion, daily. Last run: {date}, no application deleted. | Automatic GDPR deletion, daily. Last run: {date}, {n} application deleted. | Automatic GDPR deletion, daily. Last run: {date}, {n} applications deleted.",
