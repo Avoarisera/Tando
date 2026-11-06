@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>WakaBods</title></head>
+<body style="margin:0;padding:32px 16px;background:#f3f5f9;font-family:Figtree,'Segoe UI',system-ui,sans-serif;color:#121a2d">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;box-shadow:0 1px 2px rgba(18,26,45,.08)">
+      <tr><td style="padding:32px">
+        <p style="margin:0 0 24px;font-size:22px;font-weight:600">Waka<b style="color:#1747b5">Bods</b></p>
+        <h1 style="margin:0 0 12px;font-size:24px;line-height:30px">Votre code de vérification</h1>
+        <p style="margin:0 0 20px;font-size:14px;line-height:20px;color:#3f4a63">Saisissez ce code dans WakaBods pour confirmer qu’il s’agit bien de vous. Il expire dans quelques minutes.</p>
+        <p style="margin:0 0 28px;font-size:30px;font-weight:700;letter-spacing:6px;color:#121a2d">{{ .Token }}</p>
+        <p style="margin:0 0 20px;font-size:13px;line-height:18px;color:#545f79" lang="en">Enter this code in WakaBods to confirm it’s you.</p>
+        <hr style="border:0;border-top:1px solid #d8deea;margin:0 0 16px">
+        <p style="margin:0;font-size:12px;color:#545f79">WakaBods · {{ .Email }}</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body>
+</html>
