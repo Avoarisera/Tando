@@ -1,6 +1,7 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { syncWorkspace } from '../../utils/linear-sync'
 import { computeAndStoreMonthlySnapshot } from '../../utils/snapshots'
+import { runCandidatePurge } from '../../utils/candidate-purge'
 
 function lastNClosedMonths(n: number): string[] {
   const months: string[] = []
@@ -52,5 +53,8 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  return { synced: results.length, results }
+  // GDPR purge of expired applications, once a day (TND-30 lot 3); never blocks the sync
+  const purge = await runCandidatePurge(supabase).catch(e => ({ error: e instanceof Error ? e.message : String(e) }))
+
+  return { synced: results.length, results, purge }
 })

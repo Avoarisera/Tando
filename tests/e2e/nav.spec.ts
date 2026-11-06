@@ -52,14 +52,19 @@ test.describe('R2 — Sidebar (desktop)', () => {
 
   test('T-R2-001: employee menu is Accueil, Mes congés, Calendrier', async ({ page }) => {
     await signIn(page, ACCOUNTS.employee1)
-    await expect(page.locator(SIDE_LINKS)).toHaveText(['Accueil', 'Mes congés', 'Calendrier'])
+    // « Mes évaluations » shows only once the person has a review file (TND-29)
+    await expect(page.locator(SIDE_LINKS).first()).toHaveText('Accueil')
+    const links = (await page.locator(SIDE_LINKS).allInnerTexts()).map(x => x.trim()).filter(x => x !== 'Mes évaluations')
+    expect(links).toEqual(['Accueil', 'Mes congés', 'Calendrier'])
     await expect(page.locator(`${SIDEBAR} h2`)).toHaveText(['Moi', 'Équipe'])
   })
 
   test('T-R2-002: manager menu has no admin entries', async ({ page }) => {
     await signIn(page, ACCOUNTS.manager)
     // TND-26: « Mon équipe »; no Vélocité while the team is not linked to Linear
-    await expect(page.locator(SIDE_LINKS)).toHaveText(['Accueil', 'À valider', 'Mes congés', 'Mon équipe', 'Calendrier'])
+    await expect(page.locator(SIDE_LINKS).first()).toHaveText('Accueil')
+    const links = (await page.locator(SIDE_LINKS).allInnerTexts()).map(x => x.replace(/\s*\d+$/, '').trim()).filter(x => x !== 'Mes évaluations')
+    expect(links).toEqual(['Accueil', 'À valider', 'Mes congés', 'Mon équipe', 'Calendrier'])
     await expect(page.locator(`${SIDEBAR} a[href="/leave-types"]`)).toHaveCount(0)
   })
 
@@ -90,10 +95,10 @@ test.describe('R2 — Sidebar (desktop)', () => {
     }
   })
 
-  test('T-R2-003: admin menu groups Équipe, Pilotage, Administration', async ({ page }) => {
+  test('T-R2-003: admin menu groups Équipe, Talents, Pilotage, Administration', async ({ page }) => {
     await signIn(page, ACCOUNTS.admin)
-    await expect(page.locator(`${SIDEBAR} h2`)).toHaveText(['Équipe', 'Pilotage', 'Administration'])
-    await expect(page.locator(SIDE_LINKS)).toHaveText(['Tableau de bord', 'Calendrier', 'À valider', 'Vélocité', 'Personnes et équipes', 'Congés et règles', 'Factures', 'Paramètres'])
+    await expect(page.locator(`${SIDEBAR} h2`)).toHaveText(['Équipe', 'Talents', 'Pilotage', 'Administration'])
+    await expect(page.locator(SIDE_LINKS)).toHaveText(['Tableau de bord', 'Calendrier', 'À valider', 'Recrutement', 'Évaluations', 'Vélocité', 'Personnes et équipes', 'Congés et règles', 'Factures', 'Paramètres'])
   })
 
   test('T-R2-004: active link has aria-current and the header shows the page title', async ({ page }) => {
@@ -176,7 +181,7 @@ test.describe('R2 — Mobile (390 px)', () => {
     await page.locator(MENU_BTN).click()
     const drawer = page.locator(DRAWER)
     await expect(drawer).toBeVisible()
-    await expect(drawer.locator('.wb-side-g a')).toHaveCount(8)
+    await expect(drawer.locator('.wb-side-g a')).toHaveCount(10) // + Recrutement (TND-30), Évaluations (TND-29)
     await expect(drawer.locator('.wb-side-g a').first()).toBeFocused()
   })
 

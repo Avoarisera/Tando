@@ -3,7 +3,12 @@ const { t } = useI18n()
 const route = useRoute()
 const { profile, loadProfile, signOut } = useCurrentUser()
 const { role, sections, tabItems, isActive } = useNavItems()
-const { current: pageHeader } = usePageHeader()
+const { current: pageHeaderRaw } = usePageHeader()
+// A page sets its title / breadcrumbs during its own setup, after the layout header is
+// rendered on the server: apply them once mounted, or SSR and hydration disagree.
+const headerReady = ref(false)
+onMounted(() => { headerReady.value = true })
+const pageHeader = computed(() => (headerReady.value ? pageHeaderRaw.value : null))
 const { toReview, fetchAll: fetchApprovals } = useApprovals()
 const { isOpen: leavePanelOpen, detailId, close: closeLeavePanel, closeDetail } = useLeavePanel()
 

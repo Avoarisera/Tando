@@ -15,7 +15,7 @@ export function useCurrentUser() {
     if (!userId) return
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, role, team_id, joined_at, created_at, country')
+      .select('id, first_name, last_name, role, team_id, joined_at, created_at, country, is_hr')
       .eq('id', userId)
       .single()
     if (error) throw error
@@ -40,6 +40,8 @@ export function useCurrentUser() {
   const isAdmin    = computed(() => profile.value?.role === 'admin')
   const isManager  = computed(() => profile.value?.role === 'manager')
   const isEmployee = computed(() => profile.value?.role === 'employee')
+  // recruitment and (later) evaluations: admins and people with HR access (TND-30)
+  const isRecruiter = computed(() => profile.value?.role === 'admin' || profile.value?.is_hr === true)
 
   return {
     user,
@@ -47,6 +49,7 @@ export function useCurrentUser() {
     isAdmin,
     isManager,
     isEmployee,
+    isRecruiter,
     loadProfile,
     signOut,
   }

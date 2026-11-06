@@ -377,6 +377,256 @@ async function main() {
       await service.from('workspaces').delete().eq('id', ws.id)
     }
   }
+
+  console.log('\nTND-30 — recrutement')
+  {
+    const { data: mgr } = await service.from('profiles').select('id').eq('id', IDS.manager).single()
+    const { data: ops } = await service.from('job_openings').insert([
+      { slug: `sec-pub-${Date.now()}`, title: 'Sec publiée', status: 'published', hiring_manager_id: null },
+      { slug: `sec-draft-${Date.now()}`, title: 'Sec brouillon', status: 'draft' },
+      { slug: `sec-mgr-${Date.now()}`, title: 'Sec manager', status: 'published', hiring_manager_id: mgr.id },
+    ]).select('id, title')
+    const [pub, draft, mine] = ops
+    const { data: cand } = await service.from('candidates').insert({ email: `sec.${Date.now()}@example.com`, first_name: 'Sec', last_name: 'Cand' }).select('id').single()
+    const { data: apps } = await service.from('applications').insert([
+      { opening_id: pub.id, candidate_id: cand.id },
+      { opening_id: mine.id, candidate_id: cand.id },
+    ]).select('id, opening_id')
+    try {
+      const { data: aOpen } = await anon.from('job_openings').select('id, title').in('id', [pub.id, draft.id])
+      check('TND-30a', 'un visiteur lit les offres publiées, pas les brouillons', (aOpen ?? []).length === 1 && aOpen[0].id === pub.id)
+      const { error: aMgr } = await anon.from('job_openings').select('hiring_manager_id').eq('id', pub.id)
+      check('TND-30b', 'un visiteur ne lit pas le manager recruteur ni les colonnes internes', !!aMgr)
+      const { data: aApps } = await anon.from('applications').select('id')
+      const { data: aCand } = await anon.from('candidates').select('id')
+      check('TND-30c', 'un visiteur ne lit ni candidatures ni candidats', (aApps ?? []).length === 0 && (aCand ?? []).length === 0)
+      const { error: aIns } = await anon.from('applications').insert({ opening_id: pub.id, candidate_id: cand.id })
+      check('TND-30d', 'un visiteur ne crée pas de candidature en direct (route serveur obligatoire)', !!aIns)
+      const { data: eApps } = await emma.from('applications').select('id')
+      check('TND-30e', 'un employé ne lit aucune candidature', (eApps ?? []).length === 0)
+      const { error: eOp } = await emma.from('job_openings').insert({ slug: `sec-x-${Date.now()}`, title: 'Pirate' })
+      check('TND-30f', 'un employé ne crée pas d\'offre', !!eOp)
+      const { data: mApps } = await manager.from('applications').select('id, opening_id')
+      check('TND-30g', 'le manager recruteur ne voit que les candidatures de ses offres', (mApps ?? []).length === 1 && mApps[0].opening_id === mine.id)
+      const { error: mNote } = await manager.from('application_events').insert({ application_id: apps.find(a => a.opening_id === pub.id).id, actor_id: mgr.id, kind: 'note', data: { text: 'x' } })
+      check('TND-30h', 'le manager n\'écrit pas de note sur une offre qui n\'est pas la sienne', !!mNote)
+      const { error: eHr } = await emma.rpc('admin_set_hr', { p_id: IDS.emma, p_is_hr: true })
+      check('TND-30i', 'un employé ne se donne pas l\'accès RH', !!eHr)
+      const { data: aFile, error: aFileErr } = await anon.storage.from('applications').list(pub.id)
+      check('TND-30j', 'le stockage des CV est privé', !!aFileErr || (aFile ?? []).length === 0)
+      const { data: aRows } = await admin.from('applications').select('id').in('id', apps.map(a => a.id))
+      check('TND-30k', 'l\'admin (RH) lit toutes les candidatures', (aRows ?? []).length === 2)
+    }
+    finally {
+      await service.from('applications').delete().in('id', apps.map(a => a.id))
+      await service.from('candidates').delete().eq('id', cand.id)
+      await service.from('job_openings').delete().in('id', ops.map(o => o.id))
+    }
+  }
+
+  console.log('\nTND-30 lot 2 — entretiens, évaluations, modèles')
+  {
+    const adminId = (await admin.auth.getUser()).data.user.id
+    const { data: op } = await service.from('job_openings').insert({ slug: `sec-l2-${Date.now()}`, title: 'Sec lot 2', status: 'published', criteria: [{ id: 'c1', label: 'Tech' }] }).select('id').single()
+    const { data: c1 } = await service.from('candidates').insert({ email: `l2a.${Date.now()}@example.com`, first_name: 'A', last_name: 'One' }).select('id').single()
+    const { data: c2 } = await service.from('candidates').insert({ email: `l2b.${Date.now()}@example.com`, first_name: 'B', last_name: 'Two' }).select('id').single()
+    const { data: a1 } = await service.from('applications').insert({ opening_id: op.id, candidate_id: c1.id }).select('id').single()
+    const { data: a2 } = await service.from('applications').insert({ opening_id: op.id, candidate_id: c2.id }).select('id').single()
+    const { data: itv } = await service.from('interviews').insert({ application_id: a1.id, stage_key: 'tech', starts_at: new Date(Date.now() + 86400000).toISOString() }).select('id').single()
+    await service.from('interview_participants').insert({ interview_id: itv.id, profile_id: IDS.emma })
+    // a recruiter's submitted scorecard on a1
+    await service.from('scorecards').insert({ application_id: a1.id, author_id: adminId, stage_key: 'tech', ratings: { c1: 2 }, recommendation: 'no', submitted_at: new Date().toISOString() })
+    try {
+      const { data: eApps } = await emma.from('applications').select('id').eq('opening_id', op.id)
+      check('TND-30l', 'l\'intervenante invitée voit le candidat qu\'elle rencontre, pas les autres', (eApps ?? []).length === 1 && eApps[0].id === a1.id)
+      const { data: eOp } = await emma.from('job_openings').select('id, criteria').eq('id', op.id)
+      check('TND-30m', 'elle lit l\'offre (critères) de ce candidat', (eOp ?? []).length === 1)
+      const { data: before } = await emma.from('scorecards').select('id').eq('application_id', a1.id)
+      check('TND-30n', 'elle ne voit pas les évaluations des autres avant d\'envoyer la sienne', (before ?? []).length === 0)
+      const { error: insE } = await emma.from('scorecards').insert({ application_id: a1.id, author_id: IDS.emma, stage_key: 'tech', ratings: { c1: 4 }, recommendation: 'yes', submitted_at: new Date().toISOString() })
+      const { data: after } = await emma.from('scorecards').select('id, author_id').eq('application_id', a1.id)
+      check('TND-30o', 'après envoi, elle voit les évaluations des autres', !insE && (after ?? []).length === 2)
+      const { data: upd } = await emma.from('scorecards').update({ recommendation: 'strong_yes' }).eq('author_id', IDS.emma).select('id')
+      check('TND-30p', 'une évaluation envoyée n\'est plus modifiable', (upd ?? []).length === 0)
+      const { error: forge } = await emma.from('scorecards').insert({ application_id: a1.id, author_id: adminId, stage_key: 'hr', ratings: {}, recommendation: 'yes' })
+      check('TND-30q', 'personne n\'écrit une évaluation au nom d\'un autre', !!forge)
+      const { error: other } = await emma.from('scorecards').insert({ application_id: a2.id, author_id: IDS.emma, stage_key: 'tech', ratings: {} })
+      check('TND-30r', 'pas d\'évaluation sur un candidat qu\'on ne rencontre pas', !!other)
+      const { data: eddyApps } = await (await signIn('employee2@waka.com')).from('applications').select('id').eq('opening_id', op.id)
+      check('TND-30s', 'un employé non invité ne voit aucun candidat', (eddyApps ?? []).length === 0)
+      const { data: eTpl } = await emma.from('email_templates').select('key')
+      const { data: eTplUp } = await emma.from('email_templates').update({ subject: 'pirate' }).eq('key', 'rejection').select('key')
+      check('TND-30t', 'un employé ne lit ni ne modifie les modèles d\'e-mails', (eTpl ?? []).length === 0 && (eTplUp ?? []).length === 0)
+      const { data: aTpl } = await admin.from('email_templates').select('key')
+      check('TND-30u', 'le RH lit les 4 modèles', (aTpl ?? []).length === 4)
+    }
+    finally {
+      await service.from('applications').delete().in('id', [a1.id, a2.id])
+      await service.from('candidates').delete().in('id', [c1.id, c2.id])
+      await service.from('job_openings').delete().eq('id', op.id)
+    }
+  }
+
+  console.log('\nTND-30 lots 3–4 — purge RGPD, réglages e-mail')
+  {
+    const { data: ms, error: msErr } = await admin.from('mail_settings').select('*')
+    check('TND-30v', 'même un admin ne lit pas les réglages e-mail en direct (route serveur seulement)', !!msErr || (ms ?? []).length === 0)
+    const { data: k, error: kErr } = await admin.rpc('get_mail_secret')
+    check('TND-30w', 'le mot de passe SMTP n\'est lisible par aucun utilisateur connecté', !!kErr && !k)
+    const { error: setErr } = await admin.rpc('set_mail_secret', { p_secret: 'pirate' })
+    check('TND-30x', 'aucun utilisateur connecté ne remplace le mot de passe en direct', !!setErr)
+    const { data: jr, error: jrErr } = await admin.from('job_runs').select('*')
+    check('TND-30y', 'le journal des tâches n\'est pas lisible depuis le navigateur', !!jrErr || (jr ?? []).length === 0)
+    // purge date follows the last contact (+ 2 years)
+    const { data: op } = await service.from('job_openings').insert({ slug: `sec-l3-${Date.now()}`, title: 'Sec lot 3', status: 'published' }).select('id').single()
+    const { data: c } = await service.from('candidates').insert({ email: `l3.${Date.now()}@example.com`, first_name: 'Old', last_name: 'One' }).select('id').single()
+    const { data: a } = await service.from('applications').insert({ opening_id: op.id, candidate_id: c.id, last_contact_at: '2023-01-15T10:00:00Z', status: 'rejected' }).select('id, purge_after').single()
+    try {
+      check('TND-30z', 'la date de suppression suit le dernier contact (+ 2 ans)', a.purge_after === '2025-01-15')
+    }
+    finally {
+      await service.from('applications').delete().eq('id', a.id)
+      await service.from('candidates').delete().eq('id', c.id)
+      await service.from('job_openings').delete().eq('id', op.id)
+    }
+  }
+
+  console.log('\nTND-29 — évaluations')
+  {
+    const eddy = await signIn('employee2@waka.com')
+    const { data: tpl } = await service.from('review_templates').select('id').eq('kind', 'annual').limit(1).single()
+    const { data: cy } = await admin.from('review_cycles').insert({ name: `Sec revue ${Date.now()}`, period_start: '2026-01-01', period_end: '2026-12-31', template_id: tpl.id }).select('id').single()
+    const { error: eLaunch } = await emma.rpc('launch_review_cycle', { p_cycle: cy.id, p_people: [IDS.emma] })
+    check('TND-29a', 'un employé ne lance pas de campagne', !!eLaunch)
+    const { data: n } = await admin.rpc('launch_review_cycle', { p_cycle: cy.id, p_people: [IDS.emma, IDS.eddy] })
+    const { data: packets } = await service.from('review_packets').select('id, employee_id, manager_id').eq('cycle_id', cy.id)
+    const pE = packets.find(p => p.employee_id === IDS.emma)
+    const pD = packets.find(p => p.employee_id === IDS.eddy)
+    try {
+      check('TND-29b', 'le lancement crée un dossier par personne avec son manager d\'équipe', n === 2 && pE.manager_id === IDS.manager)
+      const { data: direct } = await emma.from('review_packets').select('id')
+      check('TND-29c', 'un employé ne lit aucun dossier en direct', (direct ?? []).length === 0)
+      const { data: mineE } = await emma.rpc('my_review_packets')
+      check('TND-29d', 'l\'employée ne voit que son dossier (et pas celui d\'un collègue)', (mineE ?? []).filter(x => x.cycle_id === cy.id).length === 1)
+      // Emma submits her self review
+      const { error: selfErr } = await emma.from('review_responses').insert({ packet_id: pE.id, author_id: IDS.emma, role: 'self', ratings: { quality: 4 }, submitted_at: new Date().toISOString() })
+      check('TND-29e', 'l\'employée envoie son auto-évaluation', !selfErr, selfErr?.message)
+      const { error: asMgr } = await emma.from('review_responses').insert({ packet_id: pE.id, author_id: IDS.emma, role: 'manager', ratings: {} })
+      check('TND-29f', 'l\'employée ne remplit pas la partie du manager', !!asMgr)
+      const { error: onOther } = await emma.from('review_responses').insert({ packet_id: pD.id, author_id: IDS.emma, role: 'self', ratings: {} })
+      check('TND-29g', 'personne ne remplit le dossier d\'un collègue', !!onOther)
+      const { data: upd } = await emma.from('review_responses').update({ ratings: { quality: 1 } }).eq('packet_id', pE.id).eq('role', 'self').select('id')
+      check('TND-29h', 'une auto-évaluation envoyée n\'est plus modifiable', (upd ?? []).length === 0)
+      const { data: mgrSeesBefore } = await manager.from('review_responses').select('id').eq('packet_id', pE.id).eq('role', 'self')
+      check('TND-29i', 'le manager ne voit pas l\'auto-évaluation avant d\'envoyer la sienne', (mgrSeesBefore ?? []).length === 0)
+      await manager.from('review_responses').insert({ packet_id: pE.id, author_id: IDS.manager, role: 'manager', ratings: { quality: 2 }, submitted_at: new Date().toISOString() })
+      const { data: mgrSeesAfter } = await manager.from('review_responses').select('id').eq('packet_id', pE.id).eq('role', 'self')
+      check('TND-29j', 'après envoi, le manager voit l\'auto-évaluation', (mgrSeesAfter ?? []).length === 1)
+      const { data: empSeesMgr } = await emma.from('review_responses').select('id').eq('packet_id', pE.id).eq('role', 'manager')
+      check('TND-29k', 'l\'employée ne voit pas l\'évaluation du manager avant le partage', (empSeesMgr ?? []).length === 0)
+      const { data: eddySees } = await eddy.from('review_responses').select('id').eq('packet_id', pE.id)
+      check('TND-29l', 'un collègue ne voit rien du dossier', (eddySees ?? []).length === 0)
+      const { error: eConclude } = await emma.rpc('hr_conclude_review', { p_packet: pE.id, p_rating: 4, p_strengths: 'moi', p_improvements: '', p_objectives: [] })
+      const { error: mShare } = await manager.rpc('share_review', { p_packet: pE.id })
+      check('TND-29m', 'ni l\'employée ni le manager ne concluent ou ne partagent', !!eConclude && !!mShare)
+      await admin.rpc('hr_conclude_review', { p_packet: pE.id, p_rating: 3, p_strengths: 'Fiable', p_improvements: 'Autonomie', p_objectives: [] })
+      const { data: beforeShare } = await emma.rpc('my_review_packets')
+      const bs = (beforeShare ?? []).find(x => x.id === pE.id)
+      check('TND-29n', 'la conclusion RH reste cachée tant que le dossier n\'est pas partagé', bs && bs.hr_rating === null && bs.hr_strengths === '')
+      const { error: earlyAck } = await emma.rpc('acknowledge_review', { p_packet: pE.id, p_comment: 'x' })
+      check('TND-29o', 'pas de signature avant le partage', !!earlyAck)
+      await admin.rpc('share_review', { p_packet: pE.id })
+      const { data: afterShare } = await emma.rpc('my_review_packets')
+      const as = (afterShare ?? []).find(x => x.id === pE.id)
+      const { data: empSeesMgr2 } = await emma.from('review_responses').select('id').eq('packet_id', pE.id).eq('role', 'manager')
+      check('TND-29p', 'après partage, l\'employée voit la conclusion et l\'évaluation du manager', as?.hr_rating === 3 && (empSeesMgr2 ?? []).length === 1)
+      const { error: eddyAck } = await eddy.rpc('acknowledge_review', { p_packet: pE.id, p_comment: 'pirate' })
+      check('TND-29q', 'personne ne signe le dossier d\'un autre', !!eddyAck)
+      const { error: ack } = await emma.rpc('acknowledge_review', { p_packet: pE.id, p_comment: 'Lu' })
+      const { error: ack2 } = await emma.rpc('acknowledge_review', { p_packet: pE.id, p_comment: 'encore' })
+      check('TND-29r', 'l\'employée signe une seule fois', !ack && !!ack2)
+      const { error: lateWrite } = await emma.from('review_responses').insert({ packet_id: pE.id, author_id: IDS.emma, role: 'self', ratings: {} })
+      check('TND-29s', 'plus aucune saisie après le partage', !!lateWrite)
+    }
+    finally {
+      await service.from('review_cycles').delete().eq('id', cy.id)
+      await service.from('notifications').delete().in('kind', ['review_requested', 'review_shared'])
+    }
+  }
+
+  console.log('\nTND-29 lot 2 — retours des collègues (anonymat)')
+  {
+    const eddy = await signIn('employee2@waka.com')
+    // two temporary colleagues: 3 peers are needed for anonymity
+    const temp = []
+    for (const n of [1, 2]) {
+      const email = `sec-peer${n}-${Date.now()}@waka.com`
+      const { data: u } = await service.auth.admin.createUser({ email, password: PASSWORD, email_confirm: true })
+      await service.from('profiles').insert({ id: u.user.id, first_name: `Pair${n}`, last_name: 'Test', role: 'employee', joined_at: '2024-01-01' })
+      temp.push({ id: u.user.id, client: await signIn(email) })
+    }
+    const [p1, p2] = temp
+    const { data: tpl } = await service.from('review_templates').select('id').eq('kind', 'annual').limit(1).single()
+    const { data: cy } = await admin.from('review_cycles').insert({ name: `Sec 360 ${Date.now()}`, period_start: '2026-01-01', period_end: '2026-12-31', template_id: tpl.id, peers_enabled: true }).select('id').single()
+    await admin.rpc('launch_review_cycle', { p_cycle: cy.id, p_people: [IDS.emma] })
+    const { data: pk } = await service.from('review_packets').select('id').eq('cycle_id', cy.id).single()
+    const peerRow = (who, rating, txt) => ({ packet_id: pk.id, author_id: who, role: 'peer', ratings: { collaboration: rating }, comments: { collaboration: txt }, answers: { keep: txt }, submitted_at: new Date().toISOString() })
+    try {
+      const { error: mPropose } = await manager.rpc('propose_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id, p2.id] })
+      check('TND-29t', 'seule la personne évaluée propose ses collègues', !!mPropose)
+      const { error: tooFew } = await emma.rpc('propose_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id] })
+      check('TND-29u', 'moins de 3 collègues est refusé', !!tooFew)
+      const { error: selfPick } = await emma.rpc('propose_peers', { p_packet: pk.id, p_peers: [IDS.emma, IDS.eddy, p1.id] })
+      const { error: mgrPick } = await emma.rpc('propose_peers', { p_packet: pk.id, p_peers: [IDS.manager, IDS.eddy, p1.id] })
+      check('TND-29v', 'ni soi-même ni son manager comme collègue', !!selfPick && !!mgrPick)
+      const { error: okPropose } = await emma.rpc('propose_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id, p2.id] })
+      check('TND-29w', 'l\'employée propose 3 collègues', !okPropose, okPropose?.message)
+      const { error: early } = await eddy.from('review_responses').insert(peerRow(IDS.eddy, 3, 'trop tôt'))
+      check('TND-29x', 'un collègue proposé mais pas validé ne répond pas', !!early)
+      const { error: selfApprove } = await emma.rpc('approve_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id, p2.id] })
+      const { error: peerApprove } = await eddy.rpc('approve_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id, p2.id] })
+      check('TND-29y', 'ni l\'employée ni un collègue ne valident la liste', !!selfApprove && !!peerApprove)
+      const { error: okApprove } = await manager.rpc('approve_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id, p2.id] })
+      check('TND-29z', 'le manager valide la liste', !okApprove, okApprove?.message)
+      const { error: rePropose } = await emma.rpc('propose_peers', { p_packet: pk.id, p_peers: [IDS.eddy, p1.id, p2.id] })
+      check('TND-29aa', 'la liste validée n\'est plus modifiable par l\'employée', !!rePropose)
+      const { data: reqs } = await eddy.rpc('my_peer_requests')
+      check('TND-29ab', 'le collègue voit la demande, sans les réponses des autres', (reqs ?? []).some(r => r.packet_id === pk.id))
+      const { error: eddyWrite } = await eddy.from('review_responses').insert(peerRow(IDS.eddy, 4, 'Très fiable en revue de code'))
+      check('TND-29ac', 'le collègue validé envoie son retour', !eddyWrite, eddyWrite?.message)
+      const { error: mgrAsPeer } = await manager.from('review_responses').insert(peerRow(IDS.manager, 1, 'usurpation'))
+      const { error: asOther } = await p1.client.from('review_responses').insert(peerRow(IDS.eddy, 1, 'au nom d\'un autre'))
+      check('TND-29ad', 'personne d\'autre n\'écrit un retour collègue (ni au nom d\'un autre)', !!mgrAsPeer && !!asOther)
+      const reads = await Promise.all([emma, manager, admin, p1.client].map(c => c.from('review_responses').select('id').eq('packet_id', pk.id).eq('role', 'peer')))
+      const { data: own } = await eddy.from('review_responses').select('id').eq('packet_id', pk.id).eq('role', 'peer')
+      check('TND-29ae', 'un retour collègue n\'est lisible que par son auteur (pas l\'employée, le manager, le RH ni un autre collègue)', reads.every(r => (r.data ?? []).length === 0) && (own ?? []).length === 1)
+      const { data: fb1 } = await admin.rpc('peer_feedback', { p_packet: pk.id })
+      check('TND-29af', 'sous 3 réponses, rien n\'est montré au RH', fb1?.shown === false && fb1.count === 1 && !fb1.comments && !fb1.averages)
+      const { error: empEarly } = await emma.rpc('peer_feedback', { p_packet: pk.id })
+      const { error: mgrEarly } = await manager.rpc('peer_feedback', { p_packet: pk.id })
+      check('TND-29ag', 'avant le partage, ni l\'employée ni le manager ne lisent la synthèse', !!empEarly && !!mgrEarly)
+      const { data: stE } = await emma.rpc('peer_status', { p_packet: pk.id })
+      const { data: stH } = await admin.rpc('peer_status', { p_packet: pk.id })
+      check('TND-29ah', 'qui a répondu : visible du RH seulement', (stE ?? []).length === 0 && (stH ?? []).filter(x => x.answered).length === 1)
+      await p1.client.from('review_responses').insert(peerRow(p1.id, 2, 'Communique peu sur ses blocages'))
+      await p2.client.from('review_responses').insert(peerRow(p2.id, 3, 'Toujours disponible'))
+      const { data: fb3 } = await admin.rpc('peer_feedback', { p_packet: pk.id })
+      const flat = JSON.stringify(fb3)
+      check('TND-29ai', 'à 3 réponses : moyenne et commentaires, sans aucun identifiant d\'auteur', fb3?.shown === true && Number(fb3.averages?.collaboration) === 3 && fb3.comments?.collaboration?.length === 3 && ![IDS.eddy, p1.id, p2.id].some(id => flat.includes(id)))
+      await admin.rpc('hr_conclude_review', { p_packet: pk.id, p_rating: 3, p_strengths: 'x', p_improvements: 'y', p_objectives: [] })
+      await admin.rpc('share_review', { p_packet: pk.id })
+      const { data: fbE } = await emma.rpc('peer_feedback', { p_packet: pk.id })
+      const { data: fbD } = await eddy.rpc('peer_feedback', { p_packet: pk.id }).then(r => r, () => ({ data: null }))
+      check('TND-29aj', 'après partage, l\'employée voit la synthèse anonyme ; un collègue jamais', fbE?.shown === true && !fbD?.shown)
+      const { error: lateEdit } = await eddy.from('review_responses').update({ comments: { collaboration: 'changé' } }).eq('packet_id', pk.id).eq('author_id', IDS.eddy).select('id').then(r => ({ error: (r.data ?? []).length ? null : 'blocked' }))
+      check('TND-29ak', 'un retour envoyé n\'est plus modifiable', !!lateEdit)
+    }
+    finally {
+      await service.from('review_cycles').delete().eq('id', cy.id)
+      await service.from('notifications').delete().in('kind', ['review_requested', 'review_shared', 'review_peers_proposed', 'review_peer_requested'])
+      for (const u of temp) { await service.from('profiles').delete().eq('id', u.id); await service.auth.admin.deleteUser(u.id) }
+    }
+  }
 }
 
 try {
