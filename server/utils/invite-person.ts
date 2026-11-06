@@ -8,6 +8,8 @@ export interface PersonInput {
   teamId: string | null
   country: string
   joinedAt: string | null
+  /** HR access on top of the role (recruitment, evaluations) */
+  isHr?: boolean
 }
 
 /**
@@ -31,7 +33,7 @@ export async function invitePerson(supabase: SupabaseClient, origin: string, p: 
   const userId = invited.user.id
   const { error: profileError } = await supabase.from('profiles').insert({
     id: userId, first_name: p.firstName, last_name: p.lastName, role: p.role, team_id: p.teamId,
-    country: p.country, joined_at: p.joinedAt ?? new Date().toISOString().slice(0, 10),
+    country: p.country, joined_at: p.joinedAt ?? new Date().toISOString().slice(0, 10), is_hr: p.role !== 'admin' && p.isHr === true,
   })
   if (profileError) {
     // Don't leave an account without a profile behind
