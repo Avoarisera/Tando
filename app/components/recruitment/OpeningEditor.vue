@@ -1,45 +1,51 @@
 <script setup lang="ts">
-import type { Criterion, Opening, OpeningQuestion, OpeningStatus } from '~/utils/recruitment'
+import type { Criterion, JobTemplate, JobTemplateContent, Opening, OpeningQuestion, OpeningStatus } from '~/utils/recruitment'
 import { DEFAULT_STAGES } from '~/utils/recruitment'
 
 /**
  * TND-30 — create / edit a job opening: what candidates read (title, missions,
  * salary range, process) and what the form asks (cover letter, up to 3 questions).
+ * TND-32: `prefill` starts a new opening from a template; `template` edits a
+ * template itself (no public address, team or manager); « save as template ».
  */
-const props = defineProps<{ opening: Opening | null }>()
+const props = defineProps<{ opening: Opening | null, prefill?: JobTemplateContent | null, template?: JobTemplate | null }>()
 const emit = defineEmits<{ saved: [id: string] }>()
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const toast = useToast()
-const { saveOpening } = useRecruitment()
+const { saveOpening, saveJobTemplate } = useRecruitment()
+const isTemplate = computed(() => !!props.template)
+const tplName = ref(props.template?.name ?? '')
 const { teams, fetchTeams } = useTeams()
 const { members, fetchMembers } = useTeamMembers()
 const { profile } = useCurrentUser()
 onMounted(() => { fetchTeams(); fetchMembers() })
 
 const o = props.opening
+// values come from the opening, else from the template being edited or used
+const src: JobTemplateContent | null = o ?? props.template?.content ?? props.prefill ?? null
 const form = reactive({
-  title: o?.title ?? '',
-  slug: o?.slug ?? '',
+  title: src?.title ?? '',
+  slug: o?.slug ?? (src?.title ? slugify(src.title) : ''),
   team_id: o?.team_id ?? '',
   hiring_manager_id: o?.hiring_manager_id ?? '',
-  location: o?.location ?? '',
-  contract_type: o?.contract_type ?? 'cdi',
-  remote: o?.remote ?? 'hybrid',
-  salary_min: o?.salary_min != null ? String(o.salary_min) : '',
-  salary_max: o?.salary_max != null ? String(o.salary_max) : '',
-  salary_period: o?.salary_period ?? 'year',
-  summary: o?.summary ?? '',
-  missions: o?.missions ?? '',
-  profile: o?.profile ?? '',
-  benefits: o?.benefits ?? '',
-  process: (o?.process_steps ?? ['Échange RH', 'Entretien technique', 'Rencontre équipe']).join('\n'),
-  cover_letter: o?.cover_letter ?? 'optional',
-  anonymous_screening: o?.anonymous_screening ?? false,
+  location: src?.location ?? '',
+  contract_type: src?.contract_type ?? 'cdi',
+  remote: src?.remote ?? 'hybrid',
+  salary_min: src?.salary_min != null ? String(src.salary_min) : '',
+  salary_max: src?.salary_max != null ? String(src.salary_max) : '',
+  salary_period: src?.salary_period ?? 'year',
+  summary: src?.summary ?? '',
+  missions: src?.missions ?? '',
+  profile: src?.profile ?? '',
+  benefits: src?.benefits ?? '',
+  process: (src?.process_steps ?? ['Échange RH', 'Entretien technique', 'Rencontre équipe']).join('\n'),
+  cover_letter: src?.cover_letter ?? 'optional',
+  anonymous_screening: src?.anonymous_screening ?? false,
 })
-const questions = ref<OpeningQuestion[]>([...(o?.questions ?? [])])
+const questions = ref<OpeningQuestion[]>([...(src?.questions ?? [])])
 // scorecard criteria (TND-30 lot 2): what interviewers rate from 1 to 4
-const criteria = ref<Criterion[]>(o?.criteria?.length ? [...o.criteria] : [
+const criteria = ref<Criterion[]>(src?.criteria?.length ? [...src.criteria] : [
   { id: 'c1', label: 'Compétences techniques' }, { id: 'c2', label: 'Communication' }, { id: 'c3', label: 'Motivation pour le poste' },
 ])
 function addCriterion() {
@@ -70,8 +76,37 @@ function num(v: string): number | null {
   return v.trim() && Number.isFinite(n) && n >= 0 ? Math.round(n) : null
 }
 
+/** the template part of the form, shared by « save », « save as template » and template mode */
+function content(): JobTemplateContent {
+  return {
+    title: form.title.trim(), location: form.location.trim(), contract_type: form.contract_type, remote: form.remote,
+    salary_min: num(form.salary_min), salary_max: num(form.salary_max), salary_period: form.salary_period,
+    summary: form.summary.trim(), missions: form.missions.trim(), profile: form.profile.trim(), benefits: form.benefits.trim(),
+    process_steps: form.process.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 8),
+    questions: questions.value.map(q => ({ ...q, label: q.label.trim() })).filter(q => q.label),
+    cover_letter: form.cover_letter,
+    criteria: criteria.value.map(c => ({ ...c, label: c.label.trim() })).filter(c => c.label).slice(0, 6),
+    anonymous_screening: form.anonymous_screening,
+  }
+}
+const savingTpl = ref(false)
+async function saveTemplate() {
+  error.value = null
+  if (isTemplate.value && tplName.value.trim().length < 2) { error.value = t('tnd32.job.nameRequired'); return }
+  savingTpl.value = true
+  try {
+    const name = isTemplate.value ? tplName.value : (form.title.trim() || t('tnd32.job.untitled'))
+    const id = await saveJobTemplate(props.template?.id ?? null, name, content())
+    toast.add(isTemplate.value ? t('tnd32.tpl.savedTemplate') : t('tnd32.job.savedAs', { name }))
+    if (isTemplate.value) emit('saved', id)
+  }
+  catch (e) { error.value = errorMessage(e) }
+  finally { savingTpl.value = false }
+}
+
 async function save(status?: OpeningStatus) {
   error.value = null
+  if (isTemplate.value) return saveTemplate()
   if (form.title.trim().length < 3) { error.value = t('tnd30.editor.titleRequired'); return }
   const slug = slugify(form.slug || form.title)
   const min = num(form.salary_min)
@@ -110,10 +145,11 @@ async function save(status?: OpeningStatus) {
     <section class="wb-card wb-oe-s">
       <header><h2 class="h3">{{ t('tnd30.editor.post') }}</h2><p class="small wb-mut">{{ t('tnd30.editor.postHint') }}</p></header>
       <div class="wb-oe-f">
+        <div v-if="isTemplate" class="wb-oe-wide"><WbInput id="tpl-name" v-model="tplName" :label="t('tnd32.job.name')" required maxlength="120" :hint="t('tnd32.job.nameHint')" /></div>
         <div class="wb-oe-wide"><WbInput id="op-title" v-model="form.title" :label="t('tnd30.fields.title')" required maxlength="120" :placeholder="t('tnd30.editor.titlePh')" /></div>
-        <div class="wb-oe-wide"><WbInput id="op-slug" v-model="form.slug" :label="t('tnd30.fields.slug')" prefix="/carrieres/" maxlength="80" :hint="t('tnd30.editor.slugHint')" @update:model-value="slugTouched = true" /></div>
-        <WbSelect id="op-team" v-model="form.team_id" :label="t('calendar.team')" :options="teamOptions" />
-        <WbSelect id="op-manager" v-model="form.hiring_manager_id" :label="t('tnd30.fields.manager')" :options="managerOptions" :hint="t('tnd30.editor.managerHint')" />
+        <div v-if="!isTemplate" class="wb-oe-wide"><WbInput id="op-slug" v-model="form.slug" :label="t('tnd30.fields.slug')" prefix="/carrieres/" maxlength="80" :hint="t('tnd30.editor.slugHint')" @update:model-value="slugTouched = true" /></div>
+        <WbSelect v-if="!isTemplate" id="op-team" v-model="form.team_id" :label="t('calendar.team')" :options="teamOptions" />
+        <WbSelect v-if="!isTemplate" id="op-manager" v-model="form.hiring_manager_id" :label="t('tnd30.fields.manager')" :options="managerOptions" :hint="t('tnd30.editor.managerHint')" />
         <WbInput id="op-loc" v-model="form.location" :label="t('tnd30.fields.location')" maxlength="120" :placeholder="t('tnd30.editor.locationPh')" />
         <WbSelect id="op-contract" v-model="form.contract_type" :label="t('tnd30.fields.contract')" :options="contractOptions" />
         <WbSelect id="op-remote" v-model="form.remote" :label="t('tnd30.fields.remote')" :options="remoteOptions" />
@@ -174,8 +210,14 @@ async function save(status?: OpeningStatus) {
       </div>
     </section>
 
-    <div class="wb-oe-bar">
+    <div v-if="isTemplate" class="wb-oe-bar">
+      <span class="small wb-mut">{{ t('tnd32.job.templateBar') }}</span>
+      <span class="wb-grow" />
+      <WbButton type="submit" :loading="savingTpl" data-action="save-job-template">{{ t('tnd32.tpl.save') }}</WbButton>
+    </div>
+    <div v-else class="wb-oe-bar">
       <span class="small wb-mut">{{ opening?.status ? t(`tnd30.status.${opening.status}`) : t('tnd30.status.draft') }}</span>
+      <WbButton variant="ghost" size="sm" icon="copy" :loading="savingTpl" data-action="save-as-template" @click="saveTemplate">{{ t('tnd32.job.saveAs') }}</WbButton>
       <span class="wb-grow" />
       <WbButton v-if="opening?.status === 'published'" variant="ghost" :loading="saving === 'paused'" @click="save('paused')">{{ t('tnd30.editor.pause') }}</WbButton>
       <WbButton v-if="opening && opening.status !== 'closed'" variant="ghost" :loading="saving === 'closed'" @click="save('closed')">{{ t('tnd30.editor.close') }}</WbButton>

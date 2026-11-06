@@ -1,11 +1,21 @@
 <script setup lang="ts">
-import type { Opening, OpeningStatus } from '~/utils/recruitment'
+import type { JobTemplate, Opening, OpeningStatus } from '~/utils/recruitment'
 
 // Recruitment home (TND-30): openings with their pipeline at a glance
 definePageMeta({ titleKey: 'nav.recruitment', layout: 'private', middleware: 'recruiter-access' })
 const { t } = useI18n()
 const { isRecruiter } = useCurrentUser()
-const { listOpenings, listAllApplications } = useRecruitment()
+const { listOpenings, listAllApplications, listJobTemplates } = useRecruitment()
+// « Nouvelle offre »: blank or from a job template (TND-32)
+const picking = ref(false)
+const jobTemplates = ref<JobTemplate[] | null>(null)
+async function openPicker() {
+  picking.value = true
+  if (!jobTemplates.value) {
+    try { jobTemplates.value = await listJobTemplates() }
+    catch { jobTemplates.value = [] }
+  }
+}
 const route = useRoute()
 const router = useRouter()
 
@@ -78,9 +88,10 @@ const tone = (s: OpeningStatus) => (s === 'published' ? 'success' : s === 'pause
     <div class="wb-row-b wb-wrap">
       <WbTabs v-model="filter" :tabs="tabs" :label="t('nav.recruitment')" />
       <div class="wb-row wb-wrap" style="gap: 8px">
+        <WbButton v-if="isRecruiter" variant="secondary" size="sm" icon="file-text" data-action="job-templates" to="/recrutement/modeles">{{ t('tnd32.job.library') }}</WbButton>
         <WbButton v-if="isRecruiter" variant="secondary" size="sm" icon="mail" data-action="templates" @click="showTemplates = true">{{ t('tnd30.tpl.title') }}</WbButton>
         <WbButton variant="secondary" size="sm" icon="external-link" to="/carrieres" target="_blank">{{ t('tnd30.list.careersPage') }}</WbButton>
-        <WbButton v-if="isRecruiter" size="sm" icon="plus" to="/recrutement/nouvelle" data-action="new-opening">{{ t('tnd30.list.new') }}</WbButton>
+        <WbButton v-if="isRecruiter" size="sm" icon="plus" data-action="new-opening" @click="openPicker">{{ t('tnd30.list.new') }}</WbButton>
       </div>
     </div>
 
@@ -119,10 +130,25 @@ const tone = (s: OpeningStatus) => (s === 'published' ? 'success' : s === 'pause
     </ul>
     </template>
     <TemplatesPanel v-if="showTemplates" @close="showTemplates = false" />
+
+    <WbModal v-if="picking" :title="t('tnd30.list.new')" :description="t('tnd32.job.pickHint')" @close="picking = false">
+      <ul class="wb-pick">
+        <li><NuxtLink to="/recrutement/nouvelle" class="wb-pick-i" data-action="blank-opening"><WbIcon name="plus" :size="16" /><span><b class="small">{{ t('tnd32.job.blank') }}</b><span class="caption wb-mut2">{{ t('tnd32.job.blankHint') }}</span></span></NuxtLink></li>
+        <li v-for="x in jobTemplates ?? []" :key="x.id"><NuxtLink :to="{ path: '/recrutement/nouvelle', query: { modele: x.id } }" class="wb-pick-i" :data-job-template="x.name"><WbIcon name="file-text" :size="16" /><span><b class="small">{{ x.name }}</b><span class="caption wb-mut2">{{ x.content.summary }}</span></span></NuxtLink></li>
+      </ul>
+      <template #footer>
+        <WbButton variant="ghost" to="/recrutement/modeles">{{ t('tnd32.tpl.manage') }}</WbButton>
+      </template>
+    </WbModal>
   </div>
 </template>
 
 <style scoped>
+.wb-pick { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow: auto; }
+.wb-pick-i { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); color: inherit; text-decoration: none; }
+.wb-pick-i:hover { border-color: var(--brand); background: var(--brand-tint); }
+.wb-pick-i > span { display: flex; flex-direction: column; gap: 2px; }
+.wb-pick-i .wb-icon, .wb-pick-i svg { flex: none; margin-top: 2px; }
 .wb-rc-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; }
 .wb-rc-kpis > div { display: flex; flex-direction: column; gap: 2px; padding: var(--space-3) var(--space-5); }
 .wb-rc-kpis > div + div { border-left: 1px solid var(--border); }

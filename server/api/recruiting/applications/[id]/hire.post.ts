@@ -1,3 +1,4 @@
+import { siteUrl } from '../../../../utils/site-url'
 import { loadApplicationForAction } from '../../../../utils/recruit-actions'
 import { invitePerson } from '../../../../utils/invite-person'
 
@@ -19,7 +20,7 @@ export default defineEventHandler(async (event) => {
   const c = (cand as { candidates: { first_name: string, last_name: string, email: string } | null } | null)?.candidates
   if (!c) throw createError({ statusCode: 404, statusMessage: 'Candidat introuvable' })
 
-  const userId = await invitePerson(supabase, getRequestURL(event).origin, {
+  const userId = await invitePerson(supabase, siteUrl(event), {
     email: c.email, firstName: c.first_name, lastName: c.last_name, role, teamId, country, joinedAt,
   })
   await supabase.from('applications').update({ status: 'hired', stage: 'hired', last_contact_at: new Date().toISOString() }).eq('id', app.id)

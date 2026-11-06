@@ -43,6 +43,10 @@ export interface Opening extends Omit<PublicOpening, 'teams'> {
   updated_at: string
 }
 
+/** What a job opening template pre-fills (TND-32) */
+export type JobTemplateContent = Partial<Pick<Opening, 'title' | 'location' | 'contract_type' | 'remote' | 'salary_min' | 'salary_max' | 'salary_period'
+  | 'summary' | 'missions' | 'profile' | 'benefits' | 'process_steps' | 'questions' | 'cover_letter' | 'criteria' | 'anonymous_screening'>>
+export interface JobTemplate { id: string, name: string, content: JobTemplateContent, archived: boolean, updated_at: string }
 export const DEFAULT_STAGES: Stage[] = [
   { key: 'new', label: 'Nouvelle' }, { key: 'screen', label: 'Présélection' }, { key: 'hr', label: 'Échange RH' },
   { key: 'tech', label: 'Entretien technique' }, { key: 'team', label: 'Rencontre équipe' }, { key: 'offer', label: 'Offre' },

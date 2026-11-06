@@ -8,13 +8,13 @@ import type { TemplateContent } from '~/utils/reviews'
  * at launch: edits apply to the next campaigns. Lot 2: the short form asked to
  * colleagues (which competencies, their own questions).
  */
-const props = defineProps<{ templates: ReviewTemplate[] }>()
+const props = defineProps<{ templates: ReviewTemplate[], initialId?: string }>()
 const emit = defineEmits<{ close: [], saved: [] }>()
 const { t } = useI18n()
 const toast = useToast()
 const { saveTemplate } = useReviews()
 
-const id = ref(props.templates[0]?.id ?? '')
+const id = ref(props.initialId ?? props.templates[0]?.id ?? '')
 const drafts = reactive<Record<string, { name: string, content: TemplateContent }>>(Object.fromEntries(props.templates.map(x => [x.id, { name: x.name, content: JSON.parse(JSON.stringify(x.content)) as TemplateContent }])))
 for (const d of Object.values(drafts)) d.content.peer ??= { competencies: [], questions: [] }
 const cur = computed(() => drafts[id.value])
@@ -61,8 +61,8 @@ async function save() {
 </script>
 
 <template>
-  <WbSidePanel :title="t('tnd29.tpl.title')" :subtitle="t('tnd29.tpl.hint')" :width="760" @close="emit('close')">
-    <WbTabs v-model="id" class="wb-tt-tabs" :tabs="tabs" :label="t('tnd29.tpl.title')" />
+  <WbSidePanel :title="initialId ? (cur?.name || t('tnd29.tpl.title')) : t('tnd29.tpl.title')" :subtitle="t('tnd32.tpl.panelHint')" :width="760" @close="emit('close')">
+    <WbTabs v-if="!initialId" v-model="id" class="wb-tt-tabs" :tabs="tabs" :label="t('tnd29.tpl.title')" />
     <WbBanner v-if="error" tone="danger">{{ error }}</WbBanner>
     <template v-if="cur">
       <WbInput id="tt-name" v-model="cur.name" :label="t('tnd29.tpl.name')" maxlength="120" />
@@ -96,7 +96,7 @@ async function save() {
         <WbButton variant="ghost" size="sm" icon="x" icon-only @click="peer.questions.splice(i, 1)">{{ t('tnd30.editor.remove') }}</WbButton>
       </div>
       <div v-if="peer.questions.length < 4"><WbButton variant="secondary" size="sm" icon="plus" @click="addPeerQuestion">{{ t('tnd29.tpl.addPeerQuestion') }}</WbButton></div>
-      <div class="wb-panel-f"><WbButton block :loading="saving" data-action="save-template" @click="save">{{ t('rules.save') }}</WbButton></div>
+      <div class="wb-panel-f"><WbButton block :loading="saving" data-action="save-template" @click="save">{{ t('tnd32.tpl.save') }}</WbButton></div>
     </template>
   </WbSidePanel>
 </template>

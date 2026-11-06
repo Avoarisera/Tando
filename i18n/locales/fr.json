@@ -1615,7 +1615,7 @@
       "whoHint": "Chacune reçoit son auto-évaluation ; son manager d’équipe reçoit l’évaluation à rédiger.",
       "launch": "Lancer pour {n} personne | Lancer pour {n} personnes",
       "launchTitle": "Lancer la campagne ?",
-      "launchText": "{n} personne est notifiée, ainsi que son manager. | {n} personnes sont notifiées, ainsi que leurs managers.",
+      "launchText": "{n} personne et son manager reçoivent une notification et un e-mail. | {n} personnes et leurs managers reçoivent une notification et un e-mail.",
       "launchConfirm": "Lancer",
       "launched": "Campagne lancée pour {n} personne | Campagne lancée pour {n} personnes",
       "delete": "Supprimer le brouillon",
@@ -1773,6 +1773,64 @@
       "intro": "Votre retour sur {who} est anonyme : il n’est montré, sans votre nom et mélangé aux autres, qu’à partir de 3 réponses. Appuyez-vous sur des exemples concrets.",
       "confirm": "Votre retour sera envoyé et ne pourra plus être modifié. Il restera anonyme.",
       "closed": "Cette demande est close."
+    }
+  },
+  "tnd32": {
+    "mail": {
+      "sent": "{n} e-mail envoyé | {n} e-mails envoyés",
+      "notConfigured": "e-mails non envoyés : configurez l’envoi dans Réglages › E-mails"
+    },
+    "steps": {
+      "label": "Étapes de la campagne",
+      "create": "Campagne créée",
+      "people": "Choisir les personnes",
+      "launch": "Lancer : chacun reçoit un e-mail"
+    },
+    "tpl": {
+      "summary": "{c} compétences · {q} questions",
+      "withObjectives": "bilan des objectifs",
+      "withPeers": "retours des collègues",
+      "manage": "Gérer les modèles",
+      "panelHint": "Enregistrer un modèle ne lance rien : il sert aux prochaines campagnes. Une campagne en cours garde la version de son lancement.",
+      "save": "Enregistrer le modèle",
+      "savedTemplate": "Modèle enregistré",
+      "new": "Nouveau modèle",
+      "newName": "Nouveau modèle",
+      "use": "Utiliser",
+      "edit": "Modifier",
+      "duplicate": "Dupliquer",
+      "duplicated": "Modèle dupliqué",
+      "archive": "Archiver",
+      "archived": "Modèle archivé",
+      "archiveTitle": "Archiver « {name} » ?",
+      "archiveText": "Il ne sera plus proposé pour les nouvelles campagnes. Les campagnes qui l’utilisent ne changent pas.",
+      "libraryIntro": "Choisissez un modèle pour lancer une campagne en deux clics, ou adaptez-le à votre entreprise.",
+      "kind": {
+        "annual": "Annuel",
+        "probation": "Période d’essai",
+        "custom": "Personnalisé"
+      }
+    },
+    "job": {
+      "library": "Modèles d’offre",
+      "libraryIntro": "Des offres prêtes à l’emploi : choisissez-en une pour créer une offre préremplie, puis ajustez-la.",
+      "pickHint": "Partez d’une offre vierge ou d’un modèle : tout reste modifiable avant publication.",
+      "blank": "Offre vierge",
+      "blankHint": "Tous les champs sont à remplir.",
+      "name": "Nom du modèle",
+      "nameHint": "Visible seulement par les recruteurs.",
+      "nameRequired": "Donnez un nom au modèle",
+      "untitled": "Modèle sans titre",
+      "saveAs": "Enregistrer comme modèle",
+      "savedAs": "Modèle « {name} » enregistré",
+      "templateBar": "Modèle d’offre : sans adresse publique, équipe ni manager",
+      "editHint": "Ce modèle préremplit les nouvelles offres. Les offres déjà créées ne changent pas.",
+      "notFound": "Modèle introuvable",
+      "steps": "{n} étape | {n} étapes",
+      "noSummary": "Pas de résumé",
+      "emptyTitle": "Aucun modèle d’offre",
+      "emptyText": "Créez un modèle, ou enregistrez une offre existante comme modèle.",
+      "archiveText": "Il ne sera plus proposé pour les nouvelles offres. Les offres déjà créées ne changent pas."
     }
   }
 }

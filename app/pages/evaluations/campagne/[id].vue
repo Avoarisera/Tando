@@ -10,7 +10,7 @@ const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const toast = useToast()
 const route = useRoute()
 const id = String(route.params.id)
-const { getCycle, launchCycle, updateCycle, deleteCycle, remind } = useReviews()
+const { getCycle, launchCycle, updateCycle, deleteCycle, remind, notify } = useReviews()
 const { members, fetchMembers } = useTeamMembers()
 const { teams, fetchTeams } = useTeams()
 
@@ -50,7 +50,8 @@ async function launch() {
   launching.value = true
   try {
     const n = await launchCycle(id, picked.value)
-    toast.add(t('tnd29.cycle.launched', { n }, n))
+    const m = await notify()
+    toast.add(`${t('tnd29.cycle.launched', { n }, n)} · ${m?.notConfigured ? t('tnd32.mail.notConfigured') : t('tnd32.mail.sent', { n: m?.sent ?? 0 }, m?.sent ?? 0)}`)
     confirmLaunch.value = false
     await load()
   }
@@ -116,6 +117,12 @@ const late = (due: string | null) => !!due && due < todayIso()
         </div>
       </div>
 
+      <!-- draft: where we are (TND-32) -->
+      <ol v-if="cycle.status === 'draft'" class="wb-cy-steps" :aria-label="t('tnd32.steps.label')">
+        <li class="is-done"><WbIcon name="check" :size="14" /> {{ t('tnd32.steps.create') }}</li>
+        <li class="is-cur"><b>2</b> {{ t('tnd32.steps.people') }}</li>
+        <li><b>3</b> {{ t('tnd32.steps.launch') }}</li>
+      </ol>
       <!-- draft: choose the people -->
       <section v-if="cycle.status === 'draft'" class="wb-card wb-cy-pick">
         <header class="wb-card-h"><h2 class="h3">{{ t('tnd29.cycle.who') }}</h2><p class="small wb-mut2">{{ t('tnd29.cycle.whoHint') }}</p></header>
@@ -166,6 +173,11 @@ const late = (due: string | null) => !!due && due < todayIso()
 </template>
 
 <style scoped>
+.wb-cy-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.wb-cy-steps li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-pill); font-size: 13px; color: var(--ink-2); }
+.wb-cy-steps li b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2, #eef1f6); font-size: 12px; }
+.wb-cy-steps li.is-done { border-color: var(--success-solid); color: var(--success-text, inherit); }
+.wb-cy-steps li.is-cur { border-color: var(--brand); background: var(--brand-tint); color: inherit; font-weight: 600; }
 .wb-cy-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-4); }
 .wb-cy-g { border: 0; margin: 0; padding: 0; }
 .wb-cy-g legend { padding: 0; margin-bottom: var(--space-2); font-weight: 650; }

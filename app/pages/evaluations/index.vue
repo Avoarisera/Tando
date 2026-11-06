@@ -8,6 +8,7 @@ const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const toast = useToast()
 const { profile } = useCurrentUser()
 const { listCycles, listTemplates, createCycle } = useReviews()
+const route = useRoute()
 
 const data = ref<Awaited<ReturnType<typeof listCycles>> | null>(null)
 const templates = ref<ReviewTemplate[]>([])
@@ -17,7 +18,12 @@ async function load() {
   try { [data.value, templates.value] = await Promise.all([listCycles(), listTemplates()]) }
   catch (e) { error.value = errorMessage(e) }
 }
-onMounted(load)
+onMounted(async () => {
+  await load()
+  // « Utiliser ce modèle » from the template library (TND-32)
+  const m = route.query.modele
+  if (typeof m === 'string' && templates.value.some(x => x.id === m)) { openNew(m); navigateTo({ query: {} }, { replace: true }) }
+})
 
 function progress(c: ReviewCycle) {
   const packets = (data.value?.packets ?? []).filter(p => p.cycle_id === c.id)
@@ -46,8 +52,10 @@ const saving = ref(false)
 const templateOptions = computed(() => templates.value.map(x => ({ value: x.id, label: x.name })))
 // the templates may arrive after the panel opened: default to the first one
 watch(templates, (list) => { if (!form.template_id && list[0]) form.template_id = list[0].id })
-function openNew() {
-  form.template_id = templates.value[0]?.id ?? ''
+function openNew(templateId?: string) {
+  const tpl = templates.value.find(x => x.id === templateId) ?? templates.value[0]
+  form.template_id = tpl?.id ?? ''
+  if (tpl) form.name = `${tpl.name} ${year}`.slice(0, 120)
   const d = (n: number) => addDays(todayIso(), n)
   Object.assign(form, { self_due: d(14), manager_due: d(21), hr_due: d(30), peer_due: d(18) })
   formError.value = null
@@ -67,7 +75,8 @@ async function create() {
   catch (e) { formError.value = errorMessage(e) }
   finally { saving.value = false }
 }
-const editingTemplates = ref(false)
+// what the chosen template contains
+const chosen = computed(() => templates.value.find(x => x.id === form.template_id) ?? null)
 </script>
 
 <template>
@@ -75,8 +84,8 @@ const editingTemplates = ref(false)
     <div class="wb-row-b wb-wrap">
       <p class="wb-mut2 small wb-ev-intro">{{ t('tnd29.list.intro') }}</p>
       <div class="wb-row wb-wrap" style="gap: 8px">
-        <WbButton variant="secondary" size="sm" icon="file-text" data-action="templates" @click="editingTemplates = true">{{ t('tnd29.tpl.title') }}</WbButton>
-        <WbButton size="sm" icon="plus" data-action="new-cycle" @click="openNew">{{ t('tnd29.list.new') }}</WbButton>
+        <WbButton variant="secondary" size="sm" icon="file-text" data-action="templates" to="/evaluations/modeles">{{ t('tnd29.tpl.title') }}</WbButton>
+        <WbButton size="sm" icon="plus" data-action="new-cycle" @click="openNew()">{{ t('tnd29.list.new') }}</WbButton>
       </div>
     </div>
 
@@ -85,7 +94,7 @@ const editingTemplates = ref(false)
     <div v-else-if="!data.cycles.length" class="wb-card">
       <WbEmptyState art="inbox" :title="t('tnd29.list.emptyTitle')">
         {{ t('tnd29.list.emptyText') }}
-        <template #action><WbButton icon="plus" @click="openNew">{{ t('tnd29.list.new') }}</WbButton></template>
+        <template #action><WbButton icon="plus" @click="openNew()">{{ t('tnd29.list.new') }}</WbButton></template>
       </WbEmptyState>
     </div>
     <ul v-else class="wb-ev-list">
@@ -116,6 +125,7 @@ const editingTemplates = ref(false)
         <WbBanner v-if="formError" tone="danger">{{ formError }}</WbBanner>
         <WbInput id="cy-name" v-model="form.name" :label="t('tnd29.cycle.name')" maxlength="120" required />
         <WbSelect id="cy-tpl" v-model="form.template_id" :label="t('tnd29.cycle.template')" :options="templateOptions" />
+        <p v-if="chosen" class="caption wb-mut2" data-tpl-preview>{{ t('tnd32.tpl.summary', { c: chosen.content.competencies.length, q: chosen.content.questions.length }) }}<template v-if="chosen.content.objectives"> · {{ t('tnd32.tpl.withObjectives') }}</template><template v-if="chosen.content.peer?.competencies.length"> · {{ t('tnd32.tpl.withPeers') }}</template> · <NuxtLink to="/evaluations/modeles">{{ t('tnd32.tpl.manage') }}</NuxtLink></p>
         <div class="wb-grid wb-cols-2" style="gap: 16px">
           <WbInput id="cy-start" v-model="form.period_start" type="date" :label="t('tnd29.cycle.periodStart')" />
           <WbInput id="cy-end" v-model="form.period_end" type="date" :label="t('tnd29.cycle.periodEnd')" />
@@ -135,7 +145,6 @@ const editingTemplates = ref(false)
       </form>
     </WbSidePanel>
 
-    <ReviewTemplatesPanel v-if="editingTemplates" :templates="templates" @close="editingTemplates = false" @saved="load" />
   </div>
 </template>
 

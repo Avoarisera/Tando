@@ -629,8 +629,22 @@ async function main() {
   }
 }
 
+async function tnd32() {
+  console.log('\nTND-32 — modèles d’offre et e-mails')
+  const emma = await signIn('employee1@waka.com')
+  const { data: seen } = await emma.from('job_templates').select('id')
+  check('TND-32a', 'un employé ne lit pas les modèles d’offre', (seen ?? []).length === 0)
+  const { error: w } = await emma.from('job_templates').insert({ name: 'pirate', content: {} })
+  check('TND-32b', 'un employé ne crée pas de modèle d’offre', !!w)
+  const { data: anonSeen } = await anon.from('job_templates').select('id')
+  check('TND-32c', 'un visiteur ne lit pas les modèles d’offre', (anonSeen ?? []).length === 0)
+  const { data: upd, error: col } = await emma.from('notifications').update({ emailed_at: null }).eq('user_id', IDS.emma).select('id')
+  check('TND-32d', 'un utilisateur ne modifie pas l’état d’envoi des e-mails', !!col || (upd ?? []).length === 0)
+}
+
 try {
   await main()
+  await tnd32()
 } catch (e) {
   fail++
   console.error('ERROR', e)

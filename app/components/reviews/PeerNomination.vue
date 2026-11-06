@@ -11,7 +11,7 @@ const props = defineProps<{ packetId: string, mode: 'self' | 'manager' | 'hr', p
 const emit = defineEmits<{ changed: [] }>()
 const { t } = useI18n()
 const toast = useToast()
-const { listNominations, peerCandidates, proposePeers, approvePeers } = useReviews()
+const { listNominations, peerCandidates, proposePeers, approvePeers, notify } = useReviews()
 
 const list = ref<Nomination[]>([])
 const people = ref<{ id: string, name: string, team_name: string | null }[]>([])
@@ -57,6 +57,7 @@ async function save() {
   try {
     if (decider.value) await approvePeers(props.packetId, picked.value)
     else await proposePeers(props.packetId, picked.value)
+    notify()
     toast.add(decider.value ? t('tnd29.peer.approvedToast') : t('tnd29.peer.proposedToast'))
     editing.value = false
     await load()
