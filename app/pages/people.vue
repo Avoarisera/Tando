@@ -8,7 +8,7 @@ const { teams, fetchTeams } = useTeams()
 const { snapshot, fetchSnapshot } = useDashboard()
 
 type Role = 'employee' | 'manager' | 'admin'
-interface Person { id: string, first_name: string, last_name: string, role: Role, team_id: string | null, joined_at: string, country: string, linear_user_id: string | null }
+interface Person { id: string, first_name: string, last_name: string, role: Role, team_id: string | null, joined_at: string, country: string, linear_user_id: string | null, is_hr: boolean }
 const people = ref<Person[]>([])
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -18,7 +18,7 @@ async function load() {
   error.value = null
   try {
     const [{ data, error: e }] = await Promise.all([
-      supabase.from('profiles').select('id, first_name, last_name, role, team_id, joined_at, country, linear_user_id').order('last_name'),
+      supabase.from('profiles').select('id, first_name, last_name, role, team_id, joined_at, country, linear_user_id, is_hr').order('last_name'),
       loadDefaultCountry(),
       loadLinear(),
       fetchTeams(true),
@@ -107,21 +107,21 @@ async function loadDefaultCountry() {
 }
 
 // ── Invite / edit (one side panel) ───────────────────────────────────────────
-interface PersonForm { email: string, first_name: string, last_name: string, role: Role, team_id: string, country: string, joined_at: string, linear_user_id: string }
+interface PersonForm { email: string, first_name: string, last_name: string, role: Role, team_id: string, country: string, joined_at: string, linear_user_id: string, is_hr: boolean }
 const panel = ref<'invite' | 'edit' | null>(null)
 const editingId = ref<string | null>(null)
-const form = reactive<PersonForm>({ email: '', first_name: '', last_name: '', role: 'employee', team_id: '', country: 'FR', joined_at: '', linear_user_id: '' })
+const form = reactive<PersonForm>({ email: '', first_name: '', last_name: '', role: 'employee', team_id: '', country: 'FR', joined_at: '', linear_user_id: '', is_hr: false })
 const formError = ref<string | null>(null)
 const saving = ref(false)
 
 function openInvite() {
-  Object.assign(form, { email: '', first_name: '', last_name: '', role: 'employee', team_id: '', country: defaultCountry.value, joined_at: todayIso(), linear_user_id: '' })
+  Object.assign(form, { email: '', first_name: '', last_name: '', role: 'employee', team_id: '', country: defaultCountry.value, joined_at: todayIso(), linear_user_id: '', is_hr: false })
   editingId.value = null
   formError.value = null
   panel.value = 'invite'
 }
 function openEdit(p: Person) {
-  Object.assign(form, { email: '', first_name: p.first_name, last_name: p.last_name, role: p.role, team_id: p.team_id ?? '', country: p.country, joined_at: p.joined_at, linear_user_id: p.linear_user_id ?? '' })
+  Object.assign(form, { email: '', first_name: p.first_name, last_name: p.last_name, role: p.role, team_id: p.team_id ?? '', country: p.country, joined_at: p.joined_at, linear_user_id: p.linear_user_id ?? '', is_hr: !!p.is_hr })
   editingId.value = p.id
   formError.value = null
   panel.value = 'edit'
@@ -154,6 +154,9 @@ async function savePerson() {
       // Linear account used by Vélocité (capacity, per-dev figures) — TND-26
       const { error: e2 } = await supabase.rpc('admin_set_linear_user', { p_id: editingId.value!, p_linear_user_id: form.linear_user_id })
       if (e2) throw new Error(e2.message)
+      // HR access: recruitment and evaluations (TND-30)
+      const { error: e3 } = await supabase.rpc('admin_set_hr', { p_id: editingId.value!, p_is_hr: form.is_hr })
+      if (e3) throw new Error(e3.message)
       toast.add(t('r8a.people.saved'))
     }
     panel.value = null
@@ -292,7 +295,7 @@ const teamsPager = usePagination(computed(() => teamCards.value))
               <tr v-for="p in rowsPager.items.value" :key="p.id" :data-person="fullName(p)">
                 <td><span class="wb-cp"><WbAvatar :name="fullName(p)" :size="28" /><b class="small">{{ fullName(p) }}</b></span></td>
                 <td>{{ teamName(p.team_id) }}</td>
-                <td><WbBadge :tone="ROLE_TONE[p.role]">{{ t(`roles.${p.role}`) }}</WbBadge></td>
+                <td><WbBadge :tone="ROLE_TONE[p.role]">{{ t(`roles.${p.role}`) }}</WbBadge><WbBadge v-if="p.is_hr && p.role !== 'admin'" tone="indigo" size="sm" class="wb-hr-b">{{ t('tnd30.hr.badge') }}</WbBadge></td>
                 <td>{{ countryName(p.country, tag) }}</td>
                 <td class="wb-num">{{ fmtDate(p.joined_at, tag, { day: '2-digit', month: '2-digit', year: 'numeric' }) }}</td>
                 <td>
@@ -357,6 +360,10 @@ const teamsPager = usePagination(computed(() => teamCards.value))
           <WbSelect id="person-team" v-model="form.team_id" :label="t('calendar.team')" :options="teamChoices" />
           <WbSelect id="person-country" v-model="form.country" :label="t('r8a.people.country')" :options="countries" :hint="t('r8a.people.countryHint')" />
           <WbInput id="person-joined" v-model="form.joined_at" type="date" :label="t('people.joined')" />
+        </div>
+        <div v-if="panel === 'edit' && form.role !== 'admin'" class="wb-stack-s">
+          <WbCheckbox v-model="form.is_hr" :label="t('tnd30.hr.access')" />
+          <p class="caption wb-mut">{{ t('tnd30.hr.hint') }}</p>
         </div>
         <WbSelect v-if="panel === 'edit' && linearUsers.length" id="person-linear" v-model="form.linear_user_id" :label="t('tnd26.linearUser')" :options="linearUserChoices" :hint="t('tnd26.linearUserHint')" />
         <div class="wb-panel-f">

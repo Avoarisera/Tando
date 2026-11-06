@@ -90,10 +90,10 @@ test.describe('R2 — Sidebar (desktop)', () => {
     }
   })
 
-  test('T-R2-003: admin menu groups Équipe, Pilotage, Administration', async ({ page }) => {
+  test('T-R2-003: admin menu groups Équipe, Talents, Pilotage, Administration', async ({ page }) => {
     await signIn(page, ACCOUNTS.admin)
-    await expect(page.locator(`${SIDEBAR} h2`)).toHaveText(['Équipe', 'Pilotage', 'Administration'])
-    await expect(page.locator(SIDE_LINKS)).toHaveText(['Tableau de bord', 'Calendrier', 'À valider', 'Vélocité', 'Personnes et équipes', 'Congés et règles', 'Factures', 'Paramètres'])
+    await expect(page.locator(`${SIDEBAR} h2`)).toHaveText(['Équipe', 'Talents', 'Pilotage', 'Administration'])
+    await expect(page.locator(SIDE_LINKS)).toHaveText(['Tableau de bord', 'Calendrier', 'À valider', 'Recrutement', 'Vélocité', 'Personnes et équipes', 'Congés et règles', 'Factures', 'Paramètres'])
   })
 
   test('T-R2-004: active link has aria-current and the header shows the page title', async ({ page }) => {
@@ -176,7 +176,7 @@ test.describe('R2 — Mobile (390 px)', () => {
     await page.locator(MENU_BTN).click()
     const drawer = page.locator(DRAWER)
     await expect(drawer).toBeVisible()
-    await expect(drawer.locator('.wb-side-g a')).toHaveCount(8)
+    await expect(drawer.locator('.wb-side-g a')).toHaveCount(9) // + Recrutement (TND-30)
     await expect(drawer.locator('.wb-side-g a').first()).toBeFocused()
   })
 

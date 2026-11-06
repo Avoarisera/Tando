@@ -377,6 +377,52 @@ async function main() {
       await service.from('workspaces').delete().eq('id', ws.id)
     }
   }
+
+  console.log('\nTND-30 — recrutement')
+  {
+    const { data: mgr } = await service.from('profiles').select('id').eq('id', IDS.manager).single()
+    const { data: ops } = await service.from('job_openings').insert([
+      { slug: `sec-pub-${Date.now()}`, title: 'Sec publiée', status: 'published', hiring_manager_id: null },
+      { slug: `sec-draft-${Date.now()}`, title: 'Sec brouillon', status: 'draft' },
+      { slug: `sec-mgr-${Date.now()}`, title: 'Sec manager', status: 'published', hiring_manager_id: mgr.id },
+    ]).select('id, title')
+    const [pub, draft, mine] = ops
+    const { data: cand } = await service.from('candidates').insert({ email: `sec.${Date.now()}@example.com`, first_name: 'Sec', last_name: 'Cand' }).select('id').single()
+    const { data: apps } = await service.from('applications').insert([
+      { opening_id: pub.id, candidate_id: cand.id },
+      { opening_id: mine.id, candidate_id: cand.id },
+    ]).select('id, opening_id')
+    try {
+      const { data: aOpen } = await anon.from('job_openings').select('id, title').in('id', [pub.id, draft.id])
+      check('TND-30a', 'un visiteur lit les offres publiées, pas les brouillons', (aOpen ?? []).length === 1 && aOpen[0].id === pub.id)
+      const { error: aMgr } = await anon.from('job_openings').select('hiring_manager_id').eq('id', pub.id)
+      check('TND-30b', 'un visiteur ne lit pas le manager recruteur ni les colonnes internes', !!aMgr)
+      const { data: aApps } = await anon.from('applications').select('id')
+      const { data: aCand } = await anon.from('candidates').select('id')
+      check('TND-30c', 'un visiteur ne lit ni candidatures ni candidats', (aApps ?? []).length === 0 && (aCand ?? []).length === 0)
+      const { error: aIns } = await anon.from('applications').insert({ opening_id: pub.id, candidate_id: cand.id })
+      check('TND-30d', 'un visiteur ne crée pas de candidature en direct (route serveur obligatoire)', !!aIns)
+      const { data: eApps } = await emma.from('applications').select('id')
+      check('TND-30e', 'un employé ne lit aucune candidature', (eApps ?? []).length === 0)
+      const { error: eOp } = await emma.from('job_openings').insert({ slug: `sec-x-${Date.now()}`, title: 'Pirate' })
+      check('TND-30f', 'un employé ne crée pas d\'offre', !!eOp)
+      const { data: mApps } = await manager.from('applications').select('id, opening_id')
+      check('TND-30g', 'le manager recruteur ne voit que les candidatures de ses offres', (mApps ?? []).length === 1 && mApps[0].opening_id === mine.id)
+      const { error: mNote } = await manager.from('application_events').insert({ application_id: apps.find(a => a.opening_id === pub.id).id, actor_id: mgr.id, kind: 'note', data: { text: 'x' } })
+      check('TND-30h', 'le manager n\'écrit pas de note sur une offre qui n\'est pas la sienne', !!mNote)
+      const { error: eHr } = await emma.rpc('admin_set_hr', { p_id: IDS.emma, p_is_hr: true })
+      check('TND-30i', 'un employé ne se donne pas l\'accès RH', !!eHr)
+      const { data: aFile, error: aFileErr } = await anon.storage.from('applications').list(pub.id)
+      check('TND-30j', 'le stockage des CV est privé', !!aFileErr || (aFile ?? []).length === 0)
+      const { data: aRows } = await admin.from('applications').select('id').in('id', apps.map(a => a.id))
+      check('TND-30k', 'l\'admin (RH) lit toutes les candidatures', (aRows ?? []).length === 2)
+    }
+    finally {
+      await service.from('applications').delete().in('id', apps.map(a => a.id))
+      await service.from('candidates').delete().eq('id', cand.id)
+      await service.from('job_openings').delete().in('id', ops.map(o => o.id))
+    }
+  }
 }
 
 try {

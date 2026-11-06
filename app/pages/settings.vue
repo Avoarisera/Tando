@@ -16,8 +16,9 @@ interface Settings {
   invoice_prefix: string
   next_invoice_number: number
   invoice_footer: string
+  careers_intro: string
 }
-const form = reactive<Settings>({ legal_name: '', vat_number: '', address: '', iban: '', bic: '', default_country: 'FR', invoice_prefix: 'FAC', next_invoice_number: 1, invoice_footer: '' })
+const form = reactive<Settings>({ legal_name: '', vat_number: '', address: '', iban: '', bic: '', default_country: 'FR', invoice_prefix: 'FAC', next_invoice_number: 1, invoice_footer: '', careers_intro: '' })
 const nextNumber = ref('1')
 const isLoading = ref(false)
 const loadError = ref<string | null>(null)
@@ -30,7 +31,7 @@ async function load() {
   loadError.value = null
   const { data, error } = await supabase
     .from('company_settings')
-    .select('legal_name, vat_number, address, iban, bic, default_country, invoice_prefix, next_invoice_number, invoice_footer')
+    .select('legal_name, vat_number, address, iban, bic, default_country, invoice_prefix, next_invoice_number, invoice_footer, careers_intro')
     .maybeSingle()
   isLoading.value = false
   if (error) {
@@ -70,6 +71,7 @@ async function save() {
       invoice_prefix: form.invoice_prefix.trim(),
       next_invoice_number: n,
       invoice_footer: form.invoice_footer.trim(),
+      careers_intro: form.careers_intro.trim(),
       updated_at: new Date().toISOString(),
     })
     .eq('id', true)
@@ -106,6 +108,14 @@ async function save() {
           <WbInput id="set-prefix" v-model="form.invoice_prefix" :label="t('r8a.settings.prefix')" maxlength="12" />
           <WbInput id="set-next" v-model="nextNumber" type="number" min="1" inputmode="numeric" :label="t('r8a.settings.nextNumber')" />
           <div class="wb-set-wide"><WbTextarea id="set-footer" v-model="form.invoice_footer" :label="t('r8a.settings.footer')" :max="500" :hint="t('r8a.settings.footerHint')" /></div>
+        </div>
+      </section>
+
+      <section class="wb-card wb-set-s">
+        <header><h2 class="h3">{{ t('tnd30.settings.title') }}</h2><p class="small wb-mut">{{ t('tnd30.settings.hint') }}</p></header>
+        <div class="wb-set-f">
+          <div class="wb-set-wide"><WbTextarea id="set-careers" v-model="form.careers_intro" :label="t('tnd30.settings.intro')" :max="2000" :rows="4" :hint="t('tnd30.settings.introHint')" /></div>
+          <div class="wb-set-wide"><WbButton variant="secondary" size="sm" icon="external-link" to="/carrieres" target="_blank">{{ t('tnd30.settings.open') }}</WbButton></div>
         </div>
       </section>
 

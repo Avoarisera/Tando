@@ -15,12 +15,13 @@ const STYLE: Record<NotificationKind, [string, string]> = {
   cancel_requested: ['undo-2', 'indigo'],
   cancel_approved: ['ban', 'neutral'],
   cancel_refused: ['circle-alert', 'warning'],
+  application_received: ['user-plus', 'info'],
 }
 
 function text(n: AppNotification) {
   const d = n.data
   const period = d.start_date && d.end_date ? formatPeriod(d.start_date, d.end_date, tag.value) : ''
-  return t(`r8a.notif.${n.kind}`, { who: `${d.first_name ?? ''} ${d.last_name ?? ''}`.trim(), type: d.type ?? '', period })
+  return t(`r8a.notif.${n.kind}`, { who: `${d.first_name ?? ''} ${d.last_name ?? ''}`.trim(), type: d.type ?? '', period, job: d.job ?? '' })
 }
 
 const today = todayIso()

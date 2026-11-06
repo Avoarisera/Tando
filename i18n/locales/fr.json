@@ -74,7 +74,9 @@
     "signOut": "Déconnexion",
     "userMenu": "Menu du compte",
     "leavesShort": "Congés",
-    "myteam": "Mon équipe"
+    "myteam": "Mon équipe",
+    "recruitment": "Recrutement",
+    "talent": "Talents"
   },
   "roles": {
     "employee": "Employé",
@@ -747,7 +749,8 @@
       "rejected": "Votre demande {type} du {period} est refusée",
       "cancel_requested": "{who} demande l’annulation d’un congé ({type}, {period})",
       "cancel_approved": "L’annulation de votre congé {type} du {period} est acceptée",
-      "cancel_refused": "L’annulation de votre congé {type} du {period} est refusée : il est maintenu"
+      "cancel_refused": "L’annulation de votre congé {type} du {period} est refusée : il est maintenu",
+      "application_received": "{who} a postulé : {job}"
     },
     "invite": {
       "title": "Rejoindre WakaBods",
@@ -1039,5 +1042,227 @@
     "syncError": "Synchronisation Linear en erreur ({name})",
     "planning": "Planning de l’équipe",
     "planningSub": "2 prochaines semaines · cliquez sur un congé pour l’ouvrir dans le calendrier"
+  },
+  "tnd30": {
+    "public": {
+      "careers": "Carrières",
+      "footer": "Offres publiées avec WakaBods · vos données ne servent qu’au recrutement",
+      "joinUs": "Rejoindre {name}",
+      "openings": "Aucune offre ouverte | {n} offre ouverte | {n} offres ouvertes",
+      "allTeams": "Toutes les équipes",
+      "allContracts": "Tous les contrats",
+      "allRemote": "Sur site et télétravail",
+      "see": "Voir l’offre",
+      "noMatch": "Aucune offre ne correspond à ces filtres.",
+      "noneTitle": "Pas d’offre ouverte pour le moment",
+      "noneText": "Revenez bientôt : nos prochaines offres seront publiées ici.",
+      "loadError": "Les offres n’ont pas pu être chargées.",
+      "goneTitle": "Cette offre n’est plus disponible",
+      "goneText": "Elle a peut-être été pourvue. Découvrez nos autres offres.",
+      "allOpenings": "Toutes les offres"
+    },
+    "contract": {
+      "cdi": "CDI",
+      "cdd": "CDD",
+      "internship": "Stage",
+      "apprenticeship": "Alternance",
+      "freelance": "Freelance"
+    },
+    "remote": {
+      "on_site": "Sur site",
+      "hybrid": "Hybride",
+      "remote": "Télétravail complet"
+    },
+    "perYear": "brut / an",
+    "perMonth": "brut / mois",
+    "perYearShort": "Par an",
+    "perMonthShort": "Par mois",
+    "letter": {
+      "none": "Pas de lettre de motivation",
+      "optional": "Lettre facultative",
+      "required": "Lettre obligatoire"
+    },
+    "status": {
+      "draft": "Brouillon",
+      "published": "Publiée",
+      "paused": "En pause",
+      "closed": "Fermée"
+    },
+    "appStatus": {
+      "active": "En cours",
+      "rejected": "Non retenue",
+      "withdrawn": "Retirée",
+      "hired": "Embauché"
+    },
+    "fields": {
+      "title": "Intitulé du poste",
+      "slug": "Adresse de l’offre",
+      "manager": "Manager recruteur",
+      "location": "Lieu",
+      "contract": "Contrat",
+      "remote": "Télétravail",
+      "salaryMin": "Salaire minimum",
+      "salaryMax": "Salaire maximum",
+      "period": "Période",
+      "summary": "Accroche (2 lignes)",
+      "missions": "Vos missions",
+      "profile": "Profil recherché",
+      "benefits": "Ce que nous offrons",
+      "process": "Étapes du recrutement"
+    },
+    "apply": {
+      "title": "Postuler",
+      "time": "Moins de 2 minutes · aucun compte à créer",
+      "phone": "Téléphone (facultatif)",
+      "cv": "CV",
+      "choose": "Choisir un fichier",
+      "letter": "Lettre de motivation",
+      "optional": "(facultative)",
+      "letterFile": "Fichier",
+      "letterText": "Texte",
+      "link": "LinkedIn ou portfolio (facultatif)",
+      "consent": "J’accepte que {company} utilise mes données pour traiter ma candidature.",
+      "pool": "Gardez ma candidature pour d’autres postes (2 ans au plus).",
+      "privacy": "Vos données sont réservées à l’équipe de recrutement et supprimées au plus tard deux ans après notre dernier échange. Vous pouvez demander à les consulter ou les supprimer à tout moment en répondant à l’e-mail de confirmation.",
+      "send": "Envoyer ma candidature",
+      "error": "La candidature n’a pas pu être envoyée. Réessayez.",
+      "thanksTitle": "Merci {name} !",
+      "thanksText": "Votre candidature au poste « {job} » est bien envoyée.",
+      "thanksMail": "Un e-mail de confirmation part à {email}. Nous revenons vers vous dans tous les cas.",
+      "err": {
+        "first_name": "Indiquez votre prénom.",
+        "last_name": "Indiquez votre nom.",
+        "email": "Indiquez une adresse e-mail valide.",
+        "phone": "Ce numéro ne semble pas valide.",
+        "linkedin_url": "Indiquez un lien complet (https://…).",
+        "cv": "Ajoutez votre CV.",
+        "cv_type": "Format accepté : PDF, DOC ou DOCX.",
+        "cv_size": "Le fichier dépasse 10 Mo.",
+        "cover_letter": "La lettre de motivation est demandée pour ce poste.",
+        "question": "Cette réponse est demandée.",
+        "consent": "Votre accord est nécessaire pour traiter la candidature."
+      }
+    },
+    "settings": {
+      "title": "Page carrières",
+      "hint": "Ce texte présente l’entreprise en haut de la page publique des offres.",
+      "intro": "Présentation",
+      "introHint": "Quelques phrases : votre mission, votre équipe, ce qui vous rend unique. Une ligne vide sépare les paragraphes ; « - » au début d’une ligne crée une liste.",
+      "open": "Voir la page carrières"
+    },
+    "hr": {
+      "access": "Accès RH",
+      "hint": "Donne accès au recrutement (et bientôt aux évaluations), sans les factures ni les paramètres.",
+      "badge": "RH"
+    },
+    "list": {
+      "open": "Ouvertes",
+      "draft": "Brouillons",
+      "closed": "Fermées",
+      "careersPage": "Page carrières",
+      "new": "Nouvelle offre",
+      "kpis": "Recrutement en chiffres",
+      "kPublished": "Offres publiées",
+      "kActive": "Candidatures en cours",
+      "kFresh": "Reçues cette semaine",
+      "emptyTitle": "Aucune offre pour le moment",
+      "emptyText": "Créez une offre : elle apparaîtra sur votre page carrières dès sa publication.",
+      "emptyManager": "Les offres dont vous êtes le manager recruteur apparaîtront ici.",
+      "none": "Aucune offre dans cette catégorie.",
+      "fresh": "{n} nouvelle | {n} nouvelles",
+      "pipeline": "Candidatures par étape",
+      "summary": "Aucune candidature | {n} candidature au total · {hired} embauche | {n} candidatures au total · {hired} embauche(s)"
+    },
+    "detail": {
+      "notFound": "Offre introuvable",
+      "pipeline": "Candidatures",
+      "opening": "Offre",
+      "seePublic": "Voir l’offre publique",
+      "search": "Rechercher un candidat",
+      "showDeclined": "Afficher les non retenus ({n})",
+      "dragHint": "Glissez une carte pour changer d’étape, cliquez pour ouvrir la fiche.",
+      "emptyTitle": "Aucune candidature pour l’instant",
+      "emptyPublished": "Partagez le lien de l’offre (LinkedIn, réseaux, cooptation) : les candidatures arriveront ici.",
+      "emptyDraft": "Publiez l’offre pour recevoir des candidatures.",
+      "hiredRecruiterOnly": "Seul le RH peut marquer une embauche.",
+      "today": "aujourd’hui",
+      "daysAgo": "il y a {n} jour | il y a {n} jours"
+    },
+    "panel": {
+      "cv": "CV",
+      "letter": "Lettre",
+      "answers": "Réponses",
+      "activity": "Activité",
+      "sections": "Fiche du candidat",
+      "applied": "candidature du {date}",
+      "profileLink": "Profil en ligne",
+      "stage": "Étape",
+      "decline": "Ne pas retenir",
+      "reopen": "Rouvrir",
+      "reason": "Motif interne :",
+      "download": "Télécharger",
+      "noPreview": "Aperçu disponible pour les PDF uniquement : téléchargez le fichier pour le lire.",
+      "noFile": "Aucun fichier.",
+      "note": "Note interne",
+      "noteHint": "Visible par l’équipe de recrutement uniquement, jamais par le candidat.",
+      "addNote": "Ajouter la note",
+      "moved": "Déplacé vers « {stage} »",
+      "declineTitle": "Ne pas retenir {who} ?",
+      "declineText": "Le motif reste interne. Le candidat reçoit, si vous le souhaitez, un e-mail de refus courtois et sans motif.",
+      "reasonLabel": "Motif interne",
+      "reasonRequired": "Le motif interne est obligatoire.",
+      "sendRejection": "Envoyer l’e-mail de refus au candidat",
+      "declined": "Candidature de {who} non retenue",
+      "declinedNoMail": "Candidature non retenue — l’e-mail n’est pas parti (service d’envoi non configuré)",
+      "purge": "Données supprimées dans {n} jour | Données supprimées dans {n} jours (RGPD)",
+      "pool": "accepte le vivier"
+    },
+    "event": {
+      "submitted": "Candidature reçue",
+      "stage": "Étape : {from} → {to}",
+      "rejected": "Non retenue — {reason}",
+      "restored": "Candidature rouverte",
+      "email": {
+        "acknowledgement": "E-mail d’accusé de réception envoyé",
+        "rejection": "E-mail de refus envoyé"
+      },
+      "emailNotSent": "{what} non envoyé (service d’envoi non configuré)",
+      "emailName": {
+        "acknowledgement": "E-mail d’accusé de réception",
+        "rejection": "E-mail de refus"
+      }
+    },
+    "editor": {
+      "post": "Le poste",
+      "postHint": "Ce que voit le candidat en premier.",
+      "titlePh": "Ex. Développeur·se Vue / Nuxt",
+      "slugHint": "Lien partageable de l’offre.",
+      "managerHint": "Il voit les candidatures de cette offre et peut les faire avancer.",
+      "noManager": "Pas de manager recruteur",
+      "locationPh": "Ex. Antananarivo, Paris…",
+      "salary": "Rémunération",
+      "salaryHint": "La fourchette est affichée aux candidats (directive européenne sur la transparence salariale). Elle est obligatoire pour publier.",
+      "noSalary": "Aucune fourchette saisie",
+      "content": "Description",
+      "contentHint": "Texte simple : une ligne vide sépare les paragraphes, « - » au début d’une ligne crée une liste.",
+      "processHint": "Une étape par ligne. Elles sont montrées au candidat.",
+      "form": "Formulaire de candidature",
+      "formHint": "Court, il est rempli plus souvent : 3 questions au plus.",
+      "questions": "Questions au candidat",
+      "question": "Question {n}",
+      "questionPh": "Ex. Quelle est votre disponibilité ?",
+      "required": "Obligatoire",
+      "remove": "Retirer",
+      "addQuestion": "Ajouter une question",
+      "pause": "Mettre en pause",
+      "close": "Fermer l’offre",
+      "save": "Enregistrer",
+      "publish": "Publier",
+      "saved": "Offre enregistrée",
+      "published": "Offre publiée sur la page carrières",
+      "titleRequired": "L’intitulé du poste est obligatoire (3 caractères au moins).",
+      "salaryOrder": "Le salaire minimum dépasse le maximum.",
+      "salaryRequired": "Indiquez une fourchette de salaire avant de publier."
+    }
   }
 }

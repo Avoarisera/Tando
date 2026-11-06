@@ -74,7 +74,9 @@
     "signOut": "Sign out",
     "userMenu": "Account menu",
     "leavesShort": "Leave",
-    "myteam": "My team"
+    "myteam": "My team",
+    "recruitment": "Recruitment",
+    "talent": "Talent"
   },
   "roles": {
     "employee": "Employee",
@@ -747,7 +749,8 @@
       "rejected": "Your {type} request on {period} was declined",
       "cancel_requested": "{who} asks to cancel leave ({type}, {period})",
       "cancel_approved": "The cancellation of your {type} leave on {period} is accepted",
-      "cancel_refused": "The cancellation of your {type} leave on {period} was declined: it stays booked"
+      "cancel_refused": "The cancellation of your {type} leave on {period} was declined: it stays booked",
+      "application_received": "{who} applied: {job}"
     },
     "invite": {
       "title": "Join WakaBods",
@@ -1039,5 +1042,227 @@
     "syncError": "Linear sync failed ({name})",
     "planning": "Team planning",
     "planningSub": "Next 2 weeks · click a leave to open it in the calendar"
+  },
+  "tnd30": {
+    "public": {
+      "careers": "Careers",
+      "footer": "Jobs published with WakaBods · your data is used for recruitment only",
+      "joinUs": "Join {name}",
+      "openings": "No open position | {n} open position | {n} open positions",
+      "allTeams": "All teams",
+      "allContracts": "All contracts",
+      "allRemote": "On site and remote",
+      "see": "See the job",
+      "noMatch": "No job matches these filters.",
+      "noneTitle": "No open position right now",
+      "noneText": "Come back soon: our next jobs will be published here.",
+      "loadError": "The jobs could not be loaded.",
+      "goneTitle": "This job is no longer available",
+      "goneText": "It may have been filled. Discover our other jobs.",
+      "allOpenings": "All jobs"
+    },
+    "contract": {
+      "cdi": "Permanent",
+      "cdd": "Fixed-term",
+      "internship": "Internship",
+      "apprenticeship": "Apprenticeship",
+      "freelance": "Freelance"
+    },
+    "remote": {
+      "on_site": "On site",
+      "hybrid": "Hybrid",
+      "remote": "Fully remote"
+    },
+    "perYear": "gross / year",
+    "perMonth": "gross / month",
+    "perYearShort": "Per year",
+    "perMonthShort": "Per month",
+    "letter": {
+      "none": "No cover letter",
+      "optional": "Cover letter optional",
+      "required": "Cover letter required"
+    },
+    "status": {
+      "draft": "Draft",
+      "published": "Published",
+      "paused": "Paused",
+      "closed": "Closed"
+    },
+    "appStatus": {
+      "active": "In progress",
+      "rejected": "Declined",
+      "withdrawn": "Withdrawn",
+      "hired": "Hired"
+    },
+    "fields": {
+      "title": "Job title",
+      "slug": "Job address",
+      "manager": "Hiring manager",
+      "location": "Location",
+      "contract": "Contract",
+      "remote": "Remote",
+      "salaryMin": "Minimum salary",
+      "salaryMax": "Maximum salary",
+      "period": "Period",
+      "summary": "Teaser (2 lines)",
+      "missions": "Your missions",
+      "profile": "Who we are looking for",
+      "benefits": "What we offer",
+      "process": "Hiring process"
+    },
+    "apply": {
+      "title": "Apply",
+      "time": "Under 2 minutes · no account needed",
+      "phone": "Phone (optional)",
+      "cv": "Résumé",
+      "choose": "Choose a file",
+      "letter": "Cover letter",
+      "optional": "(optional)",
+      "letterFile": "File",
+      "letterText": "Text",
+      "link": "LinkedIn or portfolio (optional)",
+      "consent": "I agree that {company} uses my data to process my application.",
+      "pool": "Keep my application for other jobs (2 years at most).",
+      "privacy": "Your data is reserved to the hiring team and deleted at the latest two years after our last exchange. You can ask to see or delete it at any time by replying to the confirmation e-mail.",
+      "send": "Send my application",
+      "error": "The application could not be sent. Please try again.",
+      "thanksTitle": "Thank you {name}!",
+      "thanksText": "Your application for “{job}” has been sent.",
+      "thanksMail": "A confirmation e-mail is on its way to {email}. We will get back to you either way.",
+      "err": {
+        "first_name": "Enter your first name.",
+        "last_name": "Enter your last name.",
+        "email": "Enter a valid e-mail address.",
+        "phone": "This number does not look valid.",
+        "linkedin_url": "Enter a full link (https://…).",
+        "cv": "Add your résumé.",
+        "cv_type": "Accepted formats: PDF, DOC or DOCX.",
+        "cv_size": "The file is larger than 10 MB.",
+        "cover_letter": "A cover letter is required for this job.",
+        "question": "This answer is required.",
+        "consent": "Your consent is needed to process the application."
+      }
+    },
+    "settings": {
+      "title": "Careers page",
+      "hint": "This text introduces the company at the top of the public jobs page.",
+      "intro": "Introduction",
+      "introHint": "A few sentences: your mission, your team, what makes you unique. An empty line separates paragraphs; “- ” at the start of a line makes a list.",
+      "open": "See the careers page"
+    },
+    "hr": {
+      "access": "HR access",
+      "hint": "Gives access to recruitment (and soon evaluations), without invoices or settings.",
+      "badge": "HR"
+    },
+    "list": {
+      "open": "Open",
+      "draft": "Drafts",
+      "closed": "Closed",
+      "careersPage": "Careers page",
+      "new": "New job",
+      "kpis": "Recruitment in numbers",
+      "kPublished": "Published jobs",
+      "kActive": "Applications in progress",
+      "kFresh": "Received this week",
+      "emptyTitle": "No job yet",
+      "emptyText": "Create a job: it shows on your careers page as soon as it is published.",
+      "emptyManager": "Jobs you are the hiring manager of will show here.",
+      "none": "No job in this category.",
+      "fresh": "{n} new | {n} new",
+      "pipeline": "Applications per stage",
+      "summary": "No application | {n} application in total · {hired} hired | {n} applications in total · {hired} hired"
+    },
+    "detail": {
+      "notFound": "Job not found",
+      "pipeline": "Applications",
+      "opening": "Job",
+      "seePublic": "See the public job",
+      "search": "Search a candidate",
+      "showDeclined": "Show declined ({n})",
+      "dragHint": "Drag a card to change its stage, click to open it.",
+      "emptyTitle": "No application yet",
+      "emptyPublished": "Share the job link (LinkedIn, networks, referrals): applications will arrive here.",
+      "emptyDraft": "Publish the job to receive applications.",
+      "hiredRecruiterOnly": "Only HR can mark someone as hired.",
+      "today": "today",
+      "daysAgo": "{n} day ago | {n} days ago"
+    },
+    "panel": {
+      "cv": "Résumé",
+      "letter": "Letter",
+      "answers": "Answers",
+      "activity": "Activity",
+      "sections": "Candidate file",
+      "applied": "applied on {date}",
+      "profileLink": "Online profile",
+      "stage": "Stage",
+      "decline": "Decline",
+      "reopen": "Reopen",
+      "reason": "Internal reason:",
+      "download": "Download",
+      "noPreview": "Preview available for PDF files only: download the file to read it.",
+      "noFile": "No file.",
+      "note": "Internal note",
+      "noteHint": "Visible to the hiring team only, never to the candidate.",
+      "addNote": "Add the note",
+      "moved": "Moved to “{stage}”",
+      "declineTitle": "Decline {who}?",
+      "declineText": "The reason stays internal. If you wish, the candidate receives a polite rejection e-mail without the reason.",
+      "reasonLabel": "Internal reason",
+      "reasonRequired": "The internal reason is required.",
+      "sendRejection": "Send the rejection e-mail to the candidate",
+      "declined": "{who}’s application declined",
+      "declinedNoMail": "Application declined — the e-mail was not sent (mail service not configured)",
+      "purge": "Data deleted in {n} day | Data deleted in {n} days (GDPR)",
+      "pool": "agreed to the talent pool"
+    },
+    "event": {
+      "submitted": "Application received",
+      "stage": "Stage: {from} → {to}",
+      "rejected": "Declined — {reason}",
+      "restored": "Application reopened",
+      "email": {
+        "acknowledgement": "Acknowledgement e-mail sent",
+        "rejection": "Rejection e-mail sent"
+      },
+      "emailNotSent": "{what} not sent (mail service not configured)",
+      "emailName": {
+        "acknowledgement": "Acknowledgement e-mail",
+        "rejection": "Rejection e-mail"
+      }
+    },
+    "editor": {
+      "post": "The job",
+      "postHint": "What the candidate sees first.",
+      "titlePh": "E.g. Vue / Nuxt developer",
+      "slugHint": "Shareable link of the job.",
+      "managerHint": "They see this job’s applications and can move them forward.",
+      "noManager": "No hiring manager",
+      "locationPh": "E.g. Antananarivo, Paris…",
+      "salary": "Pay",
+      "salaryHint": "The range is shown to candidates (EU pay transparency directive). It is required to publish.",
+      "noSalary": "No range entered",
+      "content": "Description",
+      "contentHint": "Plain text: an empty line separates paragraphs, “- ” at the start of a line makes a list.",
+      "processHint": "One step per line. They are shown to the candidate.",
+      "form": "Application form",
+      "formHint": "Short forms get finished more often: 3 questions at most.",
+      "questions": "Questions to the candidate",
+      "question": "Question {n}",
+      "questionPh": "E.g. When can you start?",
+      "required": "Required",
+      "remove": "Remove",
+      "addQuestion": "Add a question",
+      "pause": "Pause",
+      "close": "Close the job",
+      "save": "Save",
+      "publish": "Publish",
+      "saved": "Job saved",
+      "published": "Job published on the careers page",
+      "titleRequired": "The job title is required (3 characters at least).",
+      "salaryOrder": "The minimum salary is above the maximum.",
+      "salaryRequired": "Enter a salary range before publishing."
+    }
   }
 }

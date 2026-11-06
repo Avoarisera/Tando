@@ -10,6 +10,8 @@ export interface Profile {
   joined_at: string
   created_at: string
   country?: string
+  /** HR access: recruitment, evaluations (TND-30) */
+  is_hr?: boolean
 }
 // birth_date / trial_ends_at exist in the database but are not readable from the
 // browser (column-level grants, TND-15): only server-side jobs use them.
