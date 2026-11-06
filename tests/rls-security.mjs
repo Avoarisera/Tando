@@ -490,6 +490,69 @@ async function main() {
       await service.from('job_openings').delete().eq('id', op.id)
     }
   }
+
+  console.log('\nTND-29 — évaluations')
+  {
+    const eddy = await signIn('employee2@waka.com')
+    const { data: tpl } = await service.from('review_templates').select('id').eq('kind', 'annual').limit(1).single()
+    const { data: cy } = await admin.from('review_cycles').insert({ name: `Sec revue ${Date.now()}`, period_start: '2026-01-01', period_end: '2026-12-31', template_id: tpl.id }).select('id').single()
+    const { error: eLaunch } = await emma.rpc('launch_review_cycle', { p_cycle: cy.id, p_people: [IDS.emma] })
+    check('TND-29a', 'un employé ne lance pas de campagne', !!eLaunch)
+    const { data: n } = await admin.rpc('launch_review_cycle', { p_cycle: cy.id, p_people: [IDS.emma, IDS.eddy] })
+    const { data: packets } = await service.from('review_packets').select('id, employee_id, manager_id').eq('cycle_id', cy.id)
+    const pE = packets.find(p => p.employee_id === IDS.emma)
+    const pD = packets.find(p => p.employee_id === IDS.eddy)
+    try {
+      check('TND-29b', 'le lancement crée un dossier par personne avec son manager d\'équipe', n === 2 && pE.manager_id === IDS.manager)
+      const { data: direct } = await emma.from('review_packets').select('id')
+      check('TND-29c', 'un employé ne lit aucun dossier en direct', (direct ?? []).length === 0)
+      const { data: mineE } = await emma.rpc('my_review_packets')
+      check('TND-29d', 'l\'employée ne voit que son dossier (et pas celui d\'un collègue)', (mineE ?? []).filter(x => x.cycle_id === cy.id).length === 1)
+      // Emma submits her self review
+      const { error: selfErr } = await emma.from('review_responses').insert({ packet_id: pE.id, author_id: IDS.emma, role: 'self', ratings: { quality: 4 }, submitted_at: new Date().toISOString() })
+      check('TND-29e', 'l\'employée envoie son auto-évaluation', !selfErr, selfErr?.message)
+      const { error: asMgr } = await emma.from('review_responses').insert({ packet_id: pE.id, author_id: IDS.emma, role: 'manager', ratings: {} })
+      check('TND-29f', 'l\'employée ne remplit pas la partie du manager', !!asMgr)
+      const { error: onOther } = await emma.from('review_responses').insert({ packet_id: pD.id, author_id: IDS.emma, role: 'self', ratings: {} })
+      check('TND-29g', 'personne ne remplit le dossier d\'un collègue', !!onOther)
+      const { data: upd } = await emma.from('review_responses').update({ ratings: { quality: 1 } }).eq('packet_id', pE.id).eq('role', 'self').select('id')
+      check('TND-29h', 'une auto-évaluation envoyée n\'est plus modifiable', (upd ?? []).length === 0)
+      const { data: mgrSeesBefore } = await manager.from('review_responses').select('id').eq('packet_id', pE.id).eq('role', 'self')
+      check('TND-29i', 'le manager ne voit pas l\'auto-évaluation avant d\'envoyer la sienne', (mgrSeesBefore ?? []).length === 0)
+      await manager.from('review_responses').insert({ packet_id: pE.id, author_id: IDS.manager, role: 'manager', ratings: { quality: 2 }, submitted_at: new Date().toISOString() })
+      const { data: mgrSeesAfter } = await manager.from('review_responses').select('id').eq('packet_id', pE.id).eq('role', 'self')
+      check('TND-29j', 'après envoi, le manager voit l\'auto-évaluation', (mgrSeesAfter ?? []).length === 1)
+      const { data: empSeesMgr } = await emma.from('review_responses').select('id').eq('packet_id', pE.id).eq('role', 'manager')
+      check('TND-29k', 'l\'employée ne voit pas l\'évaluation du manager avant le partage', (empSeesMgr ?? []).length === 0)
+      const { data: eddySees } = await eddy.from('review_responses').select('id').eq('packet_id', pE.id)
+      check('TND-29l', 'un collègue ne voit rien du dossier', (eddySees ?? []).length === 0)
+      const { error: eConclude } = await emma.rpc('hr_conclude_review', { p_packet: pE.id, p_rating: 4, p_strengths: 'moi', p_improvements: '', p_objectives: [] })
+      const { error: mShare } = await manager.rpc('share_review', { p_packet: pE.id })
+      check('TND-29m', 'ni l\'employée ni le manager ne concluent ou ne partagent', !!eConclude && !!mShare)
+      await admin.rpc('hr_conclude_review', { p_packet: pE.id, p_rating: 3, p_strengths: 'Fiable', p_improvements: 'Autonomie', p_objectives: [] })
+      const { data: beforeShare } = await emma.rpc('my_review_packets')
+      const bs = (beforeShare ?? []).find(x => x.id === pE.id)
+      check('TND-29n', 'la conclusion RH reste cachée tant que le dossier n\'est pas partagé', bs && bs.hr_rating === null && bs.hr_strengths === '')
+      const { error: earlyAck } = await emma.rpc('acknowledge_review', { p_packet: pE.id, p_comment: 'x' })
+      check('TND-29o', 'pas de signature avant le partage', !!earlyAck)
+      await admin.rpc('share_review', { p_packet: pE.id })
+      const { data: afterShare } = await emma.rpc('my_review_packets')
+      const as = (afterShare ?? []).find(x => x.id === pE.id)
+      const { data: empSeesMgr2 } = await emma.from('review_responses').select('id').eq('packet_id', pE.id).eq('role', 'manager')
+      check('TND-29p', 'après partage, l\'employée voit la conclusion et l\'évaluation du manager', as?.hr_rating === 3 && (empSeesMgr2 ?? []).length === 1)
+      const { error: eddyAck } = await eddy.rpc('acknowledge_review', { p_packet: pE.id, p_comment: 'pirate' })
+      check('TND-29q', 'personne ne signe le dossier d\'un autre', !!eddyAck)
+      const { error: ack } = await emma.rpc('acknowledge_review', { p_packet: pE.id, p_comment: 'Lu' })
+      const { error: ack2 } = await emma.rpc('acknowledge_review', { p_packet: pE.id, p_comment: 'encore' })
+      check('TND-29r', 'l\'employée signe une seule fois', !ack && !!ack2)
+      const { error: lateWrite } = await emma.from('review_responses').insert({ packet_id: pE.id, author_id: IDS.emma, role: 'self', ratings: {} })
+      check('TND-29s', 'plus aucune saisie après le partage', !!lateWrite)
+    }
+    finally {
+      await service.from('review_cycles').delete().eq('id', cy.id)
+      await service.from('notifications').delete().in('kind', ['review_requested', 'review_shared'])
+    }
+  }
 }
 
 try {

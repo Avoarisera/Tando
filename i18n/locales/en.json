@@ -76,7 +76,9 @@
     "leavesShort": "Leave",
     "myteam": "My team",
     "recruitment": "Recruitment",
-    "talent": "Talent"
+    "talent": "Talent",
+    "evaluations": "Reviews",
+    "reviews": "My reviews"
   },
   "roles": {
     "employee": "Employee",
@@ -751,7 +753,11 @@
       "cancel_approved": "The cancellation of your {type} leave on {period} is accepted",
       "cancel_refused": "The cancellation of your {type} leave on {period} was declined: it stays booked",
       "application_received": "{who} applied: {job}",
-      "interview_scheduled": "Interview with {who} ({job}): {when}"
+      "interview_scheduled": "Interview with {who} ({job}): {when}",
+      "review_self": "Your self review is open: {cycle}",
+      "review_manager": "Review of {who} to write: {cycle}",
+      "review_shared": "Your review file is shared: {cycle}",
+      "review_requested": "Your self review is open: {cycle}"
     },
     "invite": {
       "title": "Join WakaBods",
@@ -1525,6 +1531,190 @@
       "never": "Automatic GDPR deletion, daily: not run yet.",
       "run": "Run now",
       "done": "No expired application. | {n} expired application deleted. | {n} expired applications deleted."
+    }
+  },
+  "tnd29": {
+    "level": {
+      "1": "Weak",
+      "2": "Developing",
+      "3": "Proficient",
+      "4": "Outstanding"
+    },
+    "overall": {
+      "1": "Below expectations",
+      "2": "Needs improvement",
+      "3": "Meets expectations",
+      "4": "Exceeds expectations"
+    },
+    "overallHint": {
+      "1": "Significant gaps to fix quickly",
+      "2": "Progress expected on several points",
+      "3": "The role is held seriously",
+      "4": "A contribution clearly beyond the role"
+    },
+    "obj": {
+      "met": "Met",
+      "partial": "Partly",
+      "missed": "Not met"
+    },
+    "status": {
+      "draft": "Draft",
+      "active": "In progress",
+      "closed": "Closed"
+    },
+    "step": {
+      "self": "Self reviews",
+      "manager": "Managers",
+      "hr": "HR conclusions",
+      "shared": "Shared"
+    },
+    "pstep": {
+      "self": "Waiting for the self review",
+      "manager": "Waiting for the manager",
+      "hr": "To conclude (HR)",
+      "ready": "Ready to share",
+      "shared": "Shared",
+      "acknowledged": "Signed"
+    },
+    "list": {
+      "intro": "Each campaign gathers the self review, the manager's review and your conclusion. Nothing is visible to the employee before you share their file.",
+      "new": "New campaign",
+      "due": "due {date}",
+      "emptyTitle": "No review campaign",
+      "emptyText": "Create a campaign (e.g. the annual review): pick a template, the people and the deadlines.",
+      "draftHint": "Draft: pick the people then launch the campaign."
+    },
+    "cycle": {
+      "hint": "The template is frozen at launch: editing it later does not change a running campaign.",
+      "name": "Name",
+      "template": "Template",
+      "periodStart": "Reviewed period: from",
+      "periodEnd": "to",
+      "duesHint": "Deadlines (a reminder shows in everyone's list).",
+      "selfDue": "Self review",
+      "managerDue": "Manager",
+      "hrDue": "HR conclusion",
+      "create": "Create the campaign",
+      "created": "Campaign created: pick the people",
+      "nameRequired": "Name the campaign.",
+      "templateRequired": "Pick a template.",
+      "periodOrder": "The end of the period is before its start.",
+      "notFound": "Not found",
+      "who": "People reviewed",
+      "whoHint": "Each gets their self review; their team manager gets the review to write.",
+      "launch": "Launch for {n} person | Launch for {n} people",
+      "launchTitle": "Launch the campaign?",
+      "launchText": "{n} person is notified, with their manager. | {n} people are notified, with their managers.",
+      "launchConfirm": "Launch",
+      "launched": "Campaign launched for {n} person | Campaign launched for {n} people",
+      "delete": "Delete the draft",
+      "close": "Close the campaign",
+      "closedToast": "Campaign closed: no more input possible",
+      "packets": "{n} file | {n} files",
+      "allSteps": "All steps",
+      "step": "Step",
+      "open": "Open",
+      "noManager": "No manager"
+    },
+    "form": {
+      "introSelf": "Take your time: base each rating on facts and examples from the period. Your draft saves itself.",
+      "introManager": "Review {who} on facts observed during the period. You will see their self review once yours is sent, for an independent opinion.",
+      "competencies": "Competencies",
+      "cantSay": "I can't say",
+      "cantSayShort": "No opinion",
+      "example": "Concrete example",
+      "examplePh": "A situation, what was done, the result",
+      "objectives": "Objectives of the period",
+      "objectivesHint": "List the objectives that were set and say where they stand.",
+      "objective": "Objective {n}",
+      "objectivePh": "E.g. Ship the new invoicing",
+      "status": "Progress",
+      "objComment": "Comment (optional)",
+      "addObjective": "Add an objective",
+      "questions": "Questions",
+      "saving": "Saving…",
+      "savedAt": "Draft saved at {time}",
+      "autosave": "The draft saves automatically",
+      "submit": "Send my review",
+      "missing": "{n} item left to complete. | {n} items left to complete.",
+      "confirmTitle": "Send your review?",
+      "confirmSelf": "Once sent, it can no longer be changed. Your manager and HR will read it.",
+      "confirmManager": "Once sent, it can no longer be changed. You will then see the self review.",
+      "sent": "Review sent",
+      "locked": "Review sent: it can no longer be changed."
+    },
+    "syn": {
+      "title": "Summary per competency",
+      "self": "Self review",
+      "manager": "Manager",
+      "gaps": "{n} marked gap | {n} marked gaps",
+      "scale": "Left to right: Weak, Developing, Proficient, Outstanding. A gap of 2 levels or more is highlighted."
+    },
+    "hr": {
+      "title": "HR conclusion",
+      "rating": "Overall rating",
+      "strengths": "Strengths",
+      "improvements": "Areas to improve",
+      "objectives": "Objectives for the next period",
+      "objectivePh": "A clear, measurable objective",
+      "save": "Save draft",
+      "share": "Share with the employee",
+      "shareHint": "The employee then sees their whole file and can sign it with a comment.",
+      "shareTitle": "Share {who}'s file?",
+      "shareText": "The employee and their manager see the self review, the manager's review and your conclusion. The conclusion can no longer be changed afterwards.",
+      "sharedToast": "File shared with {who}",
+      "saved": "Conclusion saved",
+      "ratingRequired": "Pick an overall rating before sharing.",
+      "pdf": "Download as PDF",
+      "selfDone": "Self review sent",
+      "selfDraft": "Self review in progress",
+      "selfTodo": "Self review to do",
+      "managerDone": "Manager review sent",
+      "managerTodo": "Manager review to do",
+      "sharedOn": "Shared on {date}",
+      "acknowledged": "Signed on {date}"
+    },
+    "ack": {
+      "title": "Acknowledgement",
+      "hint": "Signing means you have read your review, not that you agree with everything. You can add a comment, it will be attached to the file.",
+      "comment": "My comment (optional)",
+      "button": "I confirm I have read it",
+      "confirmTitle": "Confirm you have read it?",
+      "confirmText": "Your comment is attached to the file and can no longer be changed.",
+      "done": "Thank you: your acknowledgement is recorded",
+      "mine": "You acknowledged this file on {date}.",
+      "on": "{who} acknowledged the file on {date}.",
+      "noComment": "No comment."
+    },
+    "mine": {
+      "emptyTitle": "No review yet",
+      "emptyText": "When HR launches a campaign, your self review shows here.",
+      "todo": "To fill in ({n})",
+      "selfTitle": "My self review",
+      "managerTitle": "Review of {who}",
+      "fill": "Fill in",
+      "waiting": "Sent, waiting",
+      "sent": "sent",
+      "shared": "Shared files",
+      "toAck": "To sign",
+      "acked": "Signed",
+      "sentSelf": "Your self review is sent. You will see your full file once HR has shared it.",
+      "sentManager": "Your review is sent. HR will write the conclusion.",
+      "selfPending": "The self review is not sent yet."
+    },
+    "tpl": {
+      "title": "Templates",
+      "hint": "Competencies, their 4 levels described by behaviours, and the questions. A running campaign keeps the version of its launch.",
+      "name": "Template name",
+      "objectives": "Review of the period's objectives",
+      "competency": "Competency {n}",
+      "competencyPh": "E.g. Quality of work",
+      "addCompetency": "Add a competency",
+      "question": "Question {n}",
+      "addQuestion": "Add a question",
+      "needCompetency": "Keep at least one competency.",
+      "needLevels": "Describe the 4 levels of each competency.",
+      "saved": "Template saved"
     }
   }
 }

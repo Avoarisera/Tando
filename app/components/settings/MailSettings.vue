@@ -107,6 +107,9 @@ const resultText = computed(() => {
     </header>
     <div class="wb-stack">
       <WbBanner v-if="error" tone="danger">{{ error }}</WbBanner>
+      <!-- the form shows once the saved settings are loaded (no overwrite of what is being typed) -->
+      <WbSkeleton v-if="!state && !error" :count="2" />
+      <template v-if="state">
       <div class="wb-set-f">
         <div class="wb-set-wide"><WbSelect id="mail-preset" v-model="preset" :label="t('tnd30.mailcfg.presetLabel')" :options="presetOptions" :hint="t('tnd30.mailcfg.presetHint')" /></div>
         <WbInput id="mail-host" v-model="form.smtp_host" :label="t('tnd30.mailcfg.host')" placeholder="smtp.votre-fournisseur.com" autocomplete="off" />
@@ -134,6 +137,7 @@ const resultText = computed(() => {
       <p v-else-if="state?.last_error" class="small wb-c-danger">{{ t('tnd30.mailcfg.lastError', { reason: state.last_error }) }}</p>
       <p v-else-if="state?.last_test_at" class="caption wb-mut">{{ t('tnd30.mailcfg.lastTest', { date: fmtTime(state.last_test_at) }) }}</p>
       <p class="caption wb-mut">{{ t('tnd30.mailcfg.deliverability') }}</p>
+      </template>
     </div>
   </section>
 </template>

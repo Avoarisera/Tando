@@ -2,7 +2,7 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router'
 
 export type NavKey =
   | 'home' | 'leaves' | 'calendar' | 'approvals' | 'velocity'
-  | 'dashboard' | 'myteam' | 'recruitment' | 'people' | 'rules' | 'invoices' | 'settings' | 'profile'
+  | 'dashboard' | 'myteam' | 'recruitment' | 'evaluations' | 'reviews' | 'people' | 'rules' | 'invoices' | 'settings' | 'profile'
 
 export interface NavItem { key: NavKey, to: string, icon: string }
 export interface NavSection { key: 'me' | 'team' | 'talent' | 'steer' | 'admin', items: NavItem[] }
@@ -14,6 +14,9 @@ const ITEMS: Record<NavKey, NavItem> = {
   approvals: { key: 'approvals', to: '/approvals',      icon: 'circle-check-big' },
   velocity:  { key: 'velocity',  to: '/velocite',       icon: 'gauge' },
   recruitment: { key: 'recruitment', to: '/recrutement', icon: 'user-plus' },
+  // TND-29: HR campaigns, and everyone's own reviews
+  evaluations: { key: 'evaluations', to: '/evaluations', icon: 'flag' },
+  reviews:   { key: 'reviews',   to: '/mes-evaluations', icon: 'file-text' },
   dashboard: { key: 'dashboard', to: '/dashboard',      icon: 'layout-dashboard' },
   // manager: the dashboard of their own team (TND-26)
   myteam:    { key: 'myteam',    to: '/dashboard',      icon: 'users' },
@@ -29,23 +32,26 @@ type Role = 'employee' | 'manager' | 'admin'
 // Menu per role, from the design handoff (shell.jsx). Managers get Vélocité only
 // when their team is linked to Linear teams (TND-26, `withVelocity`).
 const NAV: Record<Role, [NavSection['key'], NavKey[]][]> = {
-  employee: [['me', ['home', 'leaves']], ['team', ['calendar']]],
+  employee: [['me', ['home', 'leaves', 'reviews']], ['team', ['calendar']]],
   // manager: « À valider » right after the home page (TND-25)
-  manager:  [['me', ['home', 'approvals', 'leaves']], ['team', ['myteam', 'calendar']], ['talent', ['recruitment']], ['steer', ['velocity']]],
+  manager:  [['me', ['home', 'approvals', 'leaves', 'reviews']], ['team', ['myteam', 'calendar']], ['talent', ['recruitment', 'evaluations']], ['steer', ['velocity']]],
   // admin: the dashboard comes first (feedback 05/11)
-  admin:    [['team', ['dashboard', 'calendar', 'approvals']], ['talent', ['recruitment']], ['steer', ['velocity']], ['admin', ['people', 'rules', 'invoices', 'settings']]],
+  admin:    [['team', ['dashboard', 'calendar', 'approvals']], ['talent', ['recruitment', 'evaluations']], ['steer', ['velocity']], ['admin', ['people', 'rules', 'invoices', 'settings']]],
 }
 
 /** Pages not built yet: hidden from the menu until their lot ships. */
 const HIDDEN = new Set<NavKey>([])
 
-export function navSectionsFor(role: Role, opts: { withVelocity?: boolean, recruiter?: boolean, hiringManager?: boolean } = {}): NavSection[] {
+export function navSectionsFor(role: Role, opts: { withVelocity?: boolean, recruiter?: boolean, hiringManager?: boolean, hasReviews?: boolean } = {}): NavSection[] {
   const hidden = (k: NavKey) => HIDDEN.has(k)
     || (role === 'manager' && k === 'velocity' && !opts.withVelocity)
     // recruitment: admins, HR access, or a manager who recruits on an opening (TND-30)
     || (k === 'recruitment' && role !== 'admin' && !opts.recruiter && !opts.hiringManager)
+    // campaigns: HR only; « Mes évaluations »: once someone has a review file (TND-29)
+    || (k === 'evaluations' && role !== 'admin' && !opts.recruiter)
+    || (k === 'reviews' && !opts.hasReviews)
   // HR access on an employee or manager: the Talents section is added to their own menu
-  const base = NAV[role].some(([key]) => key === 'talent') || !(opts.recruiter || opts.hiringManager) ? NAV[role] : [...NAV[role], ['talent', ['recruitment']] as [NavSection['key'], NavKey[]]]
+  const base = NAV[role].some(([key]) => key === 'talent') || !(opts.recruiter || opts.hiringManager) ? NAV[role] : [...NAV[role], ['talent', ['recruitment', 'evaluations']] as [NavSection['key'], NavKey[]]]
   return base
     .map(([key, keys]) => ({ key, items: keys.filter(k => !hidden(k)).map(k => ITEMS[k]) }))
     .filter(s => s.items.length > 0)
@@ -80,7 +86,16 @@ export function useNavItems() {
     }, { immediate: true })
   }
   const recruiter = computed(() => role.value === 'admin' || profile.value?.is_hr === true)
-  const sections = computed(() => navSectionsFor(role.value, { withVelocity: velocityTeams.value.length > 0, recruiter: recruiter.value, hiringManager: hiringManager.value }))
+  // « Mes évaluations » once the person has a review file (TND-29)
+  const hasReviews = useState<boolean>('nav-has-reviews', () => false)
+  if (import.meta.client) {
+    watch(() => profile.value?.id, async (id) => {
+      if (!id) return
+      const { data } = await supabase.rpc('my_review_packets')
+      hasReviews.value = Array.isArray(data) && data.length > 0
+    }, { immediate: true })
+  }
+  const sections = computed(() => navSectionsFor(role.value, { withVelocity: velocityTeams.value.length > 0, recruiter: recruiter.value, hiringManager: hiringManager.value, hasReviews: hasReviews.value }))
   const tabItems = computed(() => [ITEMS.home, ITEMS.leaves, ITEMS.calendar, ITEMS.profile])
   const isActive = (item: NavItem) => isNavActive(item, route)
 

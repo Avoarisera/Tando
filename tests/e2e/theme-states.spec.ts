@@ -61,6 +61,7 @@ test.describe('R7 — Mobile', () => {
     await signIn(page)
     await page.goto('/profile')
     await page.waitForSelector('html[data-hydrated]')
+    await page.waitForLoadState('networkidle')
     await page.fill('#current-password', 'pas-le-bon')
     await page.fill('#new-password', 'UnNouveauMotDePasse2026')
     await page.getByRole('button', { name: 'Changer le mot de passe' }).click()

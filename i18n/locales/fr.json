@@ -76,7 +76,9 @@
     "leavesShort": "Congés",
     "myteam": "Mon équipe",
     "recruitment": "Recrutement",
-    "talent": "Talents"
+    "talent": "Talents",
+    "evaluations": "Évaluations",
+    "reviews": "Mes évaluations"
   },
   "roles": {
     "employee": "Employé",
@@ -751,7 +753,11 @@
       "cancel_approved": "L’annulation de votre congé {type} du {period} est acceptée",
       "cancel_refused": "L’annulation de votre congé {type} du {period} est refusée : il est maintenu",
       "application_received": "{who} a postulé : {job}",
-      "interview_scheduled": "Entretien avec {who} ({job}) : {when}"
+      "interview_scheduled": "Entretien avec {who} ({job}) : {when}",
+      "review_self": "Votre auto-évaluation est ouverte : {cycle}",
+      "review_manager": "Évaluation de {who} à rédiger : {cycle}",
+      "review_shared": "Votre dossier d’évaluation est partagé : {cycle}",
+      "review_requested": "Votre auto-évaluation est ouverte : {cycle}"
     },
     "invite": {
       "title": "Rejoindre WakaBods",
@@ -1525,6 +1531,190 @@
       "never": "Suppression RGPD automatique, chaque jour : pas encore passée.",
       "run": "Lancer maintenant",
       "done": "Aucune candidature expirée. | {n} candidature expirée supprimée. | {n} candidatures expirées supprimées."
+    }
+  },
+  "tnd29": {
+    "level": {
+      "1": "Insuffisant",
+      "2": "À développer",
+      "3": "Maîtrisé",
+      "4": "Remarquable"
+    },
+    "overall": {
+      "1": "Insuffisant",
+      "2": "À améliorer",
+      "3": "Conforme aux attentes",
+      "4": "Au-delà des attentes"
+    },
+    "overallHint": {
+      "1": "Des écarts importants à corriger rapidement",
+      "2": "Des progrès attendus sur plusieurs points",
+      "3": "Le poste est tenu avec sérieux",
+      "4": "Une contribution qui dépasse nettement le poste"
+    },
+    "obj": {
+      "met": "Atteint",
+      "partial": "Partiellement",
+      "missed": "Non atteint"
+    },
+    "status": {
+      "draft": "Brouillon",
+      "active": "En cours",
+      "closed": "Clôturée"
+    },
+    "step": {
+      "self": "Auto-évaluations",
+      "manager": "Managers",
+      "hr": "Conclusions RH",
+      "shared": "Partagées"
+    },
+    "pstep": {
+      "self": "Attend l’auto-évaluation",
+      "manager": "Attend le manager",
+      "hr": "À conclure (RH)",
+      "ready": "Prête à partager",
+      "shared": "Partagée",
+      "acknowledged": "Signée"
+    },
+    "list": {
+      "intro": "Chaque campagne réunit l’auto-évaluation, l’évaluation du manager et votre conclusion. Rien n’est visible par l’employé avant que vous partagiez son dossier.",
+      "new": "Nouvelle campagne",
+      "due": "à rendre le {date}",
+      "emptyTitle": "Aucune campagne d’évaluation",
+      "emptyText": "Créez une campagne (par exemple la revue annuelle) : choisissez un modèle, les personnes et les échéances.",
+      "draftHint": "Brouillon : choisissez les personnes puis lancez la campagne."
+    },
+    "cycle": {
+      "hint": "Le modèle est figé au lancement : le modifier ensuite ne change pas une campagne en cours.",
+      "name": "Nom",
+      "template": "Modèle",
+      "periodStart": "Période évaluée : du",
+      "periodEnd": "au",
+      "duesHint": "Échéances (un rappel apparaît dans la liste de chacun).",
+      "selfDue": "Auto-évaluation",
+      "managerDue": "Manager",
+      "hrDue": "Conclusion RH",
+      "create": "Créer la campagne",
+      "created": "Campagne créée : choisissez les personnes",
+      "nameRequired": "Donnez un nom à la campagne.",
+      "templateRequired": "Choisissez un modèle.",
+      "periodOrder": "La fin de la période est avant son début.",
+      "notFound": "Introuvable",
+      "who": "Personnes évaluées",
+      "whoHint": "Chacune reçoit son auto-évaluation ; son manager d’équipe reçoit l’évaluation à rédiger.",
+      "launch": "Lancer pour {n} personne | Lancer pour {n} personnes",
+      "launchTitle": "Lancer la campagne ?",
+      "launchText": "{n} personne est notifiée, ainsi que son manager. | {n} personnes sont notifiées, ainsi que leurs managers.",
+      "launchConfirm": "Lancer",
+      "launched": "Campagne lancée pour {n} personne | Campagne lancée pour {n} personnes",
+      "delete": "Supprimer le brouillon",
+      "close": "Clôturer la campagne",
+      "closedToast": "Campagne clôturée : plus aucune saisie possible",
+      "packets": "{n} dossier | {n} dossiers",
+      "allSteps": "Toutes les étapes",
+      "step": "Étape",
+      "open": "Ouvrir",
+      "noManager": "Sans manager"
+    },
+    "form": {
+      "introSelf": "Prenez le temps : appuyez chaque appréciation sur des faits et des exemples de la période. Votre brouillon s’enregistre tout seul.",
+      "introManager": "Évaluez {who} sur des faits observés pendant la période. Vous verrez son auto-évaluation une fois la vôtre envoyée, pour un avis indépendant.",
+      "competencies": "Compétences",
+      "cantSay": "Je ne peux pas me prononcer",
+      "cantSayShort": "Sans avis",
+      "example": "Exemple concret",
+      "examplePh": "Une situation, ce qui a été fait, le résultat",
+      "objectives": "Objectifs de la période",
+      "objectivesHint": "Rappelez les objectifs fixés et dites où ils en sont.",
+      "objective": "Objectif {n}",
+      "objectivePh": "Ex. Livrer la nouvelle facturation",
+      "status": "Avancement",
+      "objComment": "Commentaire (facultatif)",
+      "addObjective": "Ajouter un objectif",
+      "questions": "Questions",
+      "saving": "Enregistrement…",
+      "savedAt": "Brouillon enregistré à {time}",
+      "autosave": "Le brouillon s’enregistre automatiquement",
+      "submit": "Envoyer mon évaluation",
+      "missing": "Il reste {n} élément à compléter. | Il reste {n} éléments à compléter.",
+      "confirmTitle": "Envoyer votre évaluation ?",
+      "confirmSelf": "Une fois envoyée, elle n’est plus modifiable. Elle sera lue par votre manager et par les RH.",
+      "confirmManager": "Une fois envoyée, elle n’est plus modifiable. Vous verrez ensuite l’auto-évaluation.",
+      "sent": "Évaluation envoyée",
+      "locked": "Évaluation envoyée : elle n’est plus modifiable."
+    },
+    "syn": {
+      "title": "Synthèse par compétence",
+      "self": "Auto-évaluation",
+      "manager": "Manager",
+      "gaps": "{n} écart marqué | {n} écarts marqués",
+      "scale": "De gauche à droite : Insuffisant, À développer, Maîtrisé, Remarquable. Un écart de 2 niveaux ou plus est surligné."
+    },
+    "hr": {
+      "title": "Conclusion RH",
+      "rating": "Appréciation globale",
+      "strengths": "Points forts",
+      "improvements": "Axes de progrès",
+      "objectives": "Objectifs pour la période suivante",
+      "objectivePh": "Un objectif clair et mesurable",
+      "save": "Enregistrer le brouillon",
+      "share": "Partager avec l’employé",
+      "shareHint": "L’employé voit alors tout son dossier et peut le signer avec un commentaire.",
+      "shareTitle": "Partager le dossier de {who} ?",
+      "shareText": "L’employé et son manager voient l’auto-évaluation, l’évaluation du manager et votre conclusion. La conclusion n’est plus modifiable ensuite.",
+      "sharedToast": "Dossier partagé avec {who}",
+      "saved": "Conclusion enregistrée",
+      "ratingRequired": "Choisissez une appréciation globale avant de partager.",
+      "pdf": "Télécharger en PDF",
+      "selfDone": "Auto-évaluation envoyée",
+      "selfDraft": "Auto-évaluation en cours",
+      "selfTodo": "Auto-évaluation à faire",
+      "managerDone": "Évaluation du manager envoyée",
+      "managerTodo": "Évaluation du manager à faire",
+      "sharedOn": "Partagée le {date}",
+      "acknowledged": "Signée le {date}"
+    },
+    "ack": {
+      "title": "Prise de connaissance",
+      "hint": "Signer indique que vous avez lu votre évaluation, pas que vous êtes d’accord avec tout. Vous pouvez ajouter un commentaire, il sera joint au dossier.",
+      "comment": "Mon commentaire (facultatif)",
+      "button": "Je confirme avoir pris connaissance",
+      "confirmTitle": "Confirmer la prise de connaissance ?",
+      "confirmText": "Votre commentaire est joint au dossier et n’est plus modifiable.",
+      "done": "Merci : votre prise de connaissance est enregistrée",
+      "mine": "Vous avez pris connaissance de ce dossier le {date}.",
+      "on": "{who} a pris connaissance du dossier le {date}.",
+      "noComment": "Sans commentaire."
+    },
+    "mine": {
+      "emptyTitle": "Aucune évaluation pour le moment",
+      "emptyText": "Quand les RH lancent une campagne, votre auto-évaluation apparaît ici.",
+      "todo": "À remplir ({n})",
+      "selfTitle": "Mon auto-évaluation",
+      "managerTitle": "Évaluation de {who}",
+      "fill": "Remplir",
+      "waiting": "Envoyées, en attente",
+      "sent": "envoyée",
+      "shared": "Dossiers partagés",
+      "toAck": "À signer",
+      "acked": "Signé",
+      "sentSelf": "Votre auto-évaluation est envoyée. Vous verrez votre dossier complet quand les RH l’auront partagé.",
+      "sentManager": "Votre évaluation est envoyée. Les RH vont rédiger la conclusion.",
+      "selfPending": "L’auto-évaluation n’est pas encore envoyée."
+    },
+    "tpl": {
+      "title": "Modèles",
+      "hint": "Les compétences, leurs 4 niveaux décrits par des comportements, et les questions. Une campagne en cours garde la version de son lancement.",
+      "name": "Nom du modèle",
+      "objectives": "Bilan des objectifs de la période",
+      "competency": "Compétence {n}",
+      "competencyPh": "Ex. Qualité du travail",
+      "addCompetency": "Ajouter une compétence",
+      "question": "Question {n}",
+      "addQuestion": "Ajouter une question",
+      "needCompetency": "Gardez au moins une compétence.",
+      "needLevels": "Décrivez les 4 niveaux de chaque compétence.",
+      "saved": "Modèle enregistré"
     }
   }
 }

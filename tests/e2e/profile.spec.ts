@@ -30,6 +30,8 @@ async function signIn(page: Page, account: { email: string; password: string }) 
 async function goToProfile(page: Page) {
   await page.goto('/profile')
   await waitForHydration(page)
+  // the page finishes mounting after its data loads: fill the forms only then
+  await page.waitForLoadState('networkidle')
 }
 
 const balanceRow = (page: Page, type: string) => page.locator('.wb-dt tbody tr', { hasText: type })
