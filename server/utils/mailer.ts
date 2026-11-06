@@ -1,15 +1,28 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import nodemailer from 'nodemailer'
+import type { Transporter } from 'nodemailer'
 
 /**
- * Transactional e-mail (TND-30). Configuration from Settings › E-mails
- * (mail_settings + API key in Supabase Vault, TND-30 lot 4), otherwise the
- * RESEND_API_KEY / MAIL_FROM environment variables. Without either nothing is
- * sent and the caller records "not sent". Never throws: an e-mail failure must
- * not lose an application.
+ * Transactional e-mail (TND-30) over generic SMTP with Nodemailer — works with
+ * any provider (OVH, Google Workspace, Microsoft 365, Brevo, Mailgun, Resend…).
+ * Configuration from Settings › E-mails (mail_settings + password in Supabase
+ * Vault), otherwise the SMTP_* / MAIL_FROM environment variables. Without either
+ * nothing is sent and the caller records "not sent". Never throws: an e-mail
+ * failure must not lose an application.
  */
 export interface MailInput { to: string, subject: string, text: string, html?: string, replyTo?: string }
 export interface MailResult { sent: boolean, id?: string, reason?: string }
-export interface MailConfig { apiKey: string, from: string, replyTo: string | null, source: 'settings' | 'env' }
+export type SmtpSecurity = 'starttls' | 'tls' | 'none'
+export interface SmtpConfig {
+  host: string
+  port: number
+  security: SmtpSecurity
+  user: string
+  pass: string
+  from: string
+  replyTo: string | null
+  source: 'settings' | 'env'
+}
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c]!))
 /** Plain text → minimal, readable HTML (paragraphs; links stay as text) */
@@ -21,50 +34,91 @@ export function textToHtml(text: string): string {
 /** « Nom <adresse> » when a name is set */
 export const fromHeader = (name: string, email: string) => (name.trim() ? `${name.trim().replace(/[<>"]/g, '')} <${email.trim()}>` : email.trim())
 
-let cache: { at: number, config: MailConfig | null } | null = null
-export function clearMailCache() { cache = null }
+/** Nodemailer options from our settings: 465 → implicit TLS, 587 → STARTTLS required */
+export function transportOptions(c: Pick<SmtpConfig, 'host' | 'port' | 'security' | 'user' | 'pass'>) {
+  return {
+    host: c.host,
+    port: c.port,
+    secure: c.security === 'tls',
+    requireTLS: c.security === 'starttls',
+    ignoreTLS: c.security === 'none',
+    auth: c.user ? { user: c.user, pass: c.pass } : undefined,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
+  }
+}
 
-export async function getMailConfig(supabase: SupabaseClient): Promise<MailConfig | null> {
+/** Readable reason from a Nodemailer / SMTP error (never the password) */
+export function smtpReason(e: unknown): string {
+  const err = e as { code?: string, responseCode?: number, response?: string, message?: string }
+  if (err.code === 'EAUTH') return 'Identifiants SMTP refusés'
+  if (err.code === 'ECONNECTION' || err.code === 'ECONNREFUSED') return 'Serveur SMTP injoignable (hôte ou port)'
+  if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKET') return 'Délai dépassé ou chiffrement incorrect (vérifiez le port et la sécurité)'
+  if (err.code === 'EDNS') return 'Hôte SMTP introuvable'
+  if (err.responseCode) return `SMTP ${err.responseCode} : ${(err.response ?? '').slice(0, 200)}`
+  return (err.message ?? 'erreur').slice(0, 200)
+}
+
+let cache: { at: number, config: SmtpConfig | null, transport: Transporter | null } | null = null
+export function clearMailCache() {
+  cache?.transport?.close()
+  cache = null
+}
+
+export async function getMailConfig(supabase: SupabaseClient): Promise<SmtpConfig | null> {
   if (cache && Date.now() - cache.at < 60_000) return cache.config
-  let config: MailConfig | null = null
-  const { data: s } = await supabase.from('mail_settings').select('enabled, from_name, from_email, reply_to, key_secret_id').eq('id', true).maybeSingle()
-  if (s?.enabled && s.key_secret_id && s.from_email) {
-    const { data: key } = await supabase.rpc('get_mail_api_key')
-    if (typeof key === 'string' && key) config = { apiKey: key, from: fromHeader(s.from_name ?? '', s.from_email), replyTo: s.reply_to || null, source: 'settings' }
+  let config: SmtpConfig | null = null
+  const { data: s } = await supabase.from('mail_settings').select('enabled, smtp_host, smtp_port, smtp_security, smtp_user, from_name, from_email, reply_to, secret_id').eq('id', true).maybeSingle()
+  if (s?.enabled && s.smtp_host && s.from_email) {
+    const { data: pass } = s.secret_id ? await supabase.rpc('get_mail_secret') : { data: '' }
+    config = { host: s.smtp_host, port: s.smtp_port, security: s.smtp_security as SmtpSecurity, user: s.smtp_user ?? '', pass: typeof pass === 'string' ? pass : '', from: fromHeader(s.from_name ?? '', s.from_email), replyTo: s.reply_to || null, source: 'settings' }
   }
-  if (!config && process.env.RESEND_API_KEY && process.env.MAIL_FROM) {
-    config = { apiKey: process.env.RESEND_API_KEY, from: process.env.MAIL_FROM, replyTo: null, source: 'env' }
+  const env = process.env
+  if (!config && env.SMTP_HOST && env.MAIL_FROM) {
+    const port = Number(env.SMTP_PORT) || 587
+    const security = (env.SMTP_SECURITY as SmtpSecurity | undefined) ?? (port === 465 ? 'tls' : 'starttls')
+    config = { host: env.SMTP_HOST, port, security, user: env.SMTP_USER ?? '', pass: env.SMTP_PASS ?? '', from: env.MAIL_FROM, replyTo: env.MAIL_REPLY_TO ?? null, source: 'env' }
   }
-  cache = { at: Date.now(), config }
+  cache?.transport?.close()
+  cache = { at: Date.now(), config, transport: config ? nodemailer.createTransport(transportOptions(config)) : null }
   return config
 }
 
-export async function sendWith(config: MailConfig, input: MailInput): Promise<MailResult> {
+export async function sendWith(config: SmtpConfig, input: MailInput, transport?: Transporter | null): Promise<MailResult> {
+  const t = transport ?? nodemailer.createTransport(transportOptions(config))
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: config.from, to: [input.to], subject: input.subject, text: input.text, html: input.html ?? textToHtml(input.text),
-        ...((input.replyTo ?? config.replyTo) ? { reply_to: input.replyTo ?? config.replyTo } : {}),
-      }),
+    const info = await t.sendMail({
+      from: config.from, to: input.to, subject: input.subject, text: input.text, html: input.html ?? textToHtml(input.text),
+      ...((input.replyTo ?? config.replyTo) ? { replyTo: input.replyTo ?? config.replyTo! } : {}),
     })
-    if (!res.ok) {
-      const body = await res.json().catch(() => null) as { message?: string } | null
-      return { sent: false, reason: `http_${res.status}${body?.message ? `: ${body.message.slice(0, 200)}` : ''}` }
-    }
-    const body = await res.json() as { id?: string }
-    return { sent: true, id: body.id }
+    return { sent: true, id: info.messageId }
   }
-  catch {
-    return { sent: false, reason: 'network' }
+  catch (e) {
+    return { sent: false, reason: smtpReason(e) }
   }
+  finally {
+    if (!transport) t.close()
+  }
+}
+
+/** Checks the connection and the login without sending anything */
+export async function verifySmtp(config: Pick<SmtpConfig, 'host' | 'port' | 'security' | 'user' | 'pass'>): Promise<MailResult> {
+  const t = nodemailer.createTransport(transportOptions(config))
+  try {
+    await t.verify()
+    return { sent: true }
+  }
+  catch (e) {
+    return { sent: false, reason: smtpReason(e) }
+  }
+  finally { t.close() }
 }
 
 export async function sendMail(supabase: SupabaseClient, input: MailInput): Promise<MailResult> {
   const config = await getMailConfig(supabase)
   if (!config) return { sent: false, reason: 'not_configured' }
-  const r = await sendWith(config, input)
+  const r = await sendWith(config, input, cache?.transport)
   // keep the last provider error visible in Settings › E-mails
   if (!r.sent && config.source === 'settings') await supabase.from('mail_settings').update({ last_error: (r.reason ?? 'erreur').slice(0, 500) }).eq('id', true)
   return r

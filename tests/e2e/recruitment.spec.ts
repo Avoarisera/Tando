@@ -260,18 +260,29 @@ test.describe.serial('TND-30 — Recrutement', () => {
     await expect(page.locator('.wb-panel')).not.toContainText(`vola.${RUN}@example.com`)
   })
 
-  test('T-TND30-015: Settings › E-mails keeps the API key write-only', async ({ page }) => {
+  test('T-TND30-015: Settings › E-mails (SMTP): presets, write-only password, connection test', async ({ page }) => {
     await signIn(page, ACCOUNTS.admin, '/settings')
+    await page.locator('#mail-preset').selectOption('google')
+    await expect(page.locator('#mail-host')).toHaveValue('smtp.gmail.com')
+    await expect(page.locator('#mail-port')).toHaveValue('587')
+    // local SMTP sink of the Supabase stack (Mailpit)
+    await page.fill('#mail-host', '127.0.0.1')
+    await page.fill('#mail-port', '54425')
+    await page.locator('#mail-sec').selectOption('none')
+    await page.fill('#mail-user', '')
+    await page.fill('#mail-pass', 'secret-e2e')
     await page.fill('#mail-from-name', 'Recrutement')
     await page.fill('#mail-from', 'jobs@example.com')
-    await page.fill('#mail-key', 're_e2e_key_00001234')
     await page.locator('[data-action="save-mail"]').click()
     await expect(page.getByText('Réglages d’e-mail enregistrés')).toBeVisible()
     await page.reload()
     await waitForHydration(page)
-    await expect(page.locator('#mail-key')).toHaveValue('')
-    await expect(page.locator('#mail-key')).toHaveAttribute('placeholder', /…1234/)
-    // sending cannot be turned on without key + sender, and an employee has no access
+    await expect(page.locator('#mail-pass')).toHaveValue('')
+    await expect(page.locator('#mail-pass')).toHaveAttribute('placeholder', /Mot de passe enregistré/)
+    await page.locator('[data-action="verify-mail"]').click()
+    await expect(page.getByText('Connexion et identifiants acceptés par le serveur SMTP.')).toBeVisible()
+    await page.locator('[data-action="test-mail"]').click()
+    await expect(page.getByText(/E-mail de test envoyé à/)).toBeVisible()
   })
 
   test('T-TND30-016: an employee cannot read the e-mail settings', async ({ page }) => {

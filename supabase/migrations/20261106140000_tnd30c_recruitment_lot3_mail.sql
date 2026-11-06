@@ -26,18 +26,21 @@ CREATE TABLE IF NOT EXISTS public.job_runs (
 ALTER TABLE public.job_runs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.job_runs FROM anon, authenticated;
 
--- ── Lot 4: e-mail sending settings ──────────────────────────────────────────
+-- ── Lot 4: e-mail sending settings (generic SMTP, sent with Nodemailer) ─────
 -- Never readable from the browser: no policy, no grant. Server routes (service role)
--- read and write it; the API key itself lives encrypted in Supabase Vault.
+-- read and write it; the SMTP password itself lives encrypted in Supabase Vault.
 CREATE TABLE IF NOT EXISTS public.mail_settings (
   id            boolean PRIMARY KEY DEFAULT true CHECK (id),
-  provider      text NOT NULL DEFAULT 'resend' CHECK (provider IN ('resend')),
   enabled       boolean NOT NULL DEFAULT false,
+  smtp_host     text NOT NULL DEFAULT '' CHECK (char_length(smtp_host) <= 253),
+  smtp_port     integer NOT NULL DEFAULT 587 CHECK (smtp_port BETWEEN 1 AND 65535),
+  -- 'starttls' (587), 'tls' (465, implicit TLS) or 'none' (local relay only)
+  smtp_security text NOT NULL DEFAULT 'starttls' CHECK (smtp_security IN ('starttls', 'tls', 'none')),
+  smtp_user     text NOT NULL DEFAULT '' CHECK (char_length(smtp_user) <= 254),
   from_name     text NOT NULL DEFAULT '' CHECK (char_length(from_name) <= 80),
   from_email    text NOT NULL DEFAULT '' CHECK (char_length(from_email) <= 254),
   reply_to      text NOT NULL DEFAULT '' CHECK (char_length(reply_to) <= 254),
-  key_secret_id uuid,
-  key_hint      text NOT NULL DEFAULT '' CHECK (char_length(key_hint) <= 8),
+  secret_id     uuid,
   last_test_at  timestamptz,
   last_error    text CHECK (last_error IS NULL OR char_length(last_error) <= 500),
   updated_at    timestamptz NOT NULL DEFAULT now()
@@ -46,28 +49,28 @@ INSERT INTO public.mail_settings (id) VALUES (true) ON CONFLICT DO NOTHING;
 ALTER TABLE public.mail_settings ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.mail_settings FROM anon, authenticated;
 
--- store / replace the API key (service role only)
-CREATE OR REPLACE FUNCTION public.set_mail_api_key(p_key text)
+-- store / replace the SMTP password (service role only)
+CREATE OR REPLACE FUNCTION public.set_mail_secret(p_secret text)
   RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, vault
 AS $$
 DECLARE v_id uuid;
 BEGIN
-  IF p_key IS NULL OR char_length(trim(p_key)) < 8 THEN RAISE EXCEPTION 'Clé invalide'; END IF;
-  SELECT key_secret_id INTO v_id FROM mail_settings WHERE id;
+  IF p_secret IS NULL OR char_length(p_secret) < 1 THEN RAISE EXCEPTION 'Mot de passe vide'; END IF;
+  SELECT secret_id INTO v_id FROM mail_settings WHERE id;
   IF v_id IS NULL THEN
-    v_id := vault.create_secret(trim(p_key), 'tando_mail_api_key', 'Clé d’API du service d’envoi d’e-mails (TND-30)');
+    v_id := vault.create_secret(p_secret, 'tando_smtp_password', 'Mot de passe SMTP de l’envoi d’e-mails (TND-30)');
   ELSE
-    PERFORM vault.update_secret(v_id, trim(p_key));
+    PERFORM vault.update_secret(v_id, p_secret);
   END IF;
-  UPDATE mail_settings SET key_secret_id = v_id, key_hint = right(trim(p_key), 4), updated_at = now() WHERE id;
+  UPDATE mail_settings SET secret_id = v_id, updated_at = now() WHERE id;
 END;
 $$;
-CREATE OR REPLACE FUNCTION public.get_mail_api_key()
+CREATE OR REPLACE FUNCTION public.get_mail_secret()
   RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, vault
 AS $$
-  SELECT s.decrypted_secret FROM vault.decrypted_secrets s JOIN mail_settings m ON m.key_secret_id = s.id WHERE m.id
+  SELECT s.decrypted_secret FROM vault.decrypted_secrets s JOIN mail_settings m ON m.secret_id = s.id WHERE m.id
 $$;
-REVOKE EXECUTE ON FUNCTION public.set_mail_api_key(text) FROM PUBLIC, anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.get_mail_api_key() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.set_mail_api_key(text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.get_mail_api_key() TO service_role;
+REVOKE EXECUTE ON FUNCTION public.set_mail_secret(text) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_mail_secret() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.set_mail_secret(text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_mail_secret() TO service_role;
