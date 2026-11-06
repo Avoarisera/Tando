@@ -1,116 +1,66 @@
 <script setup lang="ts">
 definePageMeta({ titleKey: 'nav.dashboard', middleware: 'manager-or-admin', layout: 'private' })
 
+/**
+ * Dashboard (admin: everyone; manager: « Mon équipe », their team — TND-26).
+ * TND-28: digest layout — 3 numbers, « À décider » (requests with their own
+ * signals) and « Absences » (today, next departures, 10 working days), a banner
+ * only when something is wrong. Tabs: Members (manager), Congés pris (TND-27).
+ */
 const { t, locale } = useI18n()
 const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const { snapshot, isLoading, error, fetchSnapshot } = useDashboard()
-const { toReview, requests, fetchAll } = useApprovals()
+const { toReview, requests, fetchAll, balanceAfter } = useApprovals()
 const { events, fetchEvents } = useCalendar()
 const { members, fetchMembers } = useTeamMembers()
-const { balanceAfter } = useApprovals()
 const { workspaces, fetchWorkspaces } = useLinearWorkspace()
-// TND-26: a manager gets the same board for their own team, plus the members tab
 const { isAdmin, profile } = useCurrentUser()
-const { velocityTeams, fetchVelocityTeams } = useVelocityTeams()
 const myTeam = computed(() => profile.value?.team_id ?? null)
-const tab = ref<'overview' | 'members'>('overview')
-const tabs = computed(() => [{ id: 'overview', label: t('tnd26.overview') }, { id: 'members', label: t('tnd26.members') }])
+type Tab = 'overview' | 'members' | 'taken'
+const tab = ref<Tab>('overview')
+const tabs = computed(() => [
+  { id: 'overview', label: t('tnd26.overview') },
+  ...(isAdmin.value ? [] : [{ id: 'members', label: t('tnd26.members') }]),
+  { id: 'taken', label: t('tnd27.tab') },
+])
 // header title: « Mon équipe » for a manager
 usePageHeader(() => (isAdmin.value ? {} : { title: t('nav.myteam') }))
 
 const today = todayIso()
 
 async function load() {
-  // Vélocité is optional: a Linear error must not break the dashboard
+  // Linear is optional: an error there must not break the dashboard
   await Promise.all([fetchSnapshot(), fetchAll(), fetchEvents(), fetchMembers(),
-    isAdmin.value ? fetchWorkspaces().catch(() => undefined) : fetchVelocityTeams(true).catch(() => undefined)])
+    isAdmin.value ? fetchWorkspaces().catch(() => undefined) : Promise.resolve()])
 }
+onMounted(load)
 // colleagues' leave: everyone for an admin, the own team for a manager
 const scoped = computed(() => (isAdmin.value ? events.value : events.value.filter(e => e.teamId === myTeam.value)))
+const approved = computed(() => scoped.value.filter(e => e.status === 'approved'))
 
-// Vélocité card: one line per connected Linear workspace
-const wsRows = computed(() => workspaces.value.map((ws) => {
-  const status = ws.sync_status === 'running'
-    ? { tone: 'info' as const, label: t('velocityA.status.running') }
-    : ws.sync_status === 'error'
-      ? { tone: 'danger' as const, label: t('velocityA.status.error') }
-      : ws.last_synced_at
-        ? { tone: 'success' as const, label: t('velocityA.status.ok') }
-        : { tone: 'neutral' as const, label: t('velocityA.status.idle') }
-  const when = ws.last_synced_at
-    ? new Intl.DateTimeFormat(tag.value, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(ws.last_synced_at))
-    : t('velocityA.never')
-  const teams = ws.selected_teams?.length ? ws.selected_teams.map(x => x.name).join(', ') : t('velocityA.allTeams')
-  return { id: ws.id, name: ws.name, status, when, teams, tickets: ws.sync_issues_done }
-}))
-onMounted(load)
-
-const kpis = computed(() => {
-  const s = snapshot.value
-  if (!s) return []
-  const rate = s.total_employees ? Math.round((s.present / s.total_employees) * 100) : 100
-  return [
-    { label: t('dashboard.headcount'), value: s.total_employees, icon: 'users', sub: t('v2.headcountSub') },
-    { label: t('dashboard.presentToday'), value: s.present, icon: 'circle-check', sub: t('v2.presenceRate', { n: rate }) },
-    { label: t('dashboard.awayToday'), value: s.on_leave_today, icon: 'tree-palm', tone: s.on_leave_today ? 'warning' as const : undefined, sub: t('v2.awayTodaySub') },
-    { label: t('dashboard.awayWeek'), value: s.on_leave_week, icon: 'calendar-days', sub: t('v2.awayWeekSub') },
-  ]
-})
 const todayLabel = computed(() => {
   const x = fmtDate(today, tag.value, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   return x.charAt(0).toUpperCase() + x.slice(1)
 })
 
+// ── 3 numbers ────────────────────────────────────────────────────────────────
 const awayToday = computed(() => (snapshot.value?.employees ?? []).filter(e => e.on_leave))
-
-// Absent people per day over the next 14 days (approved leave)
-const approved = computed(() => scoped.value.filter(e => e.status === 'approved'))
-const next14 = computed(() => Array.from({ length: 14 }, (_, i) => addDays(today, i)))
-const next14Labels = computed(() => next14.value.map(d => fmtDate(d, tag.value, { weekday: 'short', day: 'numeric' })))
-const awayOn = (d: string) => approved.value.filter(e => e.startDate <= d && e.endDate >= d)
-const next14Counts = computed(() => next14.value.map(d => awayOn(d).length))
-// tooltip: who is away that day (8 names max)
-const next14Who = computed(() => next14.value.map((d) => {
-  const names = awayOn(d).map(e => e.employeeName)
-  return names.length > 8 ? [...names.slice(0, 8), t('dashboard.andMore', { n: names.length - 8 })] : names
-}))
-// summary under the title: busiest working day and average per working day
-const next14Summary = computed(() => {
-  const work = next14.value.map((d, i) => ({ d, n: next14Counts.value[i] ?? 0 })).filter(x => !isWeekend(x.d))
-  if (!work.length || work.every(x => !x.n)) return t('dashboard.next14None')
-  const peak = work.reduce((a, b) => (b.n > a.n ? b : a))
-  const avg = work.reduce((n, x) => n + x.n, 0) / work.length
-  return t('dashboard.next14Summary', { n: peak.n, day: fmtDate(peak.d, tag.value, { weekday: 'short', day: 'numeric', month: 'short' }), avg: avg.toLocaleString(tag.value, { maximumFractionDigits: 1 }) }, peak.n)
+const rate = computed(() => {
+  const s = snapshot.value
+  return s?.total_employees ? Math.round((s.present / s.total_employees) * 100) : 100
 })
-// Upcoming departures (next 14 days), grouped by start day — the "who leaves when" view
-const departureDays = computed(() => {
-  const list = approved.value
-    .filter(e => e.startDate > today && e.startDate <= next14.value.at(-1)!)
-    .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.employeeName.localeCompare(b.employeeName))
-  const map = new Map<string, typeof list>()
-  for (const e of list) map.set(e.startDate, [...(map.get(e.startDate) ?? []), e])
-  return [...map].map(([day, people]) => ({
-    day,
-    num: Number(day.slice(8)),
-    dow: fmtDate(day, tag.value, { weekday: 'short' }),
-    month: fmtDate(day, tag.value, { month: 'short' }),
-    inDays: calendarDays(today, day) - 1,
-    people,
-  }))
-})
-const departuresCount = computed(() => departureDays.value.reduce((n, d) => n + d.people.length, 0))
-// back on the next working day after the leave (not on a Sunday)
-const backOn = (end: string) => {
-  let d = addDays(end, 1)
-  while (isWeekend(d)) d = addDays(d, 1)
-  return fmtDate(d, tag.value, { weekday: 'short', day: 'numeric', month: 'short' })
-}
+const waitingDays = (createdAt: string) => calendarDays(createdAt.slice(0, 10), today) - 1
+const lateCount = computed(() => toReview.value.filter(r => waitingDays(r.created_at) > 3).length)
 
-// Alerts: requests waiting for more than 3 days, balances that would go negative
-// Teams under half of their headcount on a working day of the next 14 days
-// (approved leave only); one alert per team, on its worst day
-const understaffed = computed(() => {
-  const out: { icon: string, text: string, to: string, tone: 'warning' | 'danger' }[] = []
+// ── À décider: each request carries its own signals ──────────────────────────
+const decide = computed(() => toReview.value.map((r) => {
+  const after = balanceAfter(r)
+  return { r, waited: waitingDays(r.created_at), short: after !== null && after < 0 }
+}).sort((a, b) => Number(b.short) - Number(a.short) || b.waited - a.waited))
+
+// Team alerts only (no repeat of the requests): understaffed teams, Linear sync error
+const banners = computed(() => {
+  const out: { icon: string, text: string, to: string }[] = []
   const teams = new Map<string, { name: string, size: number }>()
   for (const m of members.value) {
     if (m.role === 'admin' || !m.team_id) continue
@@ -129,26 +79,59 @@ const understaffed = computed(() => {
       const n = tm.size - away
       if (n / tm.size < 0.5 && (!worst || n < worst.n)) worst = { day, n }
     }
-    if (worst) out.push({ icon: 'users', tone: 'danger', to: '/calendar', text: t('dashboard.alertUnderstaffed', { team: tm.name, n: worst.n, of: tm.size, day: fmtDate(worst.day, tag.value, { weekday: 'short', day: 'numeric', month: 'short' }) }) })
+    if (worst) out.push({ icon: 'users', to: `/calendar?view=plan&date=${worst.day}`, text: t('dashboard.alertUnderstaffed', { team: tm.name, n: worst.n, of: tm.size, day: fmtDate(worst.day, tag.value, { weekday: 'short', day: 'numeric', month: 'short' }) }) })
   }
+  for (const ws of workspaces.value) if (ws.sync_status === 'error') out.push({ icon: 'triangle-alert', to: '/velocite?all=1', text: t('tnd28.syncError', { name: ws.name }) })
   return out
 })
 
-const alerts = computed(() => {
-  const list: { icon: string, text: string, to: string, tone: 'warning' | 'danger' }[] = []
-  const limit = addDays(today, -3)
-  for (const r of toReview.value) {
-    const sent = r.created_at.slice(0, 10)
-    if (sent <= limit) list.push({ icon: 'clock', tone: 'warning', to: '/approvals', text: t('dashboard.alertWaiting', { who: fullName(r.profiles), n: calendarDays(sent, today) - 1 }) })
-    const after = balanceAfter(r)
-    if (after !== null && after < 0) list.push({ icon: 'triangle-alert', tone: 'danger', to: '/approvals', text: t('dashboard.alertNegative', { who: fullName(r.profiles), type: r.leave_types?.name ?? '', n: after }) })
-  }
-  list.push(...understaffed.value)
-  return list
+// ── Absences: today, next departures, the next 10 working days ──────────────
+const backOn = (end: string) => {
+  let d = addDays(end, 1)
+  while (isWeekend(d)) d = addDays(d, 1)
+  return fmtDate(d, tag.value, { weekday: 'short', day: 'numeric', month: 'short' })
+}
+const horizon = addDays(today, 14)
+const departures = computed(() => approved.value
+  .filter(e => e.startDate > today && e.startDate <= horizon)
+  .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.employeeName.localeCompare(b.employeeName)))
+const workDays = computed(() => {
+  const out: string[] = []
+  for (let d = today; out.length < 10; d = addDays(d, 1)) if (!isWeekend(d)) out.push(d)
+  return out
 })
+const awayOn = (d: string) => approved.value.filter(e => e.startDate <= d && e.endDate >= d)
+const strip = computed(() => workDays.value.map(d => ({ d, who: awayOn(d).map(e => e.employeeName) })))
+const stripMax = computed(() => Math.max(1, ...strip.value.map(x => x.who.length)))
+const peak = computed(() => strip.value.reduce((a, b) => (b.who.length > a.who.length ? b : a), strip.value[0]!))
 
-// Monthly export (CSV) of approved leave overlapping the current month
+// ── Team planning, 2 weeks (fills the free space under « À décider ») ───────
+const planDays = computed(() => Array.from({ length: 14 }, (_, i) => addDays(today, i)))
+const teamNameOf = (id: string | null) => (id ? scoped.value.find(e => e.teamId === id)?.teamName ?? '' : '') || t('r8a.people.noTeam')
+const reviewIds = computed(() => new Set(toReview.value.map(r => r.id)))
+const planPeople = computed(() => members.value
+  .filter(m => m.role !== 'admin' && (isAdmin.value || m.team_id === myTeam.value))
+  .map(m => ({
+    id: m.id,
+    name: fullName(m),
+    group: isAdmin.value ? teamNameOf(m.team_id) : undefined,
+    spans: [
+      ...approved.value.filter(e => e.userId === m.id).map(e => ({ id: e.id, from: e.startDate, to: e.endDate, label: e.leaveTypeName, color: e.leaveTypeColor })),
+      ...toReview.value.filter(r => r.user_id === m.id && r.status !== 'cancel_requested').map(r => ({ id: r.id, from: r.start_date, to: r.end_date, label: `${r.leave_types?.name ?? ''} · ${t('tnd25.toReview')}`, shortLabel: r.leave_types?.name ?? '', color: r.leave_types?.color ?? 'gray', pending: true, review: true })),
+    ],
+  }))
+  .sort((a, b) => (a.group ?? '').localeCompare(b.group ?? '') || a.name.localeCompare(b.name)))
+function openPlan(id: string) {
+  const e = approved.value.find(x => x.id === id)
+  const r = toReview.value.find(x => x.id === id)
+  const date = e?.startDate ?? r?.start_date ?? today
+  navigateTo({ path: '/calendar', query: { view: 'plan', date, focus: id } })
+}
+
+// ── Actions menu ─────────────────────────────────────────────────────────────
+const actionsOpen = ref(false)
 function exportMonth() {
+  actionsOpen.value = false
   const month = today.slice(0, 7)
   const first = `${month}-01`
   const last = monthDays(month).at(-1)!
@@ -163,230 +146,199 @@ function exportMonth() {
   a.click()
   URL.revokeObjectURL(a.href)
 }
+function onDocClick(e: MouseEvent) {
+  if (!(e.target as HTMLElement | null)?.closest('.wb-dash-act')) actionsOpen.value = false
+}
+onMounted(() => document.addEventListener('click', onDocClick))
+onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 </script>
 
 <template>
-  <div class="wb-page wb-stack wb-dash">
+  <div :class="['wb-page', 'wb-stack', 'wb-dash', { 'is-board': tab === 'overview' }]">
     <div class="wb-row-b wb-wrap wb-dash-bar">
-      <div>
-        <p class="h3">{{ todayLabel }}</p>
-        <p class="small wb-mut2">{{ t('v2.toReviewCount', { n: toReview.length }, toReview.length) }}</p>
-      </div>
-      <WbTabs v-if="!isAdmin" v-model="tab" class="wb-dash-tabs" :tabs="tabs" :label="t('nav.myteam')" />
-      <div class="wb-row wb-wrap" style="gap: 8px">
-        <WbButton variant="secondary" size="sm" icon="download" @click="exportMonth">{{ t('dashboard.export') }}</WbButton>
-        <WbButton v-if="isAdmin" variant="secondary" size="sm" icon="receipt-text" to="/invoices?new=1">{{ t('dashboard.newInvoice') }}</WbButton>
+      <p class="h3">{{ todayLabel }}</p>
+      <div class="wb-row wb-wrap" style="gap: 12px">
+        <WbTabs v-model="tab" class="wb-dash-tabs" :tabs="tabs" :label="isAdmin ? t('nav.dashboard') : t('nav.myteam')" />
+        <div class="wb-dash-act">
+          <WbButton variant="secondary" size="sm" icon="ellipsis" :aria-expanded="actionsOpen" aria-haspopup="menu" data-action="actions" @click="actionsOpen = !actionsOpen">{{ t('tnd28.actions') }}</WbButton>
+          <div v-if="actionsOpen" class="wb-card wb-dash-menu" role="menu">
+            <button type="button" role="menuitem" @click="exportMonth"><WbIcon name="download" :size="16" />{{ t('dashboard.export') }}</button>
+            <NuxtLink v-if="isAdmin" role="menuitem" to="/invoices?new=1"><WbIcon name="receipt-text" :size="16" />{{ t('dashboard.newInvoice') }}</NuxtLink>
+          </div>
+        </div>
       </div>
     </div>
 
-    <TeamMembers v-if="!isAdmin && tab === 'members'" />
+    <TeamMembers v-if="tab === 'members'" />
+    <LeaveTaken v-else-if="tab === 'taken'" />
 
-    <template v-if="isAdmin || tab === 'overview'">
-    <WbErrorState v-if="error" :message="error" @retry="load" />
-    <WbSkeleton v-else-if="isLoading && !snapshot" variant="metric" :count="4" />
+    <template v-else>
+      <WbErrorState v-if="error" :message="error" @retry="load" />
+      <WbSkeleton v-else-if="isLoading && !snapshot" variant="metric" :count="3" />
 
-    <template v-else-if="snapshot">
-      <!-- KPI strip: one card split in four cells -->
-      <section class="wb-card wb-kpis" :aria-label="t('v2.kpis')">
-        <div v-for="k in kpis" :key="k.label" class="wb-metric wb-kpi">
-          <span class="wb-kpi-i" aria-hidden="true"><WbIcon :name="k.icon" :size="18" /></span>
-          <div>
-            <span class="small wb-mut2">{{ k.label }}</span>
-            <div class="wb-kpi-v"><span :class="['display', 'wb-num', k.tone && `wb-c-${k.tone}`]">{{ k.value }}</span></div>
-            <span class="caption wb-mut">{{ k.sub }}</span>
+      <template v-else-if="snapshot">
+        <!-- 3 numbers -->
+        <section class="wb-card wb-kpis" :aria-label="t('v2.kpis')">
+          <div class="wb-kpi">
+            <span class="small wb-mut2">{{ t('dashboard.presentToday') }}</span>
+            <span class="wb-kpi-v"><b class="display wb-num">{{ snapshot.present }}</b><span class="wb-mut2 wb-num"> / {{ snapshot.total_employees }}</span></span>
+            <span class="caption wb-mut">{{ t('v2.presenceRate', { n: rate }) }}</span>
           </div>
-        </div>
-      </section>
+          <NuxtLink class="wb-kpi wb-kpi-l" to="/calendar">
+            <span class="small wb-mut2">{{ t('dashboard.awayToday') }}</span>
+            <span class="wb-kpi-v"><b :class="['display', 'wb-num', { 'wb-c-warning': awayToday.length }]">{{ awayToday.length }}</b>
+              <span class="wb-avg wb-kpi-avs"><WbAvatar v-for="e in awayToday.slice(0, 5)" :key="e.id" :name="`${e.first_name} ${e.last_name}`" :size="24" /></span>
+            </span>
+            <span class="caption wb-mut">{{ t('tnd28.seeCalendar') }}</span>
+          </NuxtLink>
+          <NuxtLink class="wb-kpi wb-kpi-l" to="/approvals">
+            <span class="small wb-mut2">{{ t('nav.approvals') }}</span>
+            <span class="wb-kpi-v"><b class="display wb-num">{{ toReview.length }}</b></span>
+            <span :class="['caption', lateCount ? 'wb-c-warning' : 'wb-mut']">{{ lateCount ? t('tnd28.late', { n: lateCount }, lateCount) : t('tnd28.noLate') }}</span>
+          </NuxtLink>
+        </section>
 
-      <div class="wb-dash-grid">
-        <!-- 1. Decisions and load -->
-        <div class="wb-dash-col">
-          <WbCard class="wb-dash-c wb-dash-queue" :title="t('nav.approvals')" :link-label="toReview.length ? t('dashboard.seeAll', { n: toReview.length }) : undefined" link-to="/approvals">
-            <ul v-if="toReview.length" class="wb-dash-rows">
-              <li v-for="r in toReview" :key="r.id">
-                <NuxtLink to="/approvals" class="wb-dash-row">
-                  <WbAvatar :name="fullName(r.profiles)" :size="28" />
+        <div class="wb-dash-grid">
+          <div class="wb-dash-col">
+          <!-- À décider -->
+          <WbCard class="wb-dash-c wb-dash-queue" :title="t('tnd28.decide')" :link-label="toReview.length ? t('dashboard.seeAll', { n: toReview.length }) : undefined" link-to="/approvals">
+            <ul v-if="decide.length" class="wb-dash-rows">
+              <li v-for="x in decide" :key="x.r.id">
+                <NuxtLink :to="{ path: '/calendar', query: { view: 'plan', date: x.r.start_date, focus: x.r.id } }" class="wb-dash-row">
+                  <WbAvatar :name="fullName(x.r.profiles)" :size="28" />
                   <span class="wb-grow wb-dash-row-t">
-                    <b class="small">{{ fullName(r.profiles) }}</b>
-                    <span class="caption wb-mut2">{{ r.leave_types?.name }} · {{ formatPeriod(r.start_date, r.end_date, tag) }} · {{ t('leave.workingDays', { n: fmtDays(Number(r.days_count), tag) }, Number(r.days_count)) }}</span>
+                    <b class="small">{{ fullName(x.r.profiles) }}</b>
+                    <span class="caption wb-mut2">{{ x.r.leave_types?.name }} · {{ formatPeriod(x.r.start_date, x.r.end_date, tag) }} · {{ t('leave.workingDays', { n: fmtDays(Number(x.r.days_count), tag) }, Number(x.r.days_count)) }}</span>
                   </span>
-                  <WbBadge v-if="(balanceAfter(r) ?? 0) < 0" tone="danger" size="sm" icon="wallet">{{ t('tnd23.overFilter') }}</WbBadge>
-                  <WbBadge :tone="r.status === 'manager_approved' ? 'success' : r.status === 'cancel_requested' ? 'indigo' : 'warning'" size="sm">
-                    {{ r.status === 'manager_approved' ? t('approvals.stepManagerOk') : r.status === 'cancel_requested' ? t('leave.status.cancel_requested') : t('approvals.level1') }}
-                  </WbBadge>
+                  <WbBadge v-if="x.short" tone="danger" size="sm" icon="wallet">{{ t('tnd23.overFilter') }}</WbBadge>
+                  <WbBadge v-if="x.waited > 3" tone="warning" size="sm" icon="clock">{{ t('tnd28.since', { n: x.waited }) }}</WbBadge>
+                  <WbBadge v-if="isAdmin && x.r.status === 'manager_approved'" tone="success" size="sm">{{ t('approvals.stepManagerOk') }}</WbBadge>
+                  <WbBadge v-else-if="x.r.status === 'cancel_requested'" tone="indigo" size="sm">{{ t('leave.status.cancel_requested') }}</WbBadge>
                 </NuxtLink>
               </li>
             </ul>
             <p v-else class="wb-mut">{{ t('home.nothingToApprove') }}</p>
-          </WbCard>
-
-          <WbCard class="wb-dash-c wb-dash-chartc" :title="t('dashboard.next14Title')" :subtitle="next14Summary">
-            <div class="wb-dash-chart">
-              <WbBarChart :title="t('dashboard.next14Hint')" :labels="next14Labels" :series="[{ label: t('dashboard.away'), data: next14Counts }]" :details="next14Who" height="100%" />
-            </div>
-          </WbCard>
-        </div>
-
-        <!-- 2. Who is away, who leaves next -->
-        <div class="wb-dash-col">
-          <WbCard class="wb-dash-c wb-dash-today" :title="t('calendar.today')" :subtitle="awayToday.length ? t('v2.awayTodayCount', { n: awayToday.length }, awayToday.length) : undefined">
-            <ul v-if="awayToday.length" class="wb-list wb-dash-list">
-              <li v-for="e in awayToday" :key="e.id">
-                <WbAvatar :name="`${e.first_name} ${e.last_name}`" :size="28" />
-                <span class="wb-grow small">
-                  <b>{{ e.first_name }} {{ e.last_name }}</b>
-                  <template v-if="e.leave_end_date"><br><span class="wb-mut">{{ t('dashboard.backOn', { date: backOn(e.leave_end_date) }) }}</span></template>
-                </span>
-                <WbBadge v-if="e.leave_type_name" size="sm">{{ e.leave_type_name }}</WbBadge>
-              </li>
+            <ul v-if="banners.length" class="wb-dash-ban">
+              <li v-for="(b, i) in banners" :key="i" class="small wb-c-danger"><WbIcon :name="b.icon" :size="16" /><NuxtLink :to="b.to">{{ b.text }}</NuxtLink></li>
             </ul>
-            <p v-else class="small wb-mut">{{ t('dashboard.allHere') }}</p>
           </WbCard>
 
-          <WbCard class="wb-dash-c wb-dash-dep" :title="t('dashboard.departuresTitle')" :subtitle="t('dashboard.departuresSub', { n: departuresCount }, departuresCount)" link-to="/calendar" :link-label="t('nav.calendar')">
-            <ol v-if="departureDays.length" class="wb-dep">
-              <li v-for="d in departureDays" :key="d.day" class="wb-dep-day">
-                <div class="wb-dep-date" :aria-label="fmtDate(d.day, tag, { weekday: 'long', day: 'numeric', month: 'long' })">
-                  <span class="caption2">{{ d.dow }}</span>
-                  <b class="wb-num">{{ d.num }}</b>
-                  <span class="caption2">{{ d.month }}</span>
-                  <span class="wb-dep-in">{{ d.inDays <= 1 ? t('dashboard.tomorrow') : t('dashboard.inDaysShort', { n: d.inDays }) }}</span>
-                </div>
-                <ul class="wb-dep-people">
-                  <li v-for="e in d.people" :key="e.id">
-                    <WbAvatar :name="e.employeeName" :size="26" />
-                    <span class="wb-grow wb-dep-who">
-                      <b class="small">{{ e.employeeName }}</b>
-                      <span class="caption wb-mut2">{{ e.teamName ? `${e.teamName} · ` : '' }}{{ t('dashboard.backOn', { date: backOn(e.endDate) }) }}</span>
-                    </span>
-                    <WbTypeBadge :name="e.leaveTypeName" :color="e.leaveTypeColor" />
+          <!-- Team planning, 2 weeks -->
+          <WbCard class="wb-dash-c wb-dash-plan" :title="t('tnd28.planning')" :subtitle="t('tnd28.planningSub')" link-to="/calendar?view=plan" :link-label="t('nav.calendar')">
+            <WbPlanningGrid v-if="planPeople.length" dense interactive :days="planDays" :people="planPeople" :today="today" :presence-label="t('calendar.present')" @open="openPlan" />
+            <p v-else class="small wb-mut">{{ t('tnd26.noMember') }}</p>
+          </WbCard>
+          </div>
+
+          <!-- Absences -->
+          <WbCard class="wb-dash-c" :title="t('tnd28.absences')" link-to="/calendar" :link-label="t('nav.calendar')">
+            <div class="wb-dash-abs">
+              <section>
+                <h3 class="caption wb-mut2 wb-dash-h">{{ t('calendar.today') }}</h3>
+                <ul v-if="awayToday.length" class="wb-dash-chips">
+                  <li v-for="e in awayToday" :key="e.id" :title="e.leave_end_date ? t('dashboard.backOn', { date: backOn(e.leave_end_date) }) : undefined">
+                    <WbAvatar :name="`${e.first_name} ${e.last_name}`" :size="22" />
+                    <span class="small"><b>{{ e.first_name }}</b><span v-if="e.leave_end_date" class="wb-mut2"> · {{ t('tnd28.back', { date: backOn(e.leave_end_date) }) }}</span></span>
                   </li>
                 </ul>
-              </li>
-            </ol>
-            <p v-else class="small wb-mut">{{ t('dashboard.noDepartures') }}</p>
-          </WbCard>
-        </div>
+                <p v-else class="small wb-mut">{{ t('dashboard.allHere') }}</p>
+              </section>
 
-        <!-- 3. What needs attention -->
-        <div class="wb-dash-col">
-          <WbCard class="wb-dash-c wb-dash-alerts" :title="t('dashboard.alerts')">
-            <ul v-if="alerts.length" class="wb-list wb-dash-list">
-              <li v-for="(a, i) in alerts" :key="i" :class="['small', `wb-c-${a.tone}`]">
-                <WbIcon :name="a.icon" :size="16" /><NuxtLink class="wb-grow" :to="a.to">{{ a.text }}</NuxtLink>
-              </li>
-            </ul>
-            <p v-else class="small wb-mut">{{ t('dashboard.noAlerts') }}</p>
-          </WbCard>
+              <section>
+                <h3 class="caption wb-mut2 wb-dash-h">{{ t('tnd28.nextDepartures') }}</h3>
+                <ul v-if="departures.length" class="wb-dash-dep">
+                  <li v-for="e in departures.slice(0, 5)" :key="e.id">
+                    <span class="wb-dash-date caption"><b class="wb-num">{{ fmtDate(e.startDate, tag, { day: 'numeric' }) }}</b> {{ fmtDate(e.startDate, tag, { month: 'short' }) }}</span>
+                    <span class="wb-grow small wb-dash-dep-w"><b>{{ e.employeeName }}</b><span class="wb-mut2"> · {{ t('tnd28.back', { date: backOn(e.endDate) }) }}</span></span>
+                    <WbTypeBadge :name="e.leaveTypeName" :color="e.leaveTypeColor" />
+                  </li>
+                  <li v-if="departures.length > 5" class="caption wb-mut2">{{ t('dashboard.andMore', { n: departures.length - 5 }) }}</li>
+                </ul>
+                <p v-else class="small wb-mut">{{ t('dashboard.noDepartures') }}</p>
+              </section>
 
-          <WbCard v-if="!isAdmin" class="wb-dash-c wb-dash-vel" :title="t('nav.velocity')" :link-label="velocityTeams.length ? t('dashboard.seeVelocity') : undefined" link-to="/velocite">
-            <ul v-if="velocityTeams.length" class="wb-list wb-dash-list wb-dash-ws">
-              <li v-for="v in velocityTeams" :key="v.team_id">
-                <NuxtLink class="wb-grow wb-dash-ws-l" :to="{ path: `/velocite/teams/${v.team_id}`, query: { workspaceId: v.workspace_id, name: v.team_name ?? '' } }">
-                  <b class="small">{{ v.team_name }}</b>
-                  <span class="caption wb-mut2">{{ v.workspace_name }}</span>
-                </NuxtLink>
-                <WbIcon name="chevron-right" :size="16" class="wb-mut2" />
-              </li>
-            </ul>
-            <p v-else class="small wb-mut">{{ t('tnd26.noLinkText') }}</p>
-          </WbCard>
-          <WbCard v-else class="wb-dash-c wb-dash-vel" :title="t('nav.velocity')" :link-label="t('dashboard.seeVelocity')" link-to="/velocite">
-            <ul v-if="wsRows.length" class="wb-list wb-dash-list wb-dash-ws">
-              <li v-for="w in wsRows" :key="w.id">
-                <NuxtLink class="wb-grow wb-dash-ws-l" :to="`/velocite/workspaces/${w.id}`">
-                  <b class="small">{{ w.name }}</b>
-                  <span class="caption wb-mut2">{{ w.teams }}</span>
-                  <span class="caption wb-mut wb-num">{{ t('velocityA.lastSync', { date: w.when }) }}<template v-if="w.tickets"> · {{ t('velocityA.tickets', { n: w.tickets }, w.tickets) }}</template></span>
-                </NuxtLink>
-                <WbBadge :tone="w.status.tone" size="sm">{{ w.status.label }}</WbBadge>
-              </li>
-            </ul>
-            <div v-else class="wb-stack-s">
-              <p class="small wb-mut">{{ t('velocityA.emptyText') }}</p>
-              <div><WbButton variant="secondary" size="sm" icon="plus" to="/velocite">{{ t('velocityA.connect') }}</WbButton></div>
+              <section class="wb-dash-s10">
+                <h3 class="caption wb-mut2 wb-dash-h">{{ t('tnd28.next10') }}<span v-if="peak.who.length" class="wb-mut"> · {{ t('tnd28.peak', { n: peak.who.length, day: fmtDate(peak.d, tag, { weekday: 'short', day: 'numeric' }) }) }}</span></h3>
+                <ol class="wb-dash-strip" :aria-label="t('tnd28.next10')">
+                  <li v-for="x in strip" :key="x.d" :title="x.who.length ? `${fmtDay(x.d, tag)} : ${x.who.join(', ')}` : fmtDay(x.d, tag)">
+                    <span class="wb-dash-bar-w"><i :style="{ height: `${(x.who.length / stripMax) * 100}%` }" /></span>
+                    <b class="caption2 wb-num">{{ x.who.length || '' }}</b>
+                    <span class="caption2 wb-mut2">{{ fmtWeekday(x.d, tag).slice(0, 2) }} {{ +x.d.slice(8) }}</span>
+                  </li>
+                </ol>
+              </section>
             </div>
           </WbCard>
         </div>
-      </div>
-    </template>
+      </template>
     </template>
   </div>
 </template>
 
 <style scoped>
 .wb-dash-bar :deep(.wb-btn) { margin: 0; }
-.wb-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
-.wb-kpi { border: 0; border-radius: 0; box-shadow: none; flex-direction: row; gap: var(--space-3); align-items: flex-start; padding: var(--space-4) var(--space-5); }
+.wb-dash-tabs :deep(.wb-tabs) { border-bottom: 0; }
+/* Actions menu */
+.wb-dash-act { position: relative; }
+.wb-dash-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 240px; padding: 6px; display: flex; flex-direction: column; box-shadow: var(--shadow-2); }
+.wb-dash-menu > * { display: flex; align-items: center; gap: var(--space-2); padding: 8px 10px; border: 0; border-radius: var(--radius-md); background: none; color: var(--ink); font: inherit; font-size: 14px; text-align: left; text-decoration: none; cursor: pointer; }
+.wb-dash-menu > *:hover { background: var(--surface-2); }
+
+/* 3 numbers */
+.wb-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; }
+.wb-kpi { display: flex; flex-direction: column; gap: 2px; padding: var(--space-3) var(--space-5); color: inherit; text-decoration: none; }
 .wb-kpi + .wb-kpi { border-left: 1px solid var(--border); }
-.wb-kpi-i { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: var(--radius-md); background: var(--brand-tint); color: var(--brand-text); }
-.wb-kpi-v { line-height: 1; margin: 2px 0; }
-.wb-dash-list li { padding-block: 6px; }
-.wb-dash-ws li + li { border-top: 1px solid var(--border); }
-.wb-dash-ws-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: inherit; text-decoration: none; }
-.wb-dash-ws-l:hover b { color: var(--brand-text); }
-/* Chart: clear space under the card subtitle; it takes the card's height */
-.wb-dash-chart { padding-top: var(--space-2); height: 220px; }
-.wb-dash-chart :deep(.wb-cf) { height: 100%; margin: 0; }
+.wb-kpi-l:hover { background: var(--surface-2); }
+.wb-kpi-v { display: flex; align-items: baseline; gap: var(--space-2); line-height: 1.1; }
+.wb-kpi-avs { align-self: center; }
 
-/* 3 columns; on a desktop screen the whole board fits the window (no page
-   scroll) and long cards scroll inside */
-.wb-dash-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); }
-.wb-dash-col { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; min-width: 0; }
+/* 2 columns */
+.wb-dash-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: var(--space-4); }
 .wb-dash-c { display: flex; flex-direction: column; min-height: 0; }
+.wb-dash-col { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; min-width: 0; }
 .wb-dash-c :deep(> div) { min-height: 0; }
-
 .wb-dash-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .wb-dash-rows li + li { border-top: 1px solid var(--border); }
-.wb-dash-row { display: flex; align-items: center; gap: var(--space-2); padding: 8px 0; color: inherit; text-decoration: none; }
+.wb-dash-row { display: flex; align-items: center; gap: var(--space-2); padding: 9px 0; color: inherit; text-decoration: none; }
 .wb-dash-row:hover b { color: var(--brand-text); }
 .wb-dash-row-t { display: flex; flex-direction: column; min-width: 0; }
 .wb-dash-row-t > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-dash-ban { list-style: none; margin: var(--space-3) 0 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--danger-tint); display: flex; flex-direction: column; gap: 6px; }
+.wb-dash-ban li { display: flex; align-items: center; gap: var(--space-2); }
+.wb-dash-ban a { color: inherit; }
 
-/* Upcoming departures: a date tile per day, the people leaving that day */
-.wb-dep { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
-.wb-dep-day { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--space-3); align-items: start; position: relative; }
-.wb-dep-date { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 0; border-radius: var(--radius-md); background: var(--brand-tint); color: var(--brand-text); line-height: 1.1; text-transform: capitalize; }
-.wb-dep-date b { font-size: 20px; line-height: 24px; }
-.wb-dep-people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.wb-dep-people li { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.wb-dep-who { display: flex; flex-direction: column; min-width: 0; }
-.wb-dep-who > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wb-dep-in { margin-top: 4px; padding: 1px 6px; border-radius: 999px; background: var(--surface); color: var(--ink-2); font-size: 10px; font-weight: 650; text-transform: none; white-space: nowrap; }
+.wb-dash-abs { display: flex; flex-direction: column; gap: var(--space-4); min-height: 100%; }
+/* the 10-day strip takes the free height of the card */
+.wb-dash-s10 { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 140px; }
+.wb-dash-h { margin: 0 0 var(--space-2); text-transform: uppercase; letter-spacing: .04em; font-weight: 650; }
+.wb-dash-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.wb-dash-chips li { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: var(--radius-pill); background: var(--surface-2); }
+.wb-dash-dep { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.wb-dash-dep li { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.wb-dash-dep-w { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.wb-dash-date { flex: none; width: 54px; padding: 2px 0; border-radius: var(--radius-sm, 6px); background: var(--brand-tint); color: var(--brand-text); text-align: center; }
+/* 10 working days: thin bars, rounded tops, count above */
+.wb-dash-strip { flex: 1 1 auto; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px; }
+.wb-dash-strip li { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 0; }
+.wb-dash-bar-w { flex: 1 1 auto; display: flex; align-items: flex-end; width: 100%; max-width: 34px; min-height: 56px; border-bottom: 1px solid var(--border); }
+.wb-dash-bar-w i { display: block; width: 100%; border-radius: 4px 4px 0 0; background: var(--chart-1); }
 
-.wb-dash-tabs { margin-left: auto; margin-right: var(--space-3); }
-.wb-dash-tabs :deep(.wb-tabs) { border-bottom: 0; }
 @container wbapp (min-width: 1024px) {
-  /* header 56 + page paddings: the board is exactly one screen high */
-  .wb-dash { height: calc(100dvh - 56px - var(--space-5) - var(--space-8) - 8px); min-height: 600px; }
-  .wb-dash-grid { flex: 1 1 0; min-height: 0; }
-  .wb-dash-col { overflow: hidden; }
-  .wb-dash-queue { flex: 0 1 auto; max-height: 46%; }
-  .wb-dash-chartc { flex: 1 1 0; }
-  .wb-dash-chartc :deep(> div) { flex: 1; display: flex; }
-  .wb-dash-chart { flex: 1; height: auto; min-height: 140px; position: relative; }
-  .wb-dash-chart :deep(.wb-cf) { position: absolute; inset: var(--space-2) 0 0; margin: 0; }
-  .wb-dash-today { flex: 0 1 auto; max-height: 42%; }
-  .wb-dash-dep, .wb-dash-alerts { flex: 1 1 0; }
-  .wb-dash-vel { flex: 0 1 auto; max-height: 45%; }
-  .wb-dash-c :deep(> div:last-child) { overflow-y: auto; }
-}
-@container wbapp (max-width: 1279px) {
-  .wb-dash-grid { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }
-  .wb-dash-col:nth-child(3) { grid-column: 1 / -1; flex-direction: row; }
-  .wb-dash-col:nth-child(3) > * { flex: 1 1 0; }
+  /* the board fits one screen; long lists scroll inside their card */
+  .wb-dash.is-board { height: calc(100dvh - 56px - var(--space-5) - var(--space-8) - 8px); min-height: 560px; }
+  .wb-dash.is-board .wb-dash-grid { flex: 1 1 0; min-height: 0; }
+  .wb-dash.is-board .wb-dash-c :deep(> div:last-child) { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; }
+  .wb-dash.is-board .wb-dash-abs { flex: 1 1 auto; }
+  /* left column: the queue takes what it needs (half at most), the planning the rest */
+  .wb-dash.is-board .wb-dash-queue { flex: 0 1 auto; max-height: 50%; }
+  .wb-dash.is-board .wb-dash-plan { flex: 1 1 0; min-height: 200px; }
 }
 @container wbapp (max-width: 1023px) {
   .wb-dash-grid { grid-template-columns: minmax(0, 1fr); }
-  .wb-dash-col:nth-child(3) { flex-direction: column; }
-}
-@container wbapp (max-width: 1023px) {
-  .wb-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .wb-kpi:nth-child(3) { border-left: 0; }
-  .wb-kpi:nth-child(n + 3) { border-top: 1px solid var(--border); }
 }
 @container wbapp (max-width: 767px) {
+  .wb-kpis { grid-template-columns: minmax(0, 1fr); }
+  .wb-kpi + .wb-kpi { border-left: 0; border-top: 1px solid var(--border); }
   .wb-kpi { padding: var(--space-3); }
-  .wb-kpi-i { display: none; }
 }
 </style>

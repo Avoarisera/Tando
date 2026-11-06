@@ -68,27 +68,41 @@ test.describe('R5 — Tableau de bord', () => {
     await signIn(page, ACCOUNTS.admin, '/dashboard')
   })
 
-  test('T-R5-001: 4 indicators, the approval queue and the 14-day chart', async ({ page }) => {
-    await expect(page.locator('.wb-metric')).toHaveCount(4)
-    await expect(page.locator('.wb-metric').first()).toContainText('Effectif')
-    await expect(page.locator('.wb-metric').first().locator('.display')).toHaveText(/^\d+$/)
-    await expect(page.getByRole('link', { name: /Voir tout \(\d+\)/ })).toHaveAttribute('href', '/approvals')
-    await expect(page.getByRole('heading', { name: 'Absences des 14 prochains jours' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Départs à venir' })).toBeVisible()
+  test('T-R5-001: 3 numbers, « À décider » and « Absences », no duplicates (TND-28)', async ({ page }) => {
+    await expect(page.locator('.wb-kpi')).toHaveCount(3)
+    await expect(page.locator('.wb-kpi').first()).toContainText('Présents aujourd’hui')
+    await expect(page.locator('.wb-kpi').first().locator('.display')).toHaveText(/^\d+$/)
+    // the « À valider » number opens the queue (the « Voir tout » link only shows when something waits)
+    await expect(page.locator('.wb-kpi[href="/approvals"]')).toContainText('À valider')
+    await expect(page.getByRole('heading', { name: 'À décider' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Absences', exact: true })).toBeVisible()
+    for (const gone of ['Alertes', 'Vélocité', 'Absences des 14 prochains jours']) {
+      await expect(page.getByRole('heading', { name: gone, exact: true })).toHaveCount(0)
+    }
   })
 
-  test('T-R5-002: monthly export downloads a CSV', async ({ page }) => {
+  test('T-R5-002: monthly export (Actions menu) downloads a CSV', async ({ page }) => {
+    await page.locator('[data-action="actions"]').click()
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Exporter les absences du mois' }).click(),
+      page.getByRole('menuitem', { name: 'Exporter les absences du mois' }).click(),
     ])
     expect(download.suggestedFilename()).toMatch(/^absences-\d{4}-\d{2}\.csv$/)
   })
 
-  test('T-R5-003: "Nouvelle facture" opens the invoice panel', async ({ page }) => {
-    await page.getByRole('link', { name: 'Nouvelle facture' }).click()
+  test('T-R5-003: "Nouvelle facture" (Actions menu) opens the invoice panel', async ({ page }) => {
+    await page.locator('[data-action="actions"]').click()
+    await page.getByRole('menuitem', { name: 'Nouvelle facture' }).click()
     await expect(page).toHaveURL(/\/invoices\?new=1/)
     await expect(page.locator(PANEL)).toBeVisible()
+  })
+
+  test('T-TND27-001: « Congés pris » ranks people with a legend and a month chart', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Congés pris' }).click()
+    await expect(page.getByRole('heading', { name: 'Congés pris par personne' })).toBeVisible()
+    await expect(page.locator('.wb-lt-rows li').first()).toBeVisible()
+    await expect(page.locator('.wb-lt-leg')).toContainText('à venir')
+    await expect(page.getByRole('heading', { name: 'Absences par mois' })).toBeVisible()
   })
 
   test('T-R5-004: RPC failure shows the retry button', async ({ page }) => {

@@ -4,7 +4,7 @@ import { Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip, Lege
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend)
 
-/** `color` is a CSS custom property name (e.g. "--chart-3"); default: chart-1 … chart-6 in order */
+/** `color` is a CSS custom property name (e.g. "--chart-3") or a colour; default: chart-1 … chart-6 in order */
 export interface WbSeries { label: string, data: readonly number[], color?: string }
 
 const props = withDefaults(defineProps<{
@@ -25,11 +25,14 @@ const palette = ref<string[]>([])
 const custom = ref<Record<string, string>>({})
 const ink = ref('#3f4a63')
 const grid = ref('#d8deea')
+const surface = ref('#ffffff')
 function readColours() {
+  surface.value = cssVar('--surface', surface.value)
   palette.value = chartSeries()
   ink.value = cssVar('--ink-2', ink.value)
   grid.value = cssVar('--border', grid.value)
-  for (const s of props.series) if (s.color) custom.value[s.color] = cssVar(s.color)
+  // a CSS custom property name, or a plain colour (e.g. a leave type's hex)
+  for (const s of props.series) if (s.color) custom.value[s.color] = s.color.startsWith('--') ? cssVar(s.color) : s.color
 }
 onMounted(readColours)
 // re-read the tokens when the theme switches (the header toggle)
@@ -42,7 +45,9 @@ const data = computed(() => ({
     label: s.label,
     data: [...s.data],
     backgroundColor: (s.color && custom.value[s.color]) || palette.value[i % 6] || '#86adff',
-    borderRadius: 6,
+    borderRadius: props.stacked ? 4 : 6,
+    // stacked: a 2 px surface gap between segments
+    ...(props.stacked ? { borderColor: surface.value, borderWidth: { top: 2 }, borderSkipped: 'bottom' as const } : {}),
     maxBarThickness: 28,
     ...(props.stacked ? { stack: 'stack' } : {}),
   })),
