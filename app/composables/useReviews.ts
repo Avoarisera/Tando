@@ -42,6 +42,18 @@ export function useReviews() {
     const { error } = await supabase.from('review_templates').update({ name: t.name, content: t.content, updated_at: new Date().toISOString() }).eq('id', t.id)
     if (error) fail(error)
   }
+  async function createTemplate(name: string, content: TemplateContent) {
+    const { data, error } = await supabase.from('review_templates').insert({ name, kind: 'custom', content }).select('id').single()
+    if (error) fail(error)
+    return (data as { id: string }).id
+  }
+  async function duplicateTemplate(t: ReviewTemplate) {
+    return await createTemplate(`${t.name} (copie)`.slice(0, 120), JSON.parse(JSON.stringify(t.content)) as TemplateContent)
+  }
+  async function archiveTemplate(id: string) {
+    const { error } = await supabase.from('review_templates').update({ archived: true }).eq('id', id)
+    if (error) fail(error)
+  }
   async function listCycles() {
     const [{ data: cycles, error }, { data: packets, error: e2 }, { data: resp, error: e3 }] = await Promise.all([
       supabase.from('review_cycles').select('*').order('created_at', { ascending: false }),
@@ -153,11 +165,20 @@ export function useReviews() {
     return await $fetch<{ people: number, emailed: number }>(`/api/reviews/cycles/${cycleId}/remind`, { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token ?? ''}` } })
   }
 
+  /** Mail the review notifications the last action created (TND-32); never throws */
+  async function notify() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      return await $fetch<{ sent: number, failed: number, notConfigured: boolean }>('/api/reviews/notify', { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token ?? ''}` } })
+    }
+    catch { return null }
+  }
+
   async function acknowledge(packetId: string, comment: string) {
     const { error } = await supabase.rpc('acknowledge_review', { p_packet: packetId, p_comment: comment })
     if (error) fail(error)
   }
 
   return { listTemplates, saveTemplate, listCycles, createCycle, updateCycle, deleteCycle, launchCycle, getCycle, getPacket, conclude, share, myPackets, listResponses, saveResponse, acknowledge,
-    listNominations, peerCandidates, proposePeers, approvePeers, myPeerRequests, peerStatus, peerFeedback, remind }
+    listNominations, peerCandidates, proposePeers, approvePeers, myPeerRequests, peerStatus, peerFeedback, remind, notify, duplicateTemplate, createTemplate, archiveTemplate }
 }

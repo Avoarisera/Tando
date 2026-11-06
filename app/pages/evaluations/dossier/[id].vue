@@ -10,7 +10,7 @@ const tag = computed(() => (locale.value === 'en' ? 'en-GB' : 'fr-FR'))
 const toast = useToast()
 const route = useRoute()
 const id = String(route.params.id)
-const { getPacket, listResponses, conclude, share, peerStatus, peerFeedback } = useReviews()
+const { getPacket, listResponses, conclude, share, peerStatus, peerFeedback, notify } = useReviews()
 
 const packet = ref<(HrPacket & { review_cycles: ReviewCycle }) | null>(null)
 const responses = ref<ReviewResponse[]>([])
@@ -65,6 +65,7 @@ async function doShare() {
     if (form.rating === null) throw new Error(t('tnd29.hr.ratingRequired'))
     await conclude(id, form.rating, form.strengths.trim(), form.improvements.trim(), form.objectives.map(o => ({ text: o.text.trim() })).filter(o => o.text))
     await share(id)
+    notify()
     toast.add(t('tnd29.hr.sharedToast', { who: packet.value?.employee?.first_name ?? '' }))
     confirmShare.value = false
     await load()

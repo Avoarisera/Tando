@@ -1,5 +1,6 @@
 import { requireRecruiter } from '../../../../utils/require-recruiter'
 import { sendMail } from '../../../../utils/mailer'
+import { siteUrl } from '../../../../utils/site-url'
 
 /**
  * HR reminder (TND-29 lot 2): everyone still late in an active campaign — self
@@ -27,11 +28,11 @@ export default defineEventHandler(async (event) => {
   if (!late.size) return { people: 0, emailed: 0 }
 
   const people = [...late.keys()]
-  await supabase.from('notifications').insert(people.map(u => ({ user_id: u, kind: 'review_reminder', actor_id: user.id, data: { cycle: cycle.name, tasks: [...late.get(u)!] } })))
+  await supabase.from('notifications').insert(people.map(u => ({ user_id: u, kind: 'review_reminder', actor_id: user.id, emailed_at: new Date().toISOString(), data: { cycle: cycle.name, tasks: [...late.get(u)!] } })))
   const { data: users } = await supabase.auth.admin.listUsers({ perPage: 1000 })
   const emails = new Map((users?.users ?? []).map(u => [u.id, u.email ?? '']))
   const { data: names } = await supabase.from('profiles').select('id, first_name').in('id', people)
-  const origin = getRequestURL(event).origin
+  const origin = siteUrl(event)
   let emailed = 0
   for (const u of people) {
     const to = emails.get(u)

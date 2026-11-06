@@ -1,4 +1,4 @@
-import type { Opening, Stage } from '~/utils/recruitment'
+import type { JobTemplate, JobTemplateContent, Opening, Stage } from '~/utils/recruitment'
 
 export interface ApplicationRow {
   id: string
@@ -94,6 +94,31 @@ export function useRecruitment() {
     return (data as { id: string }).id
   }
 
+  // ── Job opening templates (TND-32) ──────────────────────────────────────
+  async function listJobTemplates() {
+    const { data, error } = await supabase.from('job_templates').select('*').eq('archived', false).order('created_at')
+    if (error) throw new Error(errorMessage(error))
+    return (data ?? []) as unknown as JobTemplate[]
+  }
+  async function getJobTemplate(id: string) {
+    const { data, error } = await supabase.from('job_templates').select('*').eq('id', id).maybeSingle()
+    if (error) throw new Error(errorMessage(error))
+    return data as unknown as JobTemplate | null
+  }
+  async function saveJobTemplate(id: string | null, name: string, content: JobTemplateContent) {
+    const row = { name: name.trim().slice(0, 120) || 'Modèle', content }
+    const q = id
+      ? supabase.from('job_templates').update(row).eq('id', id).select('id').single()
+      : supabase.from('job_templates').insert(row).select('id').single()
+    const { data, error } = await q
+    if (error) throw new Error(errorMessage(error))
+    return (data as { id: string }).id
+  }
+  async function archiveJobTemplate(id: string) {
+    const { error } = await supabase.from('job_templates').update({ archived: true }).eq('id', id)
+    if (error) throw new Error(errorMessage(error))
+  }
+
   async function listApplications(openingId: string) {
     const { data, error } = await supabase.from('applications')
       .select('*, candidates (id, first_name, last_name, email, phone, linkedin_url), application_files (id, kind, file_name, mime_type, size_bytes)')
@@ -171,7 +196,7 @@ export function useRecruitment() {
 
   const hire = (applicationId: string, body: Record<string, unknown>) => authFetch<{ id: string }>(`/api/recruiting/applications/${applicationId}/hire`, { method: 'POST', body })
 
-  return { listOpenings, getOpening, saveOpening, listApplications, listEvents, addNote, moveStage, reject, restore, fileUrl,
+  return { listJobTemplates, getJobTemplate, saveJobTemplate, archiveJobTemplate, listOpenings, getOpening, saveOpening, listApplications, listEvents, addNote, moveStage, reject, restore, fileUrl,
     listInterviews, planInterview, cancelInterview, listScorecards, saveScorecard, listTemplates, saveTemplate, sendEmail, hire,
     propose, listAllApplications, purge }
 }

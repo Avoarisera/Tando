@@ -1774,5 +1774,63 @@
       "confirm": "Your feedback will be sent and can no longer be changed. It stays anonymous.",
       "closed": "This request is closed."
     }
+  },
+  "tnd32": {
+    "mail": {
+      "sent": "{n} e-mail sent | {n} e-mails sent",
+      "notConfigured": "e-mails not sent: set up sending in Settings › E-mails"
+    },
+    "steps": {
+      "label": "Campaign steps",
+      "create": "Campaign created",
+      "people": "Choose the people",
+      "launch": "Launch: everyone gets an e-mail"
+    },
+    "tpl": {
+      "summary": "{c} competencies · {q} questions",
+      "withObjectives": "objectives review",
+      "withPeers": "colleague feedback",
+      "manage": "Manage templates",
+      "panelHint": "Saving a template launches nothing: it is used by the next campaigns. A running campaign keeps its launch version.",
+      "save": "Save template",
+      "savedTemplate": "Template saved",
+      "new": "New template",
+      "newName": "New template",
+      "use": "Use",
+      "edit": "Edit",
+      "duplicate": "Duplicate",
+      "duplicated": "Template duplicated",
+      "archive": "Archive",
+      "archived": "Template archived",
+      "archiveTitle": "Archive “{name}”?",
+      "archiveText": "It will no longer be offered for new campaigns. Campaigns using it do not change.",
+      "libraryIntro": "Pick a template to launch a campaign in two clicks, or adapt it to your company.",
+      "kind": {
+        "annual": "Annual",
+        "probation": "Probation",
+        "custom": "Custom"
+      }
+    },
+    "job": {
+      "library": "Job templates",
+      "libraryIntro": "Ready-made openings: pick one to create a pre-filled opening, then adjust it.",
+      "pickHint": "Start from a blank opening or a template: everything stays editable before publishing.",
+      "blank": "Blank opening",
+      "blankHint": "All fields to fill in.",
+      "name": "Template name",
+      "nameHint": "Only visible to recruiters.",
+      "nameRequired": "Give the template a name",
+      "untitled": "Untitled template",
+      "saveAs": "Save as template",
+      "savedAs": "Template “{name}” saved",
+      "templateBar": "Job template: no public address, team or manager",
+      "editHint": "This template pre-fills new openings. Existing openings do not change.",
+      "notFound": "Template not found",
+      "steps": "{n} step | {n} steps",
+      "noSummary": "No summary",
+      "emptyTitle": "No job template",
+      "emptyText": "Create a template, or save an existing opening as a template.",
+      "archiveText": "It will no longer be offered for new openings. Existing openings do not change."
+    }
   }
 }

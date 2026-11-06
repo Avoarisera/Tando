@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ApplicationRow } from '~/composables/useRecruitment'
-import type { Opening } from '~/utils/recruitment'
+import type { JobTemplateContent, Opening } from '~/utils/recruitment'
 import { isAnonymous, sourceLabel } from '~/utils/recruitment'
 import { pseudonym } from '~/utils/recruit-stats'
 
@@ -12,7 +12,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const { isRecruiter, profile } = useCurrentUser()
-const { getOpening, listApplications, moveStage } = useRecruitment()
+const { getOpening, listApplications, moveStage, getJobTemplate } = useRecruitment()
 
 const id = String(route.params.id)
 const isNew = id === 'nouvelle'
@@ -20,8 +20,18 @@ const opening = ref<Opening | null>(null)
 const apps = ref<ApplicationRow[]>([])
 const isLoading = ref(!isNew)
 const error = ref<string | null>(null)
+// « Nouvelle offre » from a template (TND-32): /recrutement/nouvelle?modele=<id>
+const prefill = ref<JobTemplateContent | null>(null)
+const prefillReady = ref(!(isNew && typeof route.query.modele === 'string'))
 async function load() {
-  if (isNew) return
+  if (isNew) {
+    if (!prefillReady.value) {
+      try { prefill.value = (await getJobTemplate(String(route.query.modele)))?.content ?? null }
+      catch (e) { toast.add(errorMessage(e), 'error') }
+      finally { prefillReady.value = true }
+    }
+    return
+  }
   isLoading.value = true
   error.value = null
   try {
@@ -110,7 +120,7 @@ async function onSaved(newId: string) {
         </div>
       </div>
 
-      <OpeningEditor v-if="tab === 'opening'" :key="opening?.updated_at ?? 'new'" :opening="opening" @saved="onSaved" />
+      <OpeningEditor v-if="tab === 'opening' && prefillReady" :key="opening?.updated_at ?? 'new'" :opening="opening" :prefill="prefill" @saved="onSaved" />
 
       <template v-else-if="opening">
         <div class="wb-row wb-wrap wb-pp-f">

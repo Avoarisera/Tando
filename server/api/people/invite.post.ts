@@ -1,3 +1,4 @@
+import { siteUrl } from '../../utils/site-url'
 import { requireAdmin } from '../../utils/require-admin'
 import { invitePerson } from '../../utils/invite-person'
 
@@ -41,7 +42,7 @@ export default defineEventHandler(async (event) => {
   if (!role) throw createError({ statusCode: 400, statusMessage: 'Rôle invalide' })
   if (!country) throw createError({ statusCode: 400, statusMessage: 'Pays invalide' })
 
-  const userId = await invitePerson(supabase, getRequestURL(event).origin, {
+  const userId = await invitePerson(supabase, siteUrl(event), {
     email, firstName, lastName, role, teamId, country, joinedAt,
   })
 

@@ -1,3 +1,4 @@
+import { siteUrl } from '../../../utils/site-url'
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { cleanFileName, createRateLimiter, extOf, MAX_FILE_BYTES, sniffMime, validateApplication, type AcceptedMime, type ApplicationFields, type OpeningForm } from '../../../utils/careers'
 import { sendMail } from '../../../utils/mailer'
@@ -98,7 +99,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const company = await companyInfo(supabase)
-  const mail = await buildEmail(supabase, 'acknowledgement', { prenom: f.first_name, nom: f.last_name, poste: opening.title, entreprise: company.name, lien_suivi: trackUrl(getRequestURL(event).origin, app.track_token) })
+  const mail = await buildEmail(supabase, 'acknowledgement', { prenom: f.first_name, nom: f.last_name, poste: opening.title, entreprise: company.name, lien_suivi: trackUrl(siteUrl(event), app.track_token) })
   const sent = await sendMail(supabase, { to: f.email, subject: mail.subject, text: mail.text + PRIVACY_FOOTER })
   await supabase.from('application_events').insert([
     { application_id: app.id, kind: 'submitted', data: { source: 'careers' } },
