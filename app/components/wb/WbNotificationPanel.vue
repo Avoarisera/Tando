@@ -22,12 +22,14 @@ const STYLE: Record<NotificationKind, [string, string]> = {
   review_peers_proposed: ['users', 'info'],
   review_peer_requested: ['users', 'indigo'],
   review_reminder: ['bell', 'warning'],
+  review_ep_due: ['calendar-days', 'indigo'],
 }
 
 function text(n: AppNotification) {
   const d = n.data
   const period = d.start_date && d.end_date ? formatPeriod(d.start_date, d.end_date, tag.value) : ''
   if (n.kind === 'review_requested') return d.role === 'manager' ? t('r8a.notif.review_manager', { who: d.who ?? '', cycle: d.cycle ?? '' }) : t('r8a.notif.review_self', { cycle: d.cycle ?? '' })
+  if (n.kind === 'review_ep_due') return t('r8a.notif.review_ep_due', { n: d.count ?? 0 }, d.count ?? 0)
   if (n.kind === 'review_peers_proposed' || n.kind === 'review_peer_requested') return t(`r8a.notif.${n.kind}`, { who: d.who ?? '', cycle: d.cycle ?? '' })
   return t(`r8a.notif.${n.kind}`, { cycle: d.cycle ?? '', who: `${d.first_name ?? ''} ${d.last_name ?? ''}`.trim(), type: d.type ?? '', period, job: d.job ?? '', when: d.starts_at ? new Intl.DateTimeFormat(tag.value, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(d.starts_at)) : '' })
 }

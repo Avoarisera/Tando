@@ -19,6 +19,15 @@ const packets = ref<HrPacket[]>([])
 const responses = ref<{ packet_id: string, role: string, submitted_at: string | null }[]>([])
 const error = ref<string | null>(null)
 // TND-33: HR chooses the colleagues of each person
+// tabs once launched: follow-up, harmonisation (rated campaigns), report
+type View = 'follow' | 'calibration' | 'report'
+const view = ref<View>(['calibration', 'report'].includes(String(route.query.vue)) ? route.query.vue as View : 'follow')
+watch(view, v => navigateTo({ query: v === 'follow' ? {} : { vue: v } }, { replace: true }))
+const viewTabs = computed(() => [
+  { id: 'follow', label: t('tnd35.tabs.follow') },
+  ...(cycle.value?.content?.no_rating ? [] : [{ id: 'calibration', label: t('tnd35.tabs.calibration') }]),
+  { id: 'report', label: t('tnd35.tabs.report') },
+])
 const peerSum = ref<{ packet_id: string, chosen: number, answered: number }[]>([])
 const peersOf = (pid: string) => peerSum.value.find(x => x.packet_id === pid) ?? { chosen: 0, answered: 0 }
 const choosingFor = ref<HrPacket | null>(null)
@@ -42,7 +51,9 @@ usePageHeader(() => ({ crumbs: [{ label: t('nav.evaluations'), to: '/evaluations
 // ── Draft: who is reviewed ─────────────────────────────────────────────────
 const people = computed(() => members.value.filter(m => m.role !== 'admin').slice().sort((a, b) => fullName(a).localeCompare(fullName(b))))
 const picked = ref<string[]>([])
-watch(people, (p) => { if (!picked.value.length) picked.value = p.map(x => x.id) }, { immediate: true })
+// « Lancer pour ces personnes » from the professional-interview schedule (TND-35): ?people=id,id
+const preset = typeof route.query.people === 'string' ? route.query.people.split(',').filter(Boolean) : []
+watch(people, (p) => { if (!picked.value.length) picked.value = preset.length ? p.filter(x => preset.includes(x.id)).map(x => x.id) : p.map(x => x.id) }, { immediate: true })
 const teamName = (tid: string | null) => teams.value.find(x => x.id === tid)?.name ?? t('r8a.people.noTeam')
 const groups = computed(() => {
   const map = new Map<string, typeof people.value>()
@@ -89,7 +100,7 @@ async function doRemind() {
 // ── Active: follow-up ──────────────────────────────────────────────────────
 const submitted = (pid: string, role: string) => responses.value.some(r => r.packet_id === pid && r.role === role && r.submitted_at)
 const rows = computed(() => packets.value.map((p) => {
-  const step = packetStep({ self_submitted: submitted(p.id, 'self'), manager_submitted: submitted(p.id, 'manager'), has_manager: !!p.manager_id, hr_done: !!p.hr_done_at && p.hr_rating !== null, shared: !!p.shared_at, acknowledged: !!p.acknowledged_at })
+  const step = packetStep({ self_submitted: submitted(p.id, 'self'), manager_submitted: submitted(p.id, 'manager'), has_manager: !!p.manager_id, hr_done: !!p.hr_done_at && (p.hr_rating !== null || !!cycle.value?.content?.no_rating), shared: !!p.shared_at, acknowledged: !!p.acknowledged_at })
   return { p, step, name: p.employee ? `${p.employee.first_name} ${p.employee.last_name}` : '—', manager: p.manager ? `${p.manager.first_name} ${p.manager.last_name}` : t('tnd29.cycle.noManager') }
 }).sort((a, b) => a.name.localeCompare(b.name)))
 const stepFilter = ref<'all' | PacketStep>('all')
@@ -146,8 +157,11 @@ const late = (due: string | null) => !!due && due < todayIso()
         </div>
       </section>
 
-      <!-- active / closed: follow-up -->
-      <section v-else class="wb-card">
+      <!-- active / closed: follow-up · harmonisation · report (TND-35) -->
+      <WbTabs v-if="cycle.status !== 'draft'" v-model="view" class="wb-cy-tabs" :tabs="viewTabs" :label="cycle.name" />
+      <CalibrationTab v-if="cycle.status !== 'draft' && view === 'calibration'" :cycle-id="cycle.id" :editable="cycle.status === 'active'" />
+      <TeamReport v-else-if="cycle.status !== 'draft' && view === 'report'" :cycle-id="cycle.id" :content="cycle.content" :peers="cycle.peers_enabled" />
+      <section v-else-if="cycle.status !== 'draft'" class="wb-card">
         <WbBanner v-if="missingPeers" tone="warning" class="wb-cy-ban" data-banner="peers">{{ t('tnd33.missing', { n: missingPeers }, missingPeers) }}</WbBanner>
         <header class="wb-card-h wb-row-b wb-wrap">
           <h2 class="h3">{{ t('tnd29.cycle.packets', { n: packets.length }, packets.length) }}</h2>
@@ -190,6 +204,7 @@ const late = (due: string | null) => !!due && due < todayIso()
 </template>
 
 <style scoped>
+.wb-cy-tabs { flex: none; }
 .wb-cy-ban { margin: var(--space-4) var(--space-4) 0; }
 .wb-cy-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .wb-cy-steps li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-pill); font-size: 13px; color: var(--ink-2); }

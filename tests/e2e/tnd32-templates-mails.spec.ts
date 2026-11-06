@@ -49,7 +49,7 @@ test.describe.serial('TND-32 — modèles et e-mails', () => {
 
   test('T-TND32-002: review templates — library, duplicate, archive', async ({ page }) => {
     await signIn(page, '/evaluations/modeles')
-    await expect(page.locator('[data-template]')).toHaveCount(3)
+    await expect(page.locator('[data-template="Entretien professionnel"]')).toBeVisible()
     await expect(page.locator('[data-template="Point d’étape de mi-année"]')).toBeVisible()
     await page.locator('[data-template="Revue annuelle"] [data-action="duplicate-template"]').click()
     await expect(page.locator('[data-template="Revue annuelle (copie)"]')).toBeVisible()

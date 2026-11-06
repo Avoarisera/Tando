@@ -9,6 +9,10 @@ const toast = useToast()
 const { profile } = useCurrentUser()
 const { listCycles, listTemplates, createCycle } = useReviews()
 const route = useRoute()
+// Campagnes · Entretiens professionnels (TND-35)
+const view = ref<'cycles' | 'professional'>(route.query.vue === 'professionnel' ? 'professional' : 'cycles')
+watch(view, v => navigateTo({ query: v === 'professional' ? { vue: 'professionnel' } : {} }, { replace: true }))
+const viewTabs = computed(() => [{ id: 'cycles', label: t('tnd35.tabs.cycles') }, { id: 'professional', label: t('tnd35.tabs.professional') }])
 
 const data = ref<Awaited<ReturnType<typeof listCycles>> | null>(null)
 const templates = ref<ReviewTemplate[]>([])
@@ -77,6 +81,8 @@ async function create() {
 }
 // what the chosen template contains
 const chosen = computed(() => templates.value.find(x => x.id === form.template_id) ?? null)
+// an « entretien professionnel » has no rating and no colleagues (TND-35)
+watch(chosen, (c) => { if (c?.content.no_rating) form.peers_enabled = false })
 </script>
 
 <template>
@@ -89,7 +95,9 @@ const chosen = computed(() => templates.value.find(x => x.id === form.template_i
       </div>
     </div>
 
-    <WbErrorState v-if="error" :message="error" @retry="load" />
+    <WbTabs v-model="view" class="wb-ev-tabs" :tabs="viewTabs" :label="t('nav.evaluations')" />
+    <ProfessionalSchedule v-if="view === 'professional'" :templates="templates" />
+    <WbErrorState v-else-if="error" :message="error" @retry="load" />
     <WbSkeleton v-else-if="!data" variant="metric" :count="2" />
     <div v-else-if="!data.cycles.length" class="wb-card">
       <WbEmptyState art="inbox" :title="t('tnd29.list.emptyTitle')">
@@ -137,7 +145,8 @@ const chosen = computed(() => templates.value.find(x => x.id === form.template_i
           <WbInput id="cy-hr" v-model="form.hr_due" type="date" :label="t('tnd29.cycle.hrDue')" />
           <WbInput v-if="form.peers_enabled" id="cy-peer" v-model="form.peer_due" type="date" :label="t('tnd29.cycle.peerDue')" />
         </div>
-        <div class="wb-stack-s">
+        <p v-if="chosen?.content.professional" class="wb-why small" data-ep-note><WbIcon name="info" :size="14" /> {{ t('tnd35.ep.formNote') }}</p>
+        <div v-else class="wb-stack-s">
           <WbCheckbox v-model="form.peers_enabled" :label="t('tnd29.cycle.peers')" />
           <p class="caption wb-mut">{{ t('tnd29.cycle.peersHint') }}</p>
         </div>
@@ -149,6 +158,7 @@ const chosen = computed(() => templates.value.find(x => x.id === form.template_i
 </template>
 
 <style scoped>
+.wb-ev-tabs { flex: none; }
 .wb-ev-intro { max-width: 640px; margin: 0; }
 .wb-ev-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: var(--space-3); }
 .wb-ev-c { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); color: inherit; text-decoration: none; height: 100%; transition: border-color .15s, box-shadow .15s; }

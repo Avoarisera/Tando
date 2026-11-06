@@ -40,6 +40,8 @@ const self = computed(() => responses.value.find(r => r.role === 'self' && r.sub
 const manager = computed(() => responses.value.find(r => r.role === 'manager' && r.submitted_at) ?? null)
 const draftSelf = computed(() => responses.value.some(r => r.role === 'self' && !r.submitted_at))
 const shared = computed(() => !!packet.value?.shared_at)
+// « entretien professionnel » (TND-35): no rating
+const noRating = computed(() => !!content.value?.no_rating)
 const peersOn = computed(() => !!packet.value?.review_cycles.peers_enabled)
 const peersOpen = computed(() => peersOn.value && packet.value?.review_cycles.status === 'active' && !shared.value)
 const approvedPeers = computed(() => peerRows.value.filter(p => p.status === 'approved'))
@@ -62,7 +64,7 @@ const confirmShare = ref(false)
 async function doShare() {
   saving.value = true
   try {
-    if (form.rating === null) throw new Error(t('tnd29.hr.ratingRequired'))
+    if (form.rating === null && !noRating.value) throw new Error(t('tnd29.hr.ratingRequired'))
     await conclude(id, form.rating, form.strengths.trim(), form.improvements.trim(), form.objectives.map(o => ({ text: o.text.trim() })).filter(o => o.text))
     await share(id)
     notify()
@@ -120,7 +122,7 @@ const print = () => window.print()
       <section class="wb-card wb-dos-hr">
         <h2 class="h2">{{ t('tnd29.hr.title') }}</h2>
         <WbBanner v-if="formError" tone="danger" class="wb-no-print">{{ formError }}</WbBanner>
-        <div class="wb-stack-s">
+        <div v-if="!noRating" class="wb-stack-s">
           <span class="wb-label">{{ t('tnd29.hr.rating') }}</span>
           <div class="wb-dos-rate" role="radiogroup" :aria-label="t('tnd29.hr.rating')">
             <button v-for="n in 4" :key="n" type="button" role="radio" :disabled="shared" :aria-checked="form.rating === n" :class="['wb-dos-r', { 'is-on': form.rating === n }]" :data-rating="n" @click="form.rating = n">
@@ -140,7 +142,7 @@ const print = () => window.print()
         </div>
         <div v-if="!shared" class="wb-row wb-wrap wb-dos-act wb-no-print">
           <WbButton variant="secondary" :loading="saving" data-action="save-conclusion" @click="save">{{ t('tnd29.hr.save') }}</WbButton>
-          <WbButton icon="send" :disabled="form.rating === null" data-action="share" @click="confirmShare = true">{{ t('tnd29.hr.share') }}</WbButton>
+          <WbButton icon="send" :disabled="form.rating === null && !noRating" data-action="share" @click="confirmShare = true">{{ t('tnd29.hr.share') }}</WbButton>
           <span class="caption wb-mut">{{ t('tnd29.hr.shareHint') }}</span>
         </div>
       </section>

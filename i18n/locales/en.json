@@ -760,7 +760,8 @@
       "review_requested": "Your self review is open: {cycle}",
       "review_peers_proposed": "{who} proposed colleagues for their review: {cycle}",
       "review_peer_requested": "Feedback requested on {who}: {cycle}",
-      "review_reminder": "Reminder: a review is waiting for you ({cycle})"
+      "review_reminder": "Reminder: a review is waiting for you ({cycle})",
+      "review_ep_due": "{n} professional interview to plan | {n} professional interviews to plan"
     },
     "invite": {
       "title": "Join WakaBods",
@@ -1808,7 +1809,8 @@
       "kind": {
         "annual": "Annual",
         "probation": "Probation",
-        "custom": "Custom"
+        "custom": "Custom",
+        "professional": "Professional interview"
       }
     },
     "job": {
@@ -1855,6 +1857,67 @@
       "manager": "manager: approves their team’s leave, sees “My team” and its velocity, reviews their reports",
       "hr": "HR: recruitment (openings, candidates, interviews) and review campaigns (choosing colleagues, conclusions)",
       "admin": "administrator: everything, including people, teams, invoices and settings (HR access included)"
+    }
+  },
+  "tnd35": {
+    "tabs": {
+      "follow": "Follow-up",
+      "calibration": "Calibration",
+      "report": "Report by team",
+      "cycles": "Campaigns",
+      "professional": "Professional interviews"
+    },
+    "cal": {
+      "intro": "Compare the HR rating with each file’s averages and the spread by manager, for consistent ratings across teams. Any adjustment needs a written reason, which is kept.",
+      "spread": "Spread of ratings",
+      "rated": "{n} of {total} rated",
+      "byManager": "By manager",
+      "avg": "Avg.",
+      "hr": "HR rating",
+      "none": "Not yet",
+      "adjust": "Adjust",
+      "adjusted": "{n} adjustment | {n} adjustments",
+      "gapHint": "Gap of 1 point or more with the manager’s average",
+      "peersHidden": "{n} colleague answer(s): average hidden below 3 answers",
+      "legend": "Averages out of 4 (“can’t say” excluded). Colleagues: from 3 answers. Highlighted: gap of 1 point or more between the manager and the HR rating.",
+      "modalTitle": "Adjust the rating of {who}",
+      "modalHint": "Possible until the file is shared. The reason is kept and visible to HR.",
+      "reason": "Reason",
+      "reasonPh": "E.g. alignment with comparable files in the team, new facts…",
+      "reasonRequired": "Explain the adjustment (at least 10 characters)",
+      "pick": "Choose a rating",
+      "save": "Save the adjustment",
+      "saved": "Rating adjusted",
+      "history": "Previous adjustments"
+    },
+    "rep": {
+      "intro": "Participation at each step, then averages per competency (managers’ reviews) and HR ratings. Averages are only shown for teams of 3 people or more.",
+      "people": "{n} person | {n} people",
+      "hrAvg": "Average HR rating",
+      "ack": "Acknowledged",
+      "small": "Team of fewer than 3 people: averages hidden to keep confidentiality.",
+      "dist": "Spread",
+      "empty": "No file in this campaign",
+      "legend": "Averages out of 4, without any name. Colleague feedback stays in each file (anonymous, from 3 answers)."
+    },
+    "ep": {
+      "intro": "The professional interview is mandatory every 2 years, with a review every 6 years (French Labour Code, L6315-1). It covers career and prospects, not performance: no rating.",
+      "overdue": "{n} overdue | {n} overdue",
+      "soon": "{n} due within 60 days | {n} due within 60 days",
+      "onlyDue": "Only those due",
+      "pickAll": "Select all",
+      "last": "Last interview",
+      "next": "Next interview",
+      "bilan": "6-year review",
+      "never": "Never",
+      "none": "No interview to plan.",
+      "picked": "{n} person selected | {n} people selected",
+      "launch": "Launch a professional interview",
+      "launchBilan": "Launch a 6-year review",
+      "campaignName": "Professional interviews",
+      "bilanName": "6-year reviews",
+      "legal": "Due dates from the hire date or the last interview shared. HR get a weekly reminder for due dates within 30 days or passed.",
+      "formNote": "Professional interview: no rating and no colleague feedback. It covers career, skills, training and professional plans."
     }
   }
 }

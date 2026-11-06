@@ -4,6 +4,7 @@ import { computeAndStoreMonthlySnapshot } from '../../utils/snapshots'
 import { runCandidatePurge } from '../../utils/candidate-purge'
 import { mailPendingReviewNotifications } from '../../utils/review-mails'
 import { siteUrl } from '../../utils/site-url'
+import { runAutoReminders, runProfessionalReminder } from '../../utils/review-reminders'
 
 function lastNClosedMonths(n: number): string[] {
   const months: string[] = []
@@ -61,5 +62,9 @@ export default defineEventHandler(async (event) => {
   // review e-mails missed right after an action (TND-32); never blocks the sync
   const reviewMails = await mailPendingReviewNotifications(supabase, siteUrl(event)).catch(e => ({ error: e instanceof Error ? e.message : String(e) }))
 
-  return { synced: results.length, results, purge, reviewMails }
+  // automatic reminders around due dates, weekly professional-interview reminder to HR (TND-35)
+  const autoReminders = await runAutoReminders(supabase, siteUrl(event)).catch(e => ({ error: e instanceof Error ? e.message : String(e) }))
+  const epReminder = await runProfessionalReminder(supabase, siteUrl(event)).catch(e => ({ error: e instanceof Error ? e.message : String(e) }))
+
+  return { synced: results.length, results, purge, reviewMails, autoReminders, epReminder }
 })

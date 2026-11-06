@@ -53,3 +53,23 @@ describe('peerContent (lot 2)', () => {
     expect(peerContent(content)).toEqual({ objectives: false, competencies: [], questions: [] })
   })
 })
+
+describe('lot 3 — dates (TND-35)', () => {
+  it('professional interview: 2 years after hire, then after the last one; 6-year review', async () => {
+    const { professionalDue } = await import('../../app/utils/reviews')
+    expect(professionalDue({ joined_at: '2024-01-15', last_ep: null, last_bilan: null }, '2025-12-01')).toMatchObject({ nextEp: '2026-01-15', epStatus: 'soon', nextBilan: '2030-01-15', bilanStatus: 'ok' })
+    expect(professionalDue({ joined_at: '2020-03-01', last_ep: '2025-06-10', last_bilan: null }, '2026-11-06')).toMatchObject({ nextEp: '2027-06-10', epStatus: 'ok', nextBilan: '2026-03-01', bilanStatus: 'overdue' })
+    expect(professionalDue({ joined_at: '2014-03-01', last_ep: '2025-06-10', last_bilan: '2020-04-01' }, '2026-11-06').nextBilan).toBe('2026-03-01')
+    expect(professionalDue({ joined_at: '2024-02-29', last_ep: null, last_bilan: null }, '2025-01-01').nextEp).toBe('2026-02-28')
+  })
+  it('reminders: D-3 to D, then D+1 to D+7', async () => {
+    const { reminderPhase } = await import('../../app/utils/reviews')
+    expect(reminderPhase('2026-11-20', '2026-11-16')).toBeNull()
+    expect(reminderPhase('2026-11-20', '2026-11-17')).toBe('before')
+    expect(reminderPhase('2026-11-20', '2026-11-20')).toBe('before')
+    expect(reminderPhase('2026-11-20', '2026-11-21')).toBe('after')
+    expect(reminderPhase('2026-11-20', '2026-11-27')).toBe('after')
+    expect(reminderPhase('2026-11-20', '2026-11-28')).toBeNull()
+    expect(reminderPhase(null, '2026-11-20')).toBeNull()
+  })
+})

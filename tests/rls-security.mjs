@@ -648,9 +648,56 @@ async function tnd32() {
   check('TND-32d', 'un utilisateur ne modifie pas l’état d’envoi des e-mails', !!col || (upd ?? []).length === 0)
 }
 
+async function tnd35() {
+  console.log('\nTND-35 — harmonisation, rapports, entretien professionnel')
+  const emma = await signIn('employee1@waka.com')
+  const manager = await signIn('manager@waka.com')
+  const admin = await signIn('admin@waka.com')
+  const { data: tpl } = await service.from('review_templates').select('id').eq('kind', 'annual').limit(1).single()
+  const { data: ep } = await service.from('review_templates').select('id').eq('kind', 'professional').eq('name', 'Entretien professionnel').single()
+  const { data: cy } = await admin.from('review_cycles').insert({ name: `Sec cal ${Date.now()}`, period_start: '2026-01-01', period_end: '2026-12-31', template_id: tpl.id }).select('id').single()
+  const { data: cyEp } = await admin.from('review_cycles').insert({ name: `Sec EP ${Date.now()}`, period_start: '2025-01-01', period_end: '2026-12-31', template_id: ep.id }).select('id').single()
+  await admin.rpc('launch_review_cycle', { p_cycle: cy.id, p_people: [IDS.emma, IDS.eddy] })
+  await admin.rpc('launch_review_cycle', { p_cycle: cyEp.id, p_people: [IDS.emma] })
+  const { data: pk } = await service.from('review_packets').select('id').eq('cycle_id', cy.id).eq('employee_id', IDS.emma).single()
+  const { data: pkEp } = await service.from('review_packets').select('id').eq('cycle_id', cyEp.id).single()
+  try {
+    await admin.rpc('hr_conclude_review', { p_packet: pk.id, p_rating: 2, p_strengths: 'x', p_improvements: 'y', p_objectives: [] })
+    const { error: eCal } = await emma.rpc('calibrate_review', { p_packet: pk.id, p_rating: 4, p_reason: 'je me surclasse volontiers' })
+    const { error: mCal } = await manager.rpc('calibrate_review', { p_packet: pk.id, p_rating: 4, p_reason: 'mon équipe mérite mieux' })
+    check('TND-35a', 'ni l’employée ni le manager n’ajustent une appréciation', !!eCal && !!mCal)
+    const { error: short } = await admin.rpc('calibrate_review', { p_packet: pk.id, p_rating: 3, p_reason: 'court' })
+    check('TND-35b', 'un ajustement sans vraie justification est refusé', !!short)
+    const { error: ok } = await admin.rpc('calibrate_review', { p_packet: pk.id, p_rating: 3, p_reason: 'Alignement avec les dossiers comparables' })
+    const { data: logH } = await admin.from('review_calibrations').select('from_rating, to_rating').eq('packet_id', pk.id)
+    const { data: logE } = await emma.from('review_calibrations').select('id').eq('packet_id', pk.id)
+    check('TND-35c', 'le RH ajuste, l’historique est gardé et invisible de l’employée', !ok && logH?.[0]?.from_rating === 2 && logH?.[0]?.to_rating === 3 && !(logE ?? []).length, ok?.message)
+    const [{ data: c1 }, { data: c2 }, { data: c3 }] = await Promise.all([emma.rpc('cycle_calibration', { p_cycle: cy.id }), emma.rpc('cycle_team_report', { p_cycle: cy.id }), manager.rpc('professional_review_status')])
+    check('TND-35d', 'harmonisation, rapport et échéancier réservés au RH', !(c1 ?? []).length && !(c2 ?? []).length && !(c3 ?? []).length)
+    const { data: rep } = await admin.rpc('cycle_team_report', { p_cycle: cy.id })
+    check('TND-35e', 'une équipe de moins de 3 personnes n’a pas de moyennes', Array.isArray(rep) && rep.length > 0 && rep.every(r => !r.small || (r.competencies === null && r.hr_avg === null)))
+    await admin.rpc('share_review', { p_packet: pk.id })
+    const { error: late } = await admin.rpc('calibrate_review', { p_packet: pk.id, p_rating: 4, p_reason: 'Après partage, ne doit pas passer' })
+    check('TND-35f', 'plus d’ajustement après le partage', !!late)
+    const { data: pk2 } = await service.from('review_packets').select('id').eq('cycle_id', cy.id).eq('employee_id', IDS.eddy).single()
+    await admin.rpc('hr_conclude_review', { p_packet: pk2.id, p_rating: null, p_strengths: 'x', p_improvements: '', p_objectives: [] })
+    const { error: noRate } = await admin.rpc('share_review', { p_packet: pk2.id })
+    await admin.rpc('hr_conclude_review', { p_packet: pkEp.id, p_rating: null, p_strengths: 'Projet clair', p_improvements: 'Formation', p_objectives: [] })
+    const { error: epShare } = await admin.rpc('share_review', { p_packet: pkEp.id })
+    check('TND-35g', 'entretien professionnel partagé sans appréciation ; une revue notée exige l’appréciation', !!noRate && !epShare, epShare?.message)
+    const { data: st } = await admin.rpc('professional_review_status')
+    check('TND-35h', 'l’échéancier connaît le dernier entretien professionnel partagé', (st ?? []).some(x => x.id === IDS.emma && x.last_ep))
+  }
+  finally {
+    await service.from('review_cycles').delete().in('id', [cy.id, cyEp.id])
+    await service.from('notifications').delete().in('kind', ['review_requested', 'review_shared'])
+  }
+}
+
 try {
   await main()
   await tnd32()
+  await tnd35()
 } catch (e) {
   fail++
   console.error('ERROR', e)
