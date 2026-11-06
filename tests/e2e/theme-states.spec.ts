@@ -49,6 +49,7 @@ test.describe('R7 — Page d’erreur', () => {
     await signIn(page)
     await page.goto('/page-qui-n-existe-pas')
     await expect(page.locator('h1')).toHaveText('Page introuvable')
+    await page.waitForSelector('html[data-hydrated]') // click only once the error page is interactive
     await page.getByRole('button', { name: 'Retour à l’accueil' }).click()
     await expect(page).toHaveURL('/')
   })

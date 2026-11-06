@@ -1001,5 +1001,43 @@
     "linearTeamsHint": "The team's manager will see the Velocity of these Linear teams.",
     "linkedTo": "Linear: {teams}",
     "present": "Present"
+  },
+  "tnd27": {
+    "tab": "Leave taken",
+    "title": "Leave taken",
+    "avg": "Average days taken",
+    "avgSub": "per person, this year",
+    "usage": "Allowance used",
+    "usageSub": "days taken / days earned",
+    "little": "Little leave",
+    "littleSub": "a fatigue signal to watch",
+    "byPerson": "Leave taken per person",
+    "byPersonSub": "{year} · working days, most to least",
+    "byMonth": "Absences per month",
+    "byMonthSub": "team working days off, by type",
+    "planned": "planned",
+    "littleBadge": "Little leave",
+    "littleHint": "Under 25 % of the allowance taken past mid-year, or no leave for 4 months",
+    "otherAbsence": "Other absence",
+    "hintAdmin": "Approved leave only. “planned”: booked, not taken yet.",
+    "hintManager": "Approved leave of your team. Sick leave shows as “Other absence”.",
+    "showMore": "Show more ({n}) | Show more ({n})",
+    "showLess": "Show less"
+  },
+  "tnd28": {
+    "actions": "Actions",
+    "seeCalendar": "See the calendar",
+    "late": "{n} waiting for more than 3 days | {n} waiting for more than 3 days",
+    "noLate": "none overdue",
+    "decide": "To decide",
+    "since": "{n} d ago",
+    "absences": "Absences",
+    "nextDepartures": "Next departures",
+    "next10": "Next 10 working days",
+    "peak": "peak: {n} on {day}",
+    "back": "back {date}",
+    "syncError": "Linear sync failed ({name})",
+    "planning": "Team planning",
+    "planningSub": "Next 2 weeks · click a leave to open it in the calendar"
   }
 }

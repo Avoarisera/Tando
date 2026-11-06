@@ -1001,5 +1001,43 @@
     "linearTeamsHint": "Le manager de l’équipe verra la Vélocité de ces équipes Linear.",
     "linkedTo": "Linear : {teams}",
     "present": "Présent"
+  },
+  "tnd27": {
+    "tab": "Congés pris",
+    "title": "Congés pris",
+    "avg": "Jours pris en moyenne",
+    "avgSub": "par personne, cette année",
+    "usage": "Soldes consommés",
+    "usageSub": "jours pris / jours acquis",
+    "little": "Peu de congés",
+    "littleSub": "signal de fatigue à surveiller",
+    "byPerson": "Congés pris par personne",
+    "byPersonSub": "{year} · jours ouvrés, du plus au moins",
+    "byMonth": "Absences par mois",
+    "byMonthSub": "jours ouvrés d’absence de l’équipe, par type",
+    "planned": "à venir",
+    "littleBadge": "Peu de congés",
+    "littleHint": "Moins de 25 % du solde pris après mi-année, ou aucun congé depuis 4 mois",
+    "otherAbsence": "Autre absence",
+    "hintAdmin": "Congés approuvés uniquement. « à venir » : déjà posés, pas encore pris.",
+    "hintManager": "Congés approuvés de votre équipe. Les arrêts maladie apparaissent comme « Autre absence ».",
+    "showMore": "Voir plus ({n}) | Voir plus ({n})",
+    "showLess": "Voir moins"
+  },
+  "tnd28": {
+    "actions": "Actions",
+    "seeCalendar": "Voir le calendrier",
+    "late": "dont {n} en attente depuis plus de 3 jours | dont {n} en attente depuis plus de 3 jours",
+    "noLate": "aucune en retard",
+    "decide": "À décider",
+    "since": "depuis {n} j",
+    "absences": "Absences",
+    "nextDepartures": "Prochains départs",
+    "next10": "10 prochains jours ouvrés",
+    "peak": "pic : {n} le {day}",
+    "back": "retour {date}",
+    "syncError": "Synchronisation Linear en erreur ({name})",
+    "planning": "Planning de l’équipe",
+    "planningSub": "2 prochaines semaines · cliquez sur un congé pour l’ouvrir dans le calendrier"
   }
 }

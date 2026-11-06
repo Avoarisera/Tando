@@ -69,6 +69,7 @@ test.describe('R2 — Sidebar (desktop)', () => {
     await expect(page).toHaveURL(/\/dashboard$/)
     await expect(page.locator('h1.wb-head-title')).toHaveText('Mon équipe')
     await expect(page.getByRole('link', { name: /Nouvelle facture/ })).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: 'Congés pris' })).toBeVisible() // TND-27
     await page.getByRole('tab', { name: 'Membres' }).click()
     await expect(page.locator('.wb-tm tbody tr')).toHaveCount(3) // Équipe A: Emma, Eddy, Marc
     await expect(page.locator('.wb-tm')).toContainText('Lecture seule')
